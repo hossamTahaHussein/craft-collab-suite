@@ -114,6 +114,16 @@ impl Calc {
         Self::default()
     }
 
+    /// Start RAND, RANDBETWEEN and RANDARRAY from `seed`: co-editing reseeds before each edit so
+    /// every replica draws the same numbers, whatever it recalculated before.
+    pub fn reseed(&mut self, seed: u64) {
+        // splitmix64, so nearby seeds start far apart; xorshift needs a nonzero state.
+        let mut z = seed.wrapping_add(0x9E37_79B9_7F4A_7C15);
+        z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+        z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+        self.rng = (z ^ (z >> 31)).max(1);
+    }
+
     fn now(&self) -> f64 {
         if let Some(n) = self.fixed_now {
             return n;
@@ -522,10 +532,29 @@ fn fill_spill(sheet: &mut gridcraft_model::Sheet, anchor: CellRef, range: RangeR
     sheet.spill_ranges.insert(anchor, range);
 }
 
-/// Current date-time as a serial (1900 system), from the system clock (browser clock on wasm).
-/// UTC; the local offset isn't available without platform calls. Falls back to a fixed date only
-/// when no clock is available.
+thread_local! {
+    static NOW: std::cell::Cell<Option<f64>> = const { std::cell::Cell::new(None) };
+}
+
+/// Run `f` with [`now_serial`] reading `serial`: co-editing replays an edit on every replica at
+/// the time it was made. A nested call keeps the outer time.
+pub fn with_now<R>(serial: f64, f: impl FnOnce() -> R) -> R {
+    let outer = NOW.get();
+    if outer.is_none() {
+        NOW.set(Some(serial));
+    }
+    let result = f();
+    NOW.set(outer);
+    result
+}
+
+/// Current date-time as a serial (1900 system), from the system clock (browser clock on wasm),
+/// or the time [`with_now`] fixed. UTC; the local offset isn't available without platform
+/// calls. Falls back to a fixed date only when no clock is available.
 pub fn now_serial() -> f64 {
+    if let Some(n) = NOW.get() {
+        return n;
+    }
     gridcraft_core::date::unix_now_ms().map_or(46302.5, gridcraft_core::date::serial_from_unix_ms)
 }
 

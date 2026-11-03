@@ -2372,3 +2372,25 @@ fn formulas_read_a_dirty_python_cell_after_it_is_laid_out() {
     assert_eq!((t.num("B1"), t.num("B2")), (5.0, 6.0));
     assert_eq!((t.num("A1"), t.num("A2"), t.num("A3")), (5.0, 100.0, 111.0));
 }
+
+/// Co-editing: every replica recalculates NOW and RAND alike when the edit fixes the clock
+/// (`with_now`) and reseeds the generator (`Calc::reseed`).
+#[test]
+fn now_and_rand_follow_the_fixed_clock_and_seed() {
+    let run = || {
+        let mut t = T::new();
+        t.calc.reseed(42);
+        crate::with_now(45000.25, || {
+            t.set("A1", "=NOW()");
+            t.set("A2", "=RAND()");
+        });
+        (t.num("A1"), t.num("A2"))
+    };
+    let (now, r) = run();
+    assert_eq!(now, 45000.25);
+    assert_eq!(run(), (now, r), "the same seed gives the same RAND");
+    let mut t = T::new();
+    t.calc.reseed(43);
+    t.set("A2", "=RAND()");
+    assert_ne!(t.num("A2"), r, "another seed, another number");
+}

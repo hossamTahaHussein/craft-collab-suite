@@ -11,6 +11,7 @@ pub mod cf;
 mod chart_svg;
 mod clip_html;
 pub mod cmd;
+pub mod collab;
 pub mod display;
 pub mod fill;
 pub mod io;
@@ -528,6 +529,8 @@ pub struct Session {
     /// Measures cell text for AutoFit Column Width. Without it (CLI, MCP) AutoFit uses
     /// [`cmd::format::approx_text_width`].
     pub text_width: Option<TextWidth>,
+    /// Co-editing mode: the outbox of the person's edits ([`collab`]).
+    pub(crate) collab: collab::CollabState,
 }
 
 impl Session {
@@ -665,6 +668,9 @@ impl Session {
     /// unless an undo group is open on the document (the group then makes the step).
     /// Panics inside commands are caught and reported; the workbook is restored.
     pub fn execute(&mut self, id: &str, params: Json) -> Result<Json> {
+        if self.collab_wraps() {
+            return self.execute_collab(id, params);
+        }
         let spec = find_command(id).ok_or_else(|| EngineError::UnknownCommand(id.to_string()))?;
         if let Err(why) = (spec.enabled)(self) {
             return Err(EngineError::Disabled(id.to_string(), why));

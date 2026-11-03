@@ -1,0 +1,207 @@
+//! Co-editing mode. While it is on, each edit the person makes is recorded once — the outermost
+//! command that changed the workbook — with the place it ran at (sheet and selection) and the
+//! [`RunCtx`] it ran under, for the co-editing layer to send to the other replicas, which replay
+//! it with [`Session::execute_with`]. Undo and redo go to that layer (selective undo for
+//! everyone), and what can't be replayed elsewhere is refused.
+
+use serde::{Deserialize, Serialize};
+
+use crate::{EngineError, Json, Result, Selection, Session};
+
+/// Everything an edit reads from outside the workbook, fixed for one run: who made it and when.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default, rename_all = "camelCase")]
+pub struct RunCtx {
+    pub author: String,
+    pub initials: String,
+    /// Milliseconds since the Unix epoch: NOW() and TODAY() on every replica, and RAND's seed.
+    pub time_ms: u64,
+    /// This person's Suggesting mode.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub track: bool,
+    /// Made by the relay's HTTP API through this person's editor: not theirs to undo.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub api: bool,
+}
+
+impl craft_collab_core::CollabCtx for RunCtx {
+    fn author(&self) -> &str {
+        &self.author
+    }
+    fn time(&self) -> u64 {
+        self.time_ms / 1000
+    }
+    fn track(&self) -> bool {
+        self.track
+    }
+    fn api(&self) -> bool {
+        self.api
+    }
+}
+
+/// Where an edit ran: the sheet (by name) and the selection on it.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct SheetPlace {
+    pub sheet: String,
+    pub selection: Selection,
+}
+
+/// One recorded edit.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Recorded {
+    pub id: String,
+    pub params: Json,
+    pub place: Option<SheetPlace>,
+    pub ctx: RunCtx,
+}
+
+#[derive(Debug)]
+pub(crate) struct CollabState {
+    on: bool,
+    recording: bool,
+    /// A recorded command is running: the commands it runs aren't recorded again.
+    busy: bool,
+    outbox: Vec<Recorded>,
+}
+
+impl Default for CollabState {
+    fn default() -> Self {
+        CollabState { on: false, recording: true, busy: false, outbox: Vec::new() }
+    }
+}
+
+/// Undo and redo while co-editing: recorded for the co-editing layer, which undoes this
+/// person's own most recent edit for everyone, instead of running on this session's history.
+pub const COLLAB_UNDO: &[&str] = &["edit.undo", "edit.redo"];
+
+/// Commands refused while co-editing: a co-edited workbook can't be swapped for another one, and
+/// what runs code or reads this computer's data can't be replayed by the other replicas.
+pub const COLLAB_DISABLED: &[&str] = &["file.new", "file.open", "file.close", "file.newFromTemplate", "edit.undoTo", "edit.redoTo"];
+
+/// Families refused while co-editing (macros, scripts, Python, external data).
+const COLLAB_DISABLED_PREFIXES: &[&str] = &["macro.", "automate.", "python.", "data.refresh", "data.connections", "data.getData"];
+
+pub(crate) fn disabled(id: &str) -> bool {
+    COLLAB_DISABLED.contains(&id) || COLLAB_DISABLED_PREFIXES.iter().any(|p| id.starts_with(p))
+}
+
+/// A seed for an edit's random numbers, the same wherever it is replayed.
+fn seed(ctx: &RunCtx) -> u64 {
+    let mut h: u64 = 0xcbf2_9ce4_8422_2325;
+    for b in ctx.author.bytes().chain(ctx.time_ms.to_le_bytes()) {
+        h ^= u64::from(b);
+        h = h.wrapping_mul(0x0000_0100_0000_01b3);
+    }
+    h
+}
+
+impl Session {
+    /// Turn co-editing mode on or off. While on, edits are recorded ([`Session::take_outbox`])
+    /// and [`COLLAB_DISABLED`] commands are refused.
+    pub fn set_collab(&mut self, on: bool) {
+        self.collab.on = on;
+        self.collab.outbox.clear();
+    }
+
+    pub fn collab(&self) -> bool {
+        self.collab.on
+    }
+
+    /// Pause recording (while the co-editing layer replays commands it already has).
+    pub fn set_recording(&mut self, on: bool) {
+        self.collab.recording = on;
+    }
+
+    /// The edits recorded since the last call.
+    pub fn take_outbox(&mut self) -> Vec<Recorded> {
+        std::mem::take(&mut self.collab.outbox)
+    }
+
+    /// The context an edit made now in this session would have.
+    pub fn run_ctx(&self) -> RunCtx {
+        let time_ms = gridcraft_core::date::unix_now_ms().map_or(0, |ms| ms.max(0.0) as u64);
+        RunCtx { author: self.prefs.user_name.clone(), initials: String::new(), time_ms, track: false, api: false }
+    }
+
+    /// Where the active workbook's selection is.
+    pub fn collab_place(&self) -> Option<SheetPlace> {
+        let d = self.active()?;
+        Some(SheetPlace { sheet: d.wb.active()?.name.clone(), selection: d.selection.clone() })
+    }
+
+    /// Put the active workbook's selection at `place` (its sheet becomes the active one); a
+    /// sheet that is gone leaves the sheet as it is.
+    pub fn set_collab_place(&mut self, place: &SheetPlace) {
+        let Some(d) = self.active_mut() else { return };
+        if let Some(i) = d.wb.sheets.iter().position(|s| s.name == place.sheet) {
+            d.wb.set_active_sheet(i);
+        }
+        d.selection = place.selection.clone();
+    }
+
+    /// Run a command under `ctx`, as every replica runs an edit: its author, its clock and its
+    /// random numbers.
+    pub fn execute_with(&mut self, ctx: &RunCtx, id: &str, params: Json) -> Result<Json> {
+        let result = self.run_under(ctx, id, params);
+        // A replayed edit opens no dialogs on this replica.
+        self.ui_requests.clear();
+        result
+    }
+
+    /// Run a command with `ctx`'s author, clock and random numbers.
+    fn run_under(&mut self, ctx: &RunCtx, id: &str, params: Json) -> Result<Json> {
+        let author = std::mem::replace(&mut self.prefs.user_name, ctx.author.clone());
+        if let Some(d) = self.active_mut() {
+            d.calc.reseed(seed(ctx));
+        }
+        let busy = std::mem::replace(&mut self.collab.busy, true);
+        let now = gridcraft_core::date::serial_from_unix_ms(ctx.time_ms as f64);
+        let result = gridcraft_calc::with_now(now, || self.execute(id, params));
+        self.collab.busy = busy;
+        self.prefs.user_name = author;
+        result
+    }
+
+    /// Whether `execute` must go through [`Session::execute_collab`].
+    pub(crate) fn collab_wraps(&self) -> bool {
+        self.collab.on && !self.collab.busy && self.depth == 0
+    }
+
+    /// [`Session::execute`] in co-editing mode, for a top-level command: refuses what co-editing
+    /// can't do and records the command when it changed the workbook.
+    pub(crate) fn execute_collab(&mut self, id: &str, params: Json) -> Result<Json> {
+        let disabled_err = |why: &str| EngineError::Disabled(id.to_string(), format!("{why} isn't available while co-editing"));
+        if disabled(id) {
+            return Err(disabled_err("This"));
+        }
+        let person = self.collab.recording;
+        if COLLAB_UNDO.contains(&id) && person {
+            let place = self.collab_place();
+            let ctx = self.run_ctx();
+            self.collab.outbox.push(Recorded { id: id.to_string(), params, place, ctx });
+            return Ok(serde_json::json!({"queued": true}));
+        }
+        // Every copy replays the edit, and they can't read this computer's files.
+        if person && params.get("path").is_some_and(|p| !p.is_null()) && !id.starts_with("file.save") && !id.starts_with("file.export") {
+            return Err(disabled_err("Reading a file from this computer"));
+        }
+        if !person {
+            self.collab.busy = true;
+            let r = self.execute(id, params);
+            self.collab.busy = false;
+            return r;
+        }
+        let before = self.active().map(|d| (d.uid, d.wb.clone()));
+        let place = self.collab_place();
+        let ctx = self.run_ctx();
+        let result = self.run_under(&ctx, id, params.clone());
+        let changed = match (&before, self.active()) {
+            (Some((uid, wb)), Some(d)) => d.uid == *uid && !std::sync::Arc::ptr_eq(wb, &d.wb) && !wb.same_content(&d.wb),
+            _ => false,
+        };
+        if result.is_ok() && changed {
+            self.collab.outbox.push(Recorded { id: id.to_string(), params, place, ctx });
+        }
+        result
+    }
+}

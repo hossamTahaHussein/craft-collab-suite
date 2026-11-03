@@ -376,6 +376,15 @@ impl Workbook {
     pub fn sheet(&self, i: usize) -> Option<&Sheet> {
         self.sheets.get(i).map(|s| s.as_ref())
     }
+
+    /// Whether `other` holds the same content, whichever sheet each window shows: an edit that
+    /// changed nothing (a value set to itself) is no edit. Sheets a newer version didn't touch
+    /// are shared, so only the ones that differ are compared cell by cell.
+    pub fn same_content(&self, other: &Workbook) -> bool {
+        let sheets = self.sheets.len() == other.sheets.len() && self.sheets.iter().zip(&other.sheets).all(|(a, b)| Arc::ptr_eq(a, b) || a == b);
+        let rest = |w: &Workbook| Workbook { sheets: Vec::new(), active_sheet: ActiveSheet::default(), ..w.clone() };
+        sheets && rest(self) == rest(other)
+    }
     pub fn sheet_mut(&mut self, i: usize) -> Option<&mut Sheet> {
         self.sheets.get_mut(i).map(Arc::make_mut)
     }

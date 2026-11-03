@@ -1,0 +1,77 @@
+//! Co-editing mode (`crate::collab`): the person's edits are recorded once, with the place and
+//! context they ran in; replaying one under that context gives the same workbook anywhere.
+
+use gridcraft_core::{CellRef, Value};
+use serde_json::json;
+
+use crate::Session;
+use crate::collab::RunCtx;
+
+fn s() -> Session {
+    let mut s = Session::new();
+    s.new_workbook();
+    s.set_collab(true);
+    s
+}
+
+fn v(s: &Session, a: &str) -> Value {
+    s.doc().unwrap().wb.active().unwrap().value(CellRef::parse(a).unwrap())
+}
+
+#[test]
+fn the_outbox_holds_each_edit_that_changed_the_workbook_once() {
+    let mut s = s();
+    s.execute("cell.set", json!({"cell": "B2", "input": "5"})).unwrap();
+    s.execute("view.zoom", json!({"value": 150})).ok();
+    s.execute("cell.set", json!({"cell": "B2", "input": "5"})).unwrap();
+    let out = s.take_outbox();
+    assert_eq!(out.len(), 1, "a query, a view change and an edit that changed nothing aren't sent: {out:?}");
+    assert_eq!(out[0].id, "cell.set");
+    let place = out[0].place.as_ref().unwrap();
+    assert_eq!(place.sheet, "Sheet1");
+    assert!(s.take_outbox().is_empty(), "taken");
+}
+
+#[test]
+fn replaying_under_the_edits_context_fixes_now_and_rand() {
+    let ctx = RunCtx { author: "Ann".into(), time_ms: 1_800_000_000_000, ..RunCtx::default() };
+    let run = || {
+        let mut s = s();
+        s.set_recording(false);
+        s.execute_with(&ctx, "cell.set", json!({"cell": "A1", "input": "=NOW()"})).unwrap();
+        s.execute_with(&ctx, "cell.set", json!({"cell": "A2", "input": "=RAND()"})).unwrap();
+        (v(&s, "A1"), v(&s, "A2"))
+    };
+    let (now, r) = run();
+    assert_eq!(now, Value::Number(gridcraft_core::date::serial_from_unix_ms(1_800_000_000_000.0)));
+    assert_eq!(run(), (now, r));
+}
+
+#[test]
+fn what_co_editing_cant_do_is_refused_with_a_reason() {
+    let mut s = s();
+    for (cmd, p) in [("file.new", json!({})), ("file.open", json!({"path": "/tmp/x.xlsx"})), ("macro.run", json!({"name": "M"}))] {
+        let e = s.execute(cmd, p).unwrap_err().to_string();
+        assert!(e.contains("co-editing"), "{cmd}: {e}");
+    }
+    assert!(s.take_outbox().is_empty());
+}
+
+#[test]
+fn undo_and_redo_go_to_the_co_editing_layer() {
+    let mut s = s();
+    s.execute("cell.set", json!({"cell": "A1", "input": "1"})).unwrap();
+    s.execute("edit.undo", json!({})).unwrap();
+    assert_eq!(v(&s, "A1"), Value::Number(1.0), "not undone on this session's own history");
+    let ids: Vec<String> = s.take_outbox().into_iter().map(|r| r.id).collect();
+    assert_eq!(ids, ["cell.set", "edit.undo"]);
+}
+
+#[test]
+fn a_replayed_edit_is_not_recorded_again() {
+    let mut s = s();
+    s.set_recording(false);
+    s.execute_with(&RunCtx::default(), "cell.set", json!({"cell": "A1", "input": "1"})).unwrap();
+    assert!(s.take_outbox().is_empty());
+    assert_eq!(v(&s, "A1"), Value::Number(1.0));
+}
