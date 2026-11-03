@@ -28,6 +28,9 @@ impl DateTime {
 
     /// The local date and time now (the user's time zone); `None` where there is no clock (wasm).
     pub fn now_local() -> Option<DateTime> {
+        if let Some(t) = LOCAL_NOW.get() {
+            return Some(t);
+        }
         #[cfg(not(target_arch = "wasm32"))]
         {
             use chrono::{Datelike, Timelike};
@@ -244,4 +247,20 @@ mod tests {
             assert!(field_text("datetime1", None, now).is_some(), "{now:?}");
         }
     }
+}
+
+thread_local! {
+    static LOCAL_NOW: std::cell::Cell<Option<DateTime>> = const { std::cell::Cell::new(None) };
+}
+
+/// Run `f` with [`DateTime::now_local`] reading `t`: co-editing replays an edit on every replica
+/// at the author's time. A nested call keeps the outer time.
+pub fn with_local_now<R>(t: DateTime, f: impl FnOnce() -> R) -> R {
+    let outer = LOCAL_NOW.get();
+    if outer.is_none() {
+        LOCAL_NOW.set(Some(t));
+    }
+    let result = f();
+    LOCAL_NOW.set(outer);
+    result
 }

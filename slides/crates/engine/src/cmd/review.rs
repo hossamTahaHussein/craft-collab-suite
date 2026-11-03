@@ -105,8 +105,12 @@ pub fn specs() -> Vec<CommandSpec> {
     ]
 }
 
-/// Seconds since the Unix epoch: the system clock, or the browser's on wasm (which has no `SystemTime`).
-fn now_secs() -> u64 {
+/// Seconds since the Unix epoch: the system clock, or the browser's on wasm (which has no
+/// `SystemTime`), or the time of the co-edited edit being replayed ([`crate::collab`]).
+pub(crate) fn now_secs() -> u64 {
+    if let Some(t) = crate::collab::clock() {
+        return t;
+    }
     #[cfg(not(target_arch = "wasm32"))]
     {
         std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0)

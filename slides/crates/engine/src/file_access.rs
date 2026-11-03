@@ -62,6 +62,11 @@ impl Root {
 }
 
 impl AutomationRoots {
+    /// No folder at all: every read and write is refused (an edit replayed from someone else).
+    pub fn none() -> Arc<Self> {
+        Arc::new(Self { read: Vec::new(), write: Vec::new() })
+    }
+
     /// The read and write roots, which must be existing folders; `None` when both are empty
     /// (nothing is confined then).
     pub fn new(read: &[PathBuf], write: &[PathBuf]) -> Result<Option<Arc<Self>>, String> {

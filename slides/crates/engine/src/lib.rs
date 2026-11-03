@@ -504,6 +504,8 @@ pub struct Session {
     next_loaded: u64,
     /// Compositions the application settled itself (see [`Session::composition_settles`]).
     composition_settles: u64,
+    /// Co-editing mode: the outbox of the person's edits ([`collab`]).
+    pub(crate) collab: collab::CollabState,
 }
 
 impl Default for Session {
@@ -538,6 +540,7 @@ impl Session {
             loaded: vec![],
             next_loaded: 0,
             composition_settles: 0,
+            collab: collab::CollabState::default(),
         }
     }
     /// Hand over a presentation read on another thread ([`cmd::file::read_presentation_file`]);
@@ -621,6 +624,9 @@ impl Session {
     /// Run command `id`. A panic inside it becomes [`EngineError::Internal`] and leaves the
     /// presentation as it was.
     pub fn execute(&mut self, id: &str, params: &Value) -> Result<Value> {
+        if self.collab_wraps() {
+            return self.execute_collab(id, params);
+        }
         self.guarded(id, |s| s.execute_unguarded(id, params))
     }
 
@@ -781,7 +787,7 @@ impl Session {
 }
 
 /// Keep the selection pointing at things that exist.
-fn clamp_selection(st: &mut DocState) {
+pub(crate) fn clamp_selection(st: &mut DocState) {
     let n = st.doc.slides.len();
     if n == 0 {
         st.selection.slide = 0;
@@ -872,6 +878,9 @@ pub(crate) fn push_undo(st: &mut DocState, e: HistoryEntry) {
     }
 }
 
+pub mod collab;
+#[cfg(test)]
+mod tests_collab;
 #[cfg(test)]
 mod soak_tests;
 #[cfg(test)]
