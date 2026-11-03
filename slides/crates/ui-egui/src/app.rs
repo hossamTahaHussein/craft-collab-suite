@@ -44,6 +44,7 @@ impl SlideApp {
             last_outline: serde_json::json!("tx1"),
             table_pen: serde_json::json!({"width": 1.0}),
             session,
+            peers: Vec::new(),
             services,
             ui: UiState::default(),
             textures: textures::Textures::default(),

@@ -215,6 +215,8 @@ struct InputTarget {
 }
 
 pub struct SlideApp {
+    /// Other people in a co-edited presentation, as the host's co-editing link sees them now.
+    pub peers: Vec<canvas::peers::RemotePeer>,
     /// Shape Fill's last colour (a command colour parameter): the button applies it again. Accent 1 until one is picked.
     pub last_fill: serde_json::Value,
     /// Shape Outline's last colour, likewise. Text 1 until one is picked.
