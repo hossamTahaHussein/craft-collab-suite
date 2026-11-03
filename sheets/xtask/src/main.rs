@@ -27,7 +27,7 @@ commands:
   test            workspace tests (cargo nextest when installed, else cargo test), then doctests
   assets          check that every icon/image/font/sample file is attributed in ATTRIBUTION.md
   i18n-report     list the interface strings each language doesn't translate yet (always passes)
-  layers          enforce the crate dependency layering (AGENTS.md \"Layering\")
+  layers          enforce the crate dependency layering (CONTRIBUTING.md \"Layering\")
   wasm            cargo check --target wasm32-unknown-unknown for the L0-L5 crates (+ gridcraft-web), one call
   parity [--check] [--out PATH]
                   write docs/parity-checklist.md from gridcraft_engine::catalog (implemented vs missing ids)
@@ -100,7 +100,7 @@ fn judged_here(name: &str) -> bool {
 
 fn cmd_layers() -> Result<(), String> {
     let crates: Vec<_> = layers::from_metadata(&metadata()?)?.into_iter().filter(|c| judged_here(&c.name)).collect();
-    println!("Dependency layering (AGENTS.md \"Layering\")\n");
+    println!("Dependency layering (CONTRIBUTING.md \"Layering\")\n");
     println!("{:<28} {:<10} workspace deps", "crate", "layer");
     for c in &crates {
         let ws: Vec<String> = c

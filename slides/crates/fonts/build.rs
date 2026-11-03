@@ -12,7 +12,7 @@
 use std::fmt::Write as _;
 use std::path::PathBuf;
 
-/// Families DeckCraft never embeds (AGENTS.md §1: no Adobe-authored visual design, and no Noto
+/// Families DeckCraft never embeds (CONTRIBUTING.md §1: no Adobe-authored visual design, and no Noto
 /// CJK rebrand of Source Han on any platform).
 const EXCLUDED_FAMILIES: &[&str] = &["Source Sans 3", "Source Serif 4", "Source Han Sans", "Source Han Serif"];
 

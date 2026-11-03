@@ -9,7 +9,7 @@
 How DeckCraft looks and feels next to PowerPoint: the shell, the ribbon, menus, panes, dialogs,
 direct manipulation, keyboard and precision. Observations of PowerPoint are kept locally in
 `plan/powerpoint/01-observed-ui.md` and `menu-tree.txt` (gitignored, clean-room rules in
-AGENTS.md §2). Dimension score: **~60% ready** (estimated), **30–50 h** to parity.
+CONTRIBUTING.md §2). Dimension score: **~60% ready** (estimated), **30–50 h** to parity.
 
 ## Empty list paragraphs
 

@@ -103,7 +103,7 @@ pub fn covers_cluster(face: &FontFace, cluster: &[char]) -> bool {
 }
 
 /// Installed families tried by name for a script after the bundled face, before scanning every
-/// installed font. Microsoft font names are not listed (AGENTS.md §1.1); an installed one is
+/// installed font. Microsoft font names are not listed (CONTRIBUTING.md §1.1); an installed one is
 /// still used by the scan when nothing earlier covers the cluster.
 fn os_families(script: ScriptTag) -> &'static [&'static str] {
     match &script {

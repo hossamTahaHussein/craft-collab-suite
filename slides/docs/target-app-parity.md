@@ -41,7 +41,7 @@ Calibration is the same as for the full number (see [Calibration](#calibration-h
   build installed at `/Applications/Microsoft PowerPoint.app`. PowerPoint for Windows has a few
   more features (Ink Replay, OLE editing, more export types, Hindi and Vietnamese UI); where it
   matters this document says so.
-- **The installed app, black-box** (AGENTS.md §2: names and listings only):
+- **The installed app, black-box** (CONTRIBUTING.md §2: names and listings only):
   - `Info.plist` `CFBundleDocumentTypes`: the formats PowerPoint opens and saves (13 roles; table in
     [file-format-parity.md](file-format-parity.md)).
   - `Contents/Resources/*.lproj`: 30 localizations plus Base (26 languages and 4 regional variants; table in

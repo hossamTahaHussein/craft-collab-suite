@@ -3,14 +3,14 @@
 > **Last reviewed:** 2026-10-14 · **Last updated:** 2026-10-18 · **Change:** minor (native chart payloads stored in bounded ZIP members; previous: minor, community PR wave 2026-10-14: 320 engine commands, 41 dialogs, the `metafile` crate, 1,641 tests; duplicated L2/L5/L6 rows and headers folded; previous: minor, transition frames) · **Target:** Microsoft PowerPoint for Mac 16.113 (Microsoft 365)
 
 How DeckCraft is built today. The binding rules (layering, everything is a command, thin UI, never
-break wasm, never crash) are in [AGENTS.md](../AGENTS.md) §3–§5; this document describes what
+break wasm, never crash) are in [CONTRIBUTING.md](../CONTRIBUTING.md) §3–§5; this document describes what
 exists. 202k lines of Rust in 24 crates, 3 apps and `xtask`; 1,641 `#[test]` functions
 (`cargo xtask stats` counts them per crate).
 
 ## Layers
 
 `cargo xtask layers` enforces that a crate depends only on lower layers (the table in
-`xtask/src/layers.rs`, which is authoritative; AGENTS.md §4 gives the simplified picture), and that
+`xtask/src/layers.rs`, which is authoritative; CONTRIBUTING.md §4 gives the simplified picture), and that
 nothing below L6 uses egui, eframe, winit or rfd.
 
 | Layer | Crates | What they do |
@@ -96,7 +96,7 @@ macOS, Windows, Linux, FreeBSD and web artifacts.
 | 2026-10-14 | minor | Paragraph and Tabs dialogs; command registry 229; 29 dialogs |
 | 2026-10-14 | minor | Font dialog; command registry 227; 28 dialogs |
 | 2026-10-13 | minor | Transitions: perspective meshes, background/content parts, CPU compositor |
-| 2026-10-10 | major | Created from the code on main (d556ff9) and AGENTS.md §4 |
+| 2026-10-10 | major | Created from the code on main (d556ff9) and CONTRIBUTING.md §4 |
 
 The PDF writer dependency enables only `write`. Krilla handles serialization and simple-text
 shaping for notes and footers; slide layout, rasterization, font selection, text mapping,

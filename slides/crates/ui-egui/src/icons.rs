@@ -2,7 +2,7 @@
 //!
 //! Every icon here is an original drawing made from egui painter primitives on a 24×24 design
 //! grid (contributor-original, `MIT OR Apache-2.0`). Nothing is traced from or modelled on any
-//! vendor's artwork (AGENTS.md §1).
+//! vendor's artwork (CONTRIBUTING.md §1).
 //!
 //! Style: line icons in the theme's ink colour with one or two fixed accent colours. When an icon
 //! is disabled everything is drawn in ink at ~35% alpha.

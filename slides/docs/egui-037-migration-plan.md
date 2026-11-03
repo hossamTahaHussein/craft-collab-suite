@@ -51,7 +51,7 @@ app performance remain open. No publication or merge is authorized by these resu
 
 This plan is app-specific to DeckCraft. It is grounded in the baseline source and in the 0.37
 sources available in the migration workspace; it is not a generic template. The repository rules
-in `AGENTS.md` (asset policy, clean room, never crash, command architecture, quality gates) apply
+in `CONTRIBUTING.md` (asset policy, clean room, never crash, command architecture, quality gates) apply
 in full. The cross-app engineering decision guide
 (`/home/codex/work/ssd2/task-evidence/egui037-migration-20261022/local-guidance/engineering-decisions.md`)
 also applies: keep app-owned commands, document state, undo, persistence and native windows; prefer
@@ -928,7 +928,7 @@ Dependencies: D1–D4. Files: tests/snapshots/benchmark scripts, `docs/`, `ROADM
   explicit, reviewed exception.
 - Update progress docs and parity rows; add a short “egui 0.37” note to architecture/roadmap.
 - Preserve evidence outside the disposable build target; clean only task-owned build artifacts
-  after all checks, per AGENTS.md.
+  after all checks, per CONTRIBUTING.md.
 
 Rollback restores the complete coherent `b47195f`/0.36.2 source, lock and executable,
 including its app-owned settings. Stock 0.37 is only a comparison control, never a rollback
@@ -1159,7 +1159,7 @@ clamp-only shortcut.
   asset, follow `ATTRIBUTION.md`/`craft-fonts` rules. Do not add Microsoft/Adobe/Avid/Autodesk
   material.
 - Cleanup: after all stages and reviews, remove only the task's disposable Cargo target and
-  rebuildable outputs (see AGENTS.md), preserving source, evidence, screenshots, locks and any
+  rebuildable outputs (see CONTRIBUTING.md), preserving source, evidence, screenshots, locks and any
   unique files. Do not clean other sessions, VMs, baselines or checkouts.
 - No agent/model/tool attribution in any publishable PR/release text.
 - Independent-review disposition: H1-H9, M10-M11 and L12-L17 were checked against source and are

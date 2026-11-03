@@ -13,8 +13,8 @@ release: 1
 section: editors
 priority: optional
 maintainer: ${DECKCRAFT_MAINTAINER}
-vendor: Learning Machines LLC
-homepage: https://getartcraft.com/apps/deckcraft
+vendor: WordCraft Collab contributors
+homepage: https://github.com/hossamTahaHussein/wordcraft-collab
 license: MIT OR Apache-2.0
 description: |-
   Open-source, native presentation app that works the way PowerPoint users

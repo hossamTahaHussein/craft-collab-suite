@@ -3,8 +3,8 @@
   <?ifndef HasCraftFontLicences ?>
   <?define HasCraftFontLicences=0 ?>
   <?endif?>
-  <Package Name="DeckCraft" Manufacturer="Learning Machines LLC" Version="$(var.Version)" UpgradeCode="6F9C69E7-7825-40D2-BF26-C274DA676425" Scope="perUserOrMachine" Compressed="yes" Language="1033">
-    <SummaryInformation Description="DeckCraft presentations and slide shows" Manufacturer="Learning Machines LLC" />
+  <Package Name="DeckCraft" Manufacturer="WordCraft Collab contributors" Version="$(var.Version)" UpgradeCode="6F9C69E7-7825-40D2-BF26-C274DA676425" Scope="perUserOrMachine" Compressed="yes" Language="1033">
+    <SummaryInformation Description="DeckCraft presentations and slide shows" Manufacturer="WordCraft Collab contributors" />
     <?include $(sys.SOURCEFILEDIR)install-policy.wxi?>
     <!-- Same-version upgrades let successive pre-releases of one X.Y.Z replace each other
          (MSI versions are numeric, so 1.2.3-rc.1 and 1.2.3-rc.2 are both 1.2.3). -->
@@ -13,12 +13,12 @@
 
     <Icon Id="DeckcraftIcon.ico" SourceFile="$(var.IconPath)" />
     <Property Id="ARPPRODUCTICON" Value="DeckcraftIcon.ico" />
-    <Property Id="ARPURLINFOABOUT" Value="https://getartcraft.com/apps/deckcraft" />
-    <Property Id="ARPURLUPDATEINFO" Value="https://getartcraft.com/apps/deckcraft" />
-    <Property Id="ARPHELPLINK" Value="https://discord.gg/artcraft" />
+    <Property Id="ARPURLINFOABOUT" Value="https://github.com/hossamTahaHussein/wordcraft-collab" />
+    <Property Id="ARPURLUPDATEINFO" Value="https://github.com/hossamTahaHussein/wordcraft-collab" />
+    <Property Id="ARPHELPLINK" Value="https://github.com/hossamTahaHussein/wordcraft-collab/discussions" />
 
     <StandardDirectory Id="ProgramFiles6432Folder">
-      <Directory Id="CraftSuiteFolder" Name="ArtCraft">
+      <Directory Id="CraftSuiteFolder" Name="WordCraftCollab">
         <Directory Id="INSTALLFOLDER" Name="DeckCraft" />
       </Directory>
     </StandardDirectory>

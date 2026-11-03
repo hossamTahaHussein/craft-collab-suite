@@ -4,6 +4,7 @@
 //! invoked through `std::process::Command`.
 
 mod assets;
+mod brand;
 mod ico;
 mod layers;
 mod parity;
@@ -19,6 +20,8 @@ usage: cargo xtask <command>
 
 commands:
   assets          check that every icon/image/font/asset is attributed in ATTRIBUTION.md
+  brand           check that no ArtCraft marks remain outside LICENSE, NOTICE, ATTRIBUTION.md and
+                  README credit lines (the brand terms for modified versions)
   layers          enforce the crate dependency layering (plan/architecture.md §3)
   wasm            cargo check --target wasm32-unknown-unknown for the wasm-safe crates (one call)
   test            workspace tests (cargo nextest when installed, else cargo test), the interface
@@ -43,6 +46,7 @@ fn main() -> ExitCode {
     let rest: Vec<&str> = args.iter().skip(1).map(String::as_str).collect();
     let result = match args.first().map(String::as_str) {
         Some("assets") => assets::run(&root()),
+        Some("brand") => brand::run(&root()),
         Some("layers") => cmd_layers(),
         Some("wasm") => cmd_wasm(),
         Some("test") => cmd_test().and_then(|()| cmd_i18n_report()).and_then(|()| cmd_doctest()),
@@ -231,6 +235,7 @@ fn cmd_ci() -> Result<(), String> {
         ("i18n-report", Box::new(cmd_i18n_report)),
         ("doctest", Box::new(cmd_doctest)),
         ("assets", Box::new(|| assets::run(&root()))),
+        ("brand", Box::new(|| brand::run(&root()))),
         ("layers", Box::new(cmd_layers)),
         ("wasm", Box::new(cmd_wasm)),
     ];
