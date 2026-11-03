@@ -102,6 +102,41 @@ pub(crate) fn paint_peers(p: &Painter, geo: &Geo, sh: &Sheet, peers: &[RemotePee
     }
 }
 
+/// The first letter of the first and last words of a name ("Ann Lee" → "AL").
+pub fn initials(name: &str) -> String {
+    let words: Vec<&str> = name.split_whitespace().collect();
+    let first = |w: &&str| w.chars().next();
+    let mut out: String = words.first().and_then(first).into_iter().collect();
+    if words.len() > 1 {
+        out.extend(words.last().and_then(first));
+    }
+    out.to_uppercase()
+}
+
+/// The title bar's people: up to five avatars (in a right-to-left layout, the first one
+/// rightmost) and how many more there are; returns the person clicked, to go to them.
+pub fn avatars(ui: &mut egui::Ui, peers: &[RemotePeer]) -> Option<usize> {
+    const SHOWN: usize = 5;
+    let dark = ui.global_style().visuals.dark_mode;
+    let mut clicked = None;
+    if peers.len() > SHOWN {
+        ui.label(egui::RichText::new(format!("+{}", peers.len() - SHOWN)).small());
+    }
+    for (i, p) in peers.iter().enumerate().take(SHOWN) {
+        let color = p.color;
+        let fill = peer_color(color, dark);
+        let (r, resp) = ui.allocate_exact_size(egui::vec2(22.0, 22.0), egui::Sense::click());
+        ui.painter().circle_filled(r.center(), 11.0, fill);
+        ui.painter().text(r.center(), egui::Align2::CENTER_CENTER, initials(&p.name), egui::FontId::proportional(10.0), Color32::WHITE);
+        let name = p.name.clone();
+        resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, &name));
+        if resp.on_hover_text(format!("Go to {}", p.name)).clicked() {
+            clicked = Some(i);
+        }
+    }
+    clicked
+}
+
 #[cfg(test)]
 mod tests {
     use gridcraft_engine::Selection;
@@ -134,6 +169,13 @@ mod tests {
         }
         let m = marks(&sh, &[p]);
         assert_eq!(m[0].ranges, vec![RangeRef::parse("A1:C3").unwrap()]);
+    }
+
+    #[test]
+    fn initials_are_the_first_and_last_words() {
+        assert_eq!(initials("Ann Lee"), "AL");
+        assert_eq!(initials("bob"), "B");
+        assert_eq!(initials("حسام طه"), "حط");
     }
 
     #[test]

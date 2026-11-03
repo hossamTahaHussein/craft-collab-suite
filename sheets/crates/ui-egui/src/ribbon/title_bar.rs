@@ -126,6 +126,12 @@ pub fn title_bar(app: &mut SheetApp, ui: &mut Ui) {
                 if __k.clicked() {
                     app.open_dialog("commandSearch", json!({}));
                 }
+                // Co-editing: the other people here; a click goes to them.
+                if let Some(i) = crate::grid::peers::avatars(ui, &app.peers)
+                    && let Some(place) = app.peers.get(i).and_then(|p| p.place.clone())
+                {
+                    app.session.set_collab_place(&place);
+                }
                 let share = small_button(ui, Icon::Share, "Share", "Share: export or save a copy", true);
                 egui::Popup::menu(&share).show(|ui| {
                     if ui.button("Export as PDF…").clicked() {
