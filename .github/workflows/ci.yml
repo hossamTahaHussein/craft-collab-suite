@@ -66,6 +66,10 @@ jobs:
     uses: storytold/craft-common-actions/.github/workflows/gate.yml@main
     with:
       command: cargo xtask ci
+      # The interface catalogs bundled in i18n/ (this fork's translations: co-editing, Arabic
+      # additions), not the storytold/craft-i18n checkout the gate makes from craft-i18n.rev.
+      env: |
+        CRAFT_I18N_DIR=${{ github.workspace }}/i18n
       # Same craft-fonts commit as release.yml.
       craft-fonts-ref: b076417b5880bd4154bd22f00695b1d28c6bea83
       packages: >-
