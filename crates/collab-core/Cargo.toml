@@ -1,0 +1,14 @@
+[package]
+name = "craft-collab-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Co-editing for the suite's editors: replicas, rebasing, selective undo and the relay protocol, generic over the document (no I/O, no UI)"
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
