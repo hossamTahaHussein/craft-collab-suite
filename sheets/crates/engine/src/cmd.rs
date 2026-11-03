@@ -421,6 +421,10 @@ pub(crate) fn commit<R>(d: &mut DocState, f: impl FnOnce(&mut Ctx) -> Result<R>)
             }
         }
     }
+    // Co-editing moves people's positions through the structural edits (`gridcraft_model::structure`).
+    for (sheet, edit) in &edits {
+        wb.structure.push(gridcraft_model::structure::Structural::Edit { sheet: sheet.clone(), edit: edit.clone() });
+    }
     if let Some(log) = d.edits.as_mut() {
         log.extend(edits);
     }

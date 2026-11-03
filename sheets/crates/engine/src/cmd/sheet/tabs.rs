@@ -50,6 +50,7 @@ pub(super) fn delete_sheet(s: &mut Session, p: &Json) -> Result<Json> {
     let d = s.doc_mut()?;
     edit_doc(d, |cx| {
         cx.wb.sheets.remove(i);
+        cx.wb.structure.push(gridcraft_model::structure::Structural::Removed { name: name.clone(), index: i });
         for si in 0..cx.wb.sheets.len() {
             let keys: Vec<(CellRef, Arc<gridcraft_model::Formula>)> =
                 cx.wb.sheets.get(si).map(|s| s.cells.iter().filter_map(|(c, x)| x.formula.clone().map(|f| (c, f))).collect()).unwrap_or_default();
@@ -104,6 +105,7 @@ pub(super) fn rename_sheet(s: &mut Session, p: &Json) -> Result<Json> {
     edit(s, |cx| {
         let old = cx.wb.sheet(i).map(|s| s.name.clone()).unwrap_or_default();
         cx.sheet_mut(i)?.name = name.clone();
+        cx.wb.structure.push(gridcraft_model::structure::Structural::Renamed { from: old.clone(), to: name.clone() });
         for si in 0..cx.wb.sheets.len() {
             let keys: Vec<(CellRef, Arc<gridcraft_model::Formula>)> =
                 cx.wb.sheets.get(si).map(|s| s.cells.iter().filter_map(|(c, x)| x.formula.clone().map(|f| (c, f))).collect()).unwrap_or_default();

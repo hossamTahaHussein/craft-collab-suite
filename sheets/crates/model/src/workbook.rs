@@ -275,6 +275,10 @@ pub struct Workbook {
     /// the links in memory are still written for the old one. Not in JSON.
     #[serde(skip)]
     pub source_path: Option<std::path::PathBuf>,
+    /// The structural edits made to it while it is open (co-editing moves positions through
+    /// them). Not in JSON, not content: see [`crate::structure`].
+    #[serde(skip)]
+    pub structure: crate::structure::StructureLog,
 }
 
 fn is_all(s: &ShowObjects) -> bool {
@@ -366,6 +370,7 @@ impl Workbook {
             preserved: None,
             source_dir: None,
             source_path: None,
+            structure: Default::default(),
         }
     }
     pub fn sheet(&self, i: usize) -> Option<&Sheet> {

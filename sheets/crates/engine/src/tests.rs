@@ -5358,6 +5358,7 @@ mod python_cells;
 mod python_commands;
 mod python_files;
 mod seams;
+mod structure_log;
 
 #[test]
 fn a_saved_workbook_keeps_its_values_until_an_edit_reaches_them() {

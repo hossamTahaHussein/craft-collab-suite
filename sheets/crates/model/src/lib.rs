@@ -14,6 +14,7 @@ pub mod preserved;
 pub mod python;
 pub mod sheet;
 pub mod store;
+pub mod structure;
 pub mod style;
 pub mod workbook;
 
