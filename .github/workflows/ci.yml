@@ -46,6 +46,8 @@ jobs:
               - clippy.toml
               - .github/workflows/ci.yml
               - xtask/**
+              # The co-editing core all three apps run on.
+              - crates/collab-core/**
             docs:
               - *shared
               - crates/**
@@ -58,6 +60,16 @@ jobs:
             slides:
               - *shared
               - slides/**
+
+  # Every pull request, whatever it touches: no ArtCraft marks anywhere (the brand terms for a
+  # modified version), and each app's crate layering.
+  suite-checks:
+    uses: storytold/craft-common-actions/.github/workflows/gate.yml@main
+    with:
+      command: cargo xtask brand && cargo xtask layers && cargo xtask-sheets layers && cargo xtask-slides layers
+      craft-fonts-ref: ""
+      tools: ""
+      targets: ""
 
   docs:
     needs: changes

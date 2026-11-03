@@ -8165,6 +8165,7 @@ name = "wordcraft-collab"
 version = "1.0.2"
 dependencies = [
  "craft-collab-core",
+ "miniz_oxide 0.9.1",
  "proptest",
  "serde",
  "serde_json",

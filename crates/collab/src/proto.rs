@@ -205,6 +205,18 @@ mod tests {
         assert!(decode_inbound(&doc).is_ok());
     }
 
+    /// The relay stores snapshots and their history as they are, so what a replica writes now
+    /// must read back in any later one (and what older ones wrote, here).
+    #[test]
+    fn snapshot_and_history_keep_their_wire_shape() {
+        let history = vec![HistEntry { rev: 1, change: Spans { spans: vec![HistSpan { story: StoryRef::Body, start: 0, old_end: 0, new_end: 1 }] } }];
+        let snap = Outbound::Snapshot { rev: 1, doc: "{}".into(), history };
+        let want = json!({"t": "Snapshot", "rev": 1, "doc": "{}", "history": [{"rev": 1, "spans": [{"story": "body", "start": 0, "oldEnd": 0, "newEnd": 1}]}]});
+        assert_eq!(serde_json::to_value(&snap).unwrap(), want);
+        let back: Outbound = serde_json::from_value(want).unwrap();
+        assert_eq!(back, snap);
+    }
+
     #[test]
     fn unknown_type_is_error() {
         assert!(matches!(decode_inbound(r#"{"t":"Nope"}"#), Err(ProtoError::Json(_))));
