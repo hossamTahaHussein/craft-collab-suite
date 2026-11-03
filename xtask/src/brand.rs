@@ -141,7 +141,11 @@ mod tests {
 
     #[test]
     fn the_gates_checkouts_of_other_repositories_are_not_this_ones() {
-        let dir = tree(&[("craft-i18n/locales/ar/common.tsv", "ArtCraft\n"), ("craft-fonts/README.md", "ArtCraft\n"), ("src/craft-fonts/x.rs", "\"ArtCraft\"\n")]);
+        let dir = tree(&[
+            ("craft-i18n/locales/ar/common.tsv", "ArtCraft\n"),
+            ("craft-fonts/README.md", "ArtCraft\n"),
+            ("src/craft-fonts/x.rs", "\"ArtCraft\"\n"),
+        ]);
         assert_eq!(scan(&dir), [Finding { path: "src/craft-fonts/x.rs".into(), line: 1 }]);
     }
 
