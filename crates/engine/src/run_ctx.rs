@@ -113,3 +113,19 @@ impl Session {
 /// Commands that don't give the same document on every replica even under [`Session::run_with`]
 /// (id, why). Co-editing refuses them.
 pub const NONDETERMINISTIC: &[(&str, &str)] = &[];
+
+/// What the suite's co-editing core reads from an edit's context.
+impl craft_collab_core::CollabCtx for RunCtx {
+    fn author(&self) -> &str {
+        &self.author
+    }
+    fn time(&self) -> u64 {
+        self.time
+    }
+    fn track(&self) -> bool {
+        self.track
+    }
+    fn api(&self) -> bool {
+        self.api
+    }
+}

@@ -1,17 +1,17 @@
 //! The messages between a replica and the relay (see the co-editing spec, §3 and §8). Each is a
 //! JSON object whose `t` names its type; field names are camelCase. The host page carries them
 //! as strings, so a replica only ever sees `decode_inbound` and `serde_json::to_string`.
+//!
+//! The messages themselves are the suite's (`craft_collab_core::proto`); Docs supplies what a
+//! selection is ([`Anchor`]: story offsets), the edit context (`RunCtx`) and what a revision
+//! changed ([`HistSpan`]s).
 
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 use wordcraft_doc::StoryRef;
-use wordcraft_engine::RunCtx;
 
-/// The largest message that isn't a snapshot, in bytes.
-pub const MAX_OP_BYTES: usize = 256 * 1024;
-/// The largest message carrying a whole document (`Welcome`, `Resync`, `VersionDoc`, a restore
-/// `Op`), in bytes.
-pub const MAX_SNAPSHOT_BYTES: usize = 50 * 1024 * 1024;
+use crate::adapter::DocsDoc;
+
+pub use craft_collab_core::proto::{MAX_OP_BYTES, MAX_SNAPSHOT_BYTES, OpKind, ProtoError, VersionInfo};
 
 /// A selection as story offsets (`wordcraft_doc::offsets`).
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -22,46 +22,22 @@ pub struct Anchor {
     pub head: usize,
 }
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub enum OpKind {
-    #[default]
-    Cmd,
-    Undo,
-    Redo,
-    Restore,
-}
-
 /// One edit: a command, the selection it ran at and the context it ran under.
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Op {
-    /// The replica that made it.
-    pub client: String,
-    /// Its number among that replica's edits.
-    pub seq: u64,
-    /// The last relay revision its replica had applied.
-    pub base: u64,
-    pub kind: OpKind,
-    pub cmd: String,
-    #[serde(default)]
-    pub params: Value,
-    pub sel: Anchor,
-    pub ctx: RunCtx,
-    /// Set by the relay: the edit's place in the document's history.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub rev: Option<u64>,
-    /// Set by the relay: who made it (the join token's name).
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub user: Option<String>,
-}
-
+pub type Op = craft_collab_core::proto::Op<DocsDoc>;
 /// One revision's changes (`mapping::Span`s, per story): what a replica needs to place an edit
 /// based on an earlier revision. Snapshots carry the recent ones.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub type HistEntry = craft_collab_core::proto::HistEntry<DocsDoc>;
+/// Someone else in the document.
+pub type Peer = craft_collab_core::proto::Peer<DocsDoc>;
+/// Relay → replica.
+pub type Inbound = craft_collab_core::proto::Inbound<DocsDoc>;
+/// Replica → relay.
+pub type Outbound = craft_collab_core::proto::Outbound<DocsDoc>;
+
+/// What one revision changed, as `HistEntry` carries it: `{"rev": …, "spans": [...]}`.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct HistEntry {
-    pub rev: u64,
+pub struct Spans {
     pub spans: Vec<HistSpan>,
 }
 
@@ -74,211 +50,9 @@ pub struct HistSpan {
     pub new_end: usize,
 }
 
-/// Someone else in the document: who, their colour (an index into the palette) and, once they
-/// sent one, where their selection is.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Peer {
-    pub client: String,
-    pub user: String,
-    pub color: u8,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub sel: Option<Anchor>,
-    /// The confirmed revision `sel` is relative to.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub rev: Option<u64>,
-}
-
-/// Relay → replica.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(tag = "t")]
-pub enum Inbound {
-    /// After joining: the document at `rev` (a native JSON snapshot, or none when this is the
-    /// first person and their editor provides the document), the edits after it, and this
-    /// replica's client id.
-    Welcome {
-        rev: u64,
-        snapshot: Option<String>,
-        ops: Vec<Op>,
-        you: String,
-        /// With a snapshot: the last of this replica's edits it holds (`Replica::resume`).
-        #[serde(default)]
-        seen: Option<u64>,
-        /// With a snapshot: the changes of the revisions before it.
-        #[serde(default)]
-        history: Vec<HistEntry>,
-        /// The people already here (one that can't be read is left out, not the whole message).
-        #[serde(default, deserialize_with = "readable_peers")]
-        peers: Vec<Peer>,
-        /// The join token's role: `edit`, `comment` or `view` (an older relay sends none: `edit`).
-        #[serde(default)]
-        role: Option<String>,
-    },
-    Op(Box<Op>),
-    /// Upload a snapshot of the confirmed document.
-    SnapshotRequest,
-    /// Start again from this snapshot and the edits after it.
-    Resync {
-        rev: u64,
-        snapshot: String,
-        ops: Vec<Op>,
-        #[serde(default)]
-        seen: Option<u64>,
-        #[serde(default)]
-        history: Vec<HistEntry>,
-    },
-    /// Save the document now (autosave).
-    Save,
-    /// Someone joined.
-    Join(Peer),
-    /// Someone left.
-    Leave {
-        client: String,
-    },
-    /// Someone's selection moved.
-    Presence(Peer),
-    /// The relay didn't take this replica's edit `seq` (its role doesn't allow it, or an undo
-    /// names someone else's edit); it was not sequenced.
-    Refused {
-        seq: u64,
-        reason: String,
-    },
-    /// Keep the confirmed document at `rev` as a version (answer with `Outbound::Version` only
-    /// when the confirmed revision is `rev`).
-    VersionRequest {
-        rev: u64,
-    },
-    /// The document's versions, newest first.
-    VersionList {
-        versions: Vec<VersionInfo>,
-    },
-    /// One version's document (native JSON), or none when it is gone.
-    VersionDoc {
-        rev: u64,
-        doc: Option<String>,
-    },
-    /// The relay's HTTP API wants the document as a file of `format`.
-    Export {
-        id: String,
-        format: String,
-    },
-    /// From the page, not the relay: whether it is connected to the relay now.
-    Connection {
-        online: bool,
-    },
-    /// The relay's HTTP API runs command `cmd` as an edit by `author`.
-    Run {
-        id: String,
-        cmd: String,
-        #[serde(default)]
-        params: Value,
-        author: String,
-    },
-}
-
-/// One kept version: its revision, when it was kept (ISO time) and who edited since the one
-/// before.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct VersionInfo {
-    pub rev: u64,
-    pub at: String,
-    #[serde(default)]
-    pub users: Vec<String>,
-}
-
-/// Replica → relay.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(tag = "t")]
-pub enum Outbound {
-    Op(Box<Op>),
-    /// The confirmed document's fingerprint at `rev` (`hash::doc_hash`).
-    Hash {
-        rev: u64,
-        h: String,
-    },
-    Snapshot {
-        rev: u64,
-        doc: String,
-        #[serde(default)]
-        history: Vec<HistEntry>,
-    },
-    Saved {
-        rev: u64,
-    },
-    /// This replica missed edits after `have`.
-    ResyncRequest {
-        have: u64,
-        /// Start again from a snapshot the lease holder takes now, not the stored one (this
-        /// replica can't apply an edit from what the stored one holds).
-        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
-        fresh: bool,
-    },
-    /// Where this person's selection is, relative to the confirmed revision `rev` (sent at most
-    /// ten times a second, and only with no edits unconfirmed; never logged).
-    Presence {
-        sel: Anchor,
-        rev: u64,
-    },
-    /// The confirmed document at `rev` (native JSON), answering `VersionRequest`.
-    Version {
-        rev: u64,
-        doc: String,
-    },
-    /// List the versions (`VersionList`).
-    Versions,
-    /// One version's document (`VersionDoc`).
-    GetVersion {
-        rev: u64,
-    },
-    /// Answers `Export`: the file's bytes in base64, or why there are none.
-    Exported {
-        id: String,
-        ok: bool,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        data: Option<String>,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        error: Option<String>,
-    },
-    /// Answers `Run`.
-    RunResult {
-        id: String,
-        ok: bool,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        result: Option<Value>,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        error: Option<String>,
-    },
-}
-
-fn readable_peers<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Vec<Peer>, D::Error> {
-    let all = Vec::<Value>::deserialize(d)?;
-    Ok(all.into_iter().filter_map(|v| serde_json::from_value(v).ok()).collect())
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum ProtoError {
-    #[error("message too large: {size} bytes (limit {limit})")]
-    TooLarge { size: usize, limit: usize },
-    #[error("bad message: {0}")]
-    Json(#[from] serde_json::Error),
-}
-
 /// Parse a relay message, refusing one over its size limit.
 pub fn decode_inbound(json: &str) -> Result<Inbound, ProtoError> {
-    if json.len() > MAX_SNAPSHOT_BYTES {
-        return Err(ProtoError::TooLarge { size: json.len(), limit: MAX_SNAPSHOT_BYTES });
-    }
-    let message: Inbound = serde_json::from_str(json)?;
-    let carries_snapshot = match &message {
-        Inbound::Welcome { .. } | Inbound::Resync { .. } | Inbound::VersionDoc { .. } => true,
-        Inbound::Op(op) => op.kind == OpKind::Restore,
-        _ => false,
-    };
-    if !carries_snapshot && json.len() > MAX_OP_BYTES {
-        return Err(ProtoError::TooLarge { size: json.len(), limit: MAX_OP_BYTES });
-    }
-    Ok(message)
+    craft_collab_core::proto::decode_inbound::<DocsDoc>(json)
 }
 
 #[cfg(test)]

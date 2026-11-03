@@ -8163,6 +8163,7 @@ dependencies = [
 name = "wordcraft-collab"
 version = "1.0.2"
 dependencies = [
+ "craft-collab-core",
  "proptest",
  "serde",
  "serde_json",
@@ -8236,6 +8237,7 @@ version = "1.0.2"
 dependencies = [
  "cfb",
  "chrono",
+ "craft-collab-core",
  "encoding_rs",
  "getrandom 0.3.4",
  "image",

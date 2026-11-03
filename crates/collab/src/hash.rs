@@ -3,7 +3,7 @@
 use wordcraft_doc::Document;
 
 /// How often (in revisions) replicas report their fingerprint.
-pub const HASH_EVERY: u64 = 50;
+pub use craft_collab_core::replica::HASH_EVERY;
 
 /// FNV-1a (64-bit) of the document's native JSON, as 16 lowercase hex digits. A document that
 /// can't be written gives the fingerprint of nothing.

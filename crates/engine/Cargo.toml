@@ -25,6 +25,8 @@ wordcraft-docx = { workspace = true }
 wordcraft-docbin = { workspace = true }
 wordcraft-pdf = { workspace = true }
 wordcraft-formats = { workspace = true }
+# Co-editing: an edit's context is what the suite's co-editing core reads (`CollabCtx`).
+craft-collab-core = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
