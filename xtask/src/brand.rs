@@ -60,7 +60,10 @@ fn walk(root: &Path, dir: &Path, out: &mut Vec<Finding>) {
         let Ok(kind) = entry.file_type() else { continue };
         if kind.is_dir() {
             // The shared translation catalogs at the top (`i18n/`), not an app's own i18n code.
-            let skipped = rel.starts_with("docs/superpowers") || rel == Path::new("i18n");
+            // The CI gate checks out storytold's craft-i18n and craft-fonts beside the sources:
+            // other repositories, not this one.
+            let checkout = rel == Path::new("craft-i18n") || rel == Path::new("craft-fonts");
+            let skipped = rel.starts_with("docs/superpowers") || rel == Path::new("i18n") || checkout;
             if !SKIP_DIRS.contains(&name.as_str()) && !skipped {
                 walk(root, &path, out);
             }
@@ -134,6 +137,12 @@ mod tests {
         let dir =
             tree(&[("i18n/locales/nl/common.tsv", "ArtCraft\tArtCraft\n"), ("app/src/i18n/nl.rs", "(\"Join the ArtCraft Discord\", \"x\"),\n")]);
         assert_eq!(scan(&dir), [Finding { path: "app/src/i18n/nl.rs".into(), line: 1 }]);
+    }
+
+    #[test]
+    fn the_gates_checkouts_of_other_repositories_are_not_this_ones() {
+        let dir = tree(&[("craft-i18n/locales/ar/common.tsv", "ArtCraft\n"), ("craft-fonts/README.md", "ArtCraft\n"), ("src/craft-fonts/x.rs", "\"ArtCraft\"\n")]);
+        assert_eq!(scan(&dir), [Finding { path: "src/craft-fonts/x.rs".into(), line: 1 }]);
     }
 
     #[test]
