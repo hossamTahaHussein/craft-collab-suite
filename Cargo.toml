@@ -1,7 +1,16 @@
 [workspace]
 resolver = "3"
-members = ["crates/*", "apps/*", "xtask"]
-default-members = ["crates/*", "apps/wordcraft", "apps/wordcraft-cli", "xtask"]
+members = [
+    "crates/*", "apps/*", "xtask",
+    # Craft Sheets (git subtree of storytold/gridcraft) and Craft Slides (storytold/deckcraft).
+    "sheets/crates/*", "sheets/apps/*", "sheets/xtask",
+    "slides/crates/*", "slides/apps/*", "slides/xtask",
+]
+default-members = [
+    "crates/*", "apps/wordcraft", "apps/wordcraft-cli", "xtask",
+    "sheets/crates/*", "sheets/apps/gridcraft", "sheets/apps/gridcraft-cli",
+    "slides/crates/*", "slides/apps/deckcraft", "slides/apps/deckcraft-cli",
+]
 
 [workspace.package]
 version = "1.0.2"
@@ -29,6 +38,46 @@ wordcraft-zotero = { path = "crates/zotero" }
 wordcraft-control-key = { path = "crates/control-key" }
 wordcraft-ui-egui = { path = "crates/ui-egui" }
 wordcraft-metafile = { path = "crates/metafile" }
+# Craft Sheets
+gridcraft-core = { path = "sheets/crates/core" }
+gridcraft-numfmt = { path = "sheets/crates/numfmt" }
+gridcraft-formula = { path = "sheets/crates/formula" }
+gridcraft-functions = { path = "sheets/crates/functions" }
+gridcraft-model = { path = "sheets/crates/model" }
+gridcraft-calc = { path = "sheets/crates/calc" }
+gridcraft-xlsx = { path = "sheets/crates/xlsx" }
+gridcraft-chart = { path = "sheets/crates/chart" }
+gridcraft-engine = { path = "sheets/crates/engine" }
+gridcraft-ui-egui = { path = "sheets/crates/ui-egui" }
+gridcraft-mcp = { path = "sheets/crates/mcp" }
+gridcraft-pdf = { path = "sheets/crates/pdf" }
+gridcraft-math = { path = "sheets/crates/math" }
+# Craft Slides
+deckcraft-geom = { path = "slides/crates/geom" }
+deckcraft-color = { path = "slides/crates/color" }
+deckcraft-metafile = { path = "slides/crates/metafile" }
+deckcraft-model = { path = "slides/crates/model" }
+deckcraft-fonts = { path = "slides/crates/fonts" }
+deckcraft-text = { path = "slides/crates/text" }
+deckcraft-render = { path = "slides/crates/render" }
+deckcraft-pdf = { path = "slides/crates/pdf" }
+deckcraft-pptx = { path = "slides/crates/pptx" }
+deckcraft-format = { path = "slides/crates/format" }
+deckcraft-anim = { path = "slides/crates/anim" }
+deckcraft-engine = { path = "slides/crates/engine" }
+deckcraft-mcp = { path = "slides/crates/mcp" }
+deckcraft-ui-egui = { path = "slides/crates/ui-egui" }
+deckcraft-media = { path = "slides/crates/media" }
+# codecs (ported from FilmCraft, same owner and licence)
+deckcraft-bitstream = { path = "slides/crates/bitstream" }
+deckcraft-h264 = { path = "slides/crates/h264" }
+deckcraft-hevc = { path = "slides/crates/hevc" }
+deckcraft-vp9 = { path = "slides/crates/vp9" }
+deckcraft-av1 = { path = "slides/crates/av1" }
+deckcraft-isobmff = { path = "slides/crates/isobmff" }
+deckcraft-matroska = { path = "slides/crates/matroska" }
+deckcraft-ogg = { path = "slides/crates/ogg" }
+deckcraft-opus = { path = "slides/crates/opus" }
 
 # foundation
 kurbo = { version = "0.13", features = ["serde"] }
@@ -60,8 +109,19 @@ wuff = "0.2.9"
 brotli-decompressor = "5"
 vello_cpu = "0.2"
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp", "gif", "bmp", "tiff"] }
-craft-pdf = { git = "https://github.com/storytold/craft-libs", rev = "92d392cff132eaf53e13afff77f38b5c11b73aa0", version = "=0.1.0", default-features = false, features = ["write"] }
-craft-update = { git = "https://github.com/storytold/craft-libs", version = "=0.1.0", rev = "92d392cff132eaf53e13afff77f38b5c11b73aa0", features = ["egui"] }
+craft-pdf = { git = "https://github.com/storytold/craft-libs", rev = "c5a1cbfb5f9049f9270955caffb5bee5997aebf7", version = "=0.1.0", default-features = false, features = ["write", "write-simple-text"] }
+craft-update = { git = "https://github.com/storytold/craft-libs", version = "=0.1.0", rev = "c5a1cbfb5f9049f9270955caffb5bee5997aebf7", features = ["egui"] }
+craft-media = { git = "https://github.com/storytold/craft-libs", rev = "c5a1cbfb5f9049f9270955caffb5bee5997aebf7", version = "=0.1.0", default-features = false }
+craft-ui = { git = "https://github.com/storytold/craft-libs", rev = "c5a1cbfb5f9049f9270955caffb5bee5997aebf7", version = "=0.1.0" }
+# One native window per workbook (Sheets): the window list, Window menu titles and the viewport driver.
+craft-window = { version = "0.1.0", git = "https://github.com/storytold/craft-libs", rev = "c5a1cbfb5f9049f9270955caffb5bee5997aebf7", default-features = false, features = ["egui"] }
+vello_common = { version = "0.2", default-features = false }
+i_overlay = "9"
+# Sheets equations: RaTeX (MIT), exact pins vetted upstream (sheets/docs/decisions.md).
+ratex-parser = "=0.1.14"
+ratex-layout = "=0.1.14"
+ratex-types = "=0.1.14"
+ratex-font = "=0.1.14"
 quick-xml = "0.41"
 zip = { version = "3", default-features = false, features = ["deflate"] }
 # zlib streams (compressed metafile pictures in `.doc` drawings); already in the lock as a dependency of other crates.
@@ -92,6 +152,10 @@ egui_kittest = "0.37"
 # A monotonic clock that works on native and in the browser (`performance.now()`).
 web-time = "1.1"
 rfd = "0.17"
+# The desktop's preferred language, for Sheets' first-run interface language (native only).
+sys-locale = "0.3"
+# Real font bytes for Sheets tests (Ubuntu Light, compiled into epaint).
+epaint_default_fonts = "0.37"
 arboard = { version = "3.7", default-features = false, features = ["wayland-data-control"] }
 
 [workspace.lints.rust]
@@ -104,6 +168,10 @@ dbg_macro = "warn"
 todo = "warn"
 too_many_arguments = "deny"
 type_complexity = "allow"
+# Slides' code base relies on these (upstream deckcraft workspace lints).
+self_named_constructors = "allow"
+large_enum_variant = "allow"
+result_large_err = "allow"
 
 # Line tables keep file and line in panics and backtraces; full debug info
 # for every test binary and dependency would multiply the target dir size.
@@ -124,7 +192,7 @@ debug = 0
 
 # Required by craft-pdf: the backend rejects writers that failed during unwinding.
 [patch.crates-io]
-krilla = { git = "https://github.com/storytold/craft-libs", rev = "92d392cff132eaf53e13afff77f38b5c11b73aa0" }
+krilla = { git = "https://github.com/storytold/craft-libs", rev = "c5a1cbfb5f9049f9270955caffb5bee5997aebf7", version = "=0.8.2" }
 ecolor = { git = "https://github.com/hossamTahaHussein/egui.git", rev = "27662b2129d2eaeced4355da03a890f82b7fbc05" }
 emath = { git = "https://github.com/hossamTahaHussein/egui.git", rev = "27662b2129d2eaeced4355da03a890f82b7fbc05" }
 epaint = { git = "https://github.com/hossamTahaHussein/egui.git", rev = "27662b2129d2eaeced4355da03a890f82b7fbc05" }

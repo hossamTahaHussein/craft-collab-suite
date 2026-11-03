@@ -1,2 +1,5 @@
 [alias]
 xtask = "run --package xtask --"
+# Craft Sheets' and Craft Slides' own workspace tools (layers, i18n reports, parity, keytips).
+xtask-sheets = "run --package gridcraft-xtask --"
+xtask-slides = "run --package deckcraft-xtask --"

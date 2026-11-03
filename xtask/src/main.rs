@@ -94,8 +94,13 @@ pub fn metadata() -> Result<serde_json::Value, String> {
     serde_json::from_slice(&out.stdout).map_err(|e| format!("cargo metadata: bad JSON: {e}"))
 }
 
+/// Whether this table judges the crate named `name`. Docs and the suite crates: Craft Sheets (`gridcraft-*`) and Craft Slides (`deckcraft-*`) have their own tables (`cargo xtask-sheets layers`, `cargo xtask-slides layers`).
+fn judged_here(name: &str) -> bool {
+    !name.starts_with("gridcraft") && !name.starts_with("deckcraft")
+}
+
 fn cmd_layers() -> Result<(), String> {
-    let crates = layers::from_metadata(&metadata()?)?;
+    let crates: Vec<_> = layers::from_metadata(&metadata()?)?.into_iter().filter(|c| judged_here(&c.name)).collect();
     println!("Dependency layering (plan/architecture.md §3)\n");
     println!("{:<28} {:<14} workspace deps", "crate", "layer");
     for c in &crates {
@@ -283,4 +288,13 @@ Tests that use a corpus skip cleanly when it is absent.
     let n = std::fs::read_dir(&dest).map(|d| d.flatten().filter(|e| e.path().extension().is_some_and(|x| x == "png")).count()).unwrap_or(0);
     println!("PngSuite: {n} PNG files in {}", dest.display());
     if n == 0 { Err("no PNG files extracted".into()) } else { Ok(()) }
+}
+
+#[cfg(test)]
+mod judged_here_tests {
+    #[test]
+    fn each_app_judges_only_its_own_crates() {
+        assert!(super::judged_here("wordcraft-engine"));
+        assert!(!super::judged_here("gridcraft-engine"));
+    }
 }

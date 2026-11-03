@@ -941,10 +941,12 @@ pub fn write_file(path: &str, bytes: &[u8]) -> Result<()> {
     let prior = std::fs::metadata(path).ok().map(|m| m.permissions());
     let mut opts = std::fs::OpenOptions::new();
     opts.write(true).create_new(true);
+    // A new workbook is never writable by others, whatever the process umask (0o002 on many
+    // desktops would otherwise make it group-writable).
     #[cfg(unix)]
-    if let Some(p) = &prior {
+    {
         use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
-        opts.mode(p.mode());
+        opts.mode(prior.as_ref().map_or(0o644, |p| p.mode()));
     }
     let mut f = opts.open(&tmp).map_err(|e| {
         let _ = std::fs::remove_file(&tmp);

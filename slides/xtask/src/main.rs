@@ -10,7 +10,6 @@ mod layers;
 mod parity;
 mod pdf_deps;
 mod stats;
-mod version;
 
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode, Stdio};
@@ -49,7 +48,6 @@ fn main() -> ExitCode {
         Some("parity") => parity::run(&root()),
         Some("bench") => bench::run(&root(), &rest),
         Some("ico") => ico::run(&rest),
-        Some("version") => version::run(&root(), &rest),
         Some("-h" | "--help" | "help") | None => {
             print!("{USAGE}");
             Ok(())
@@ -90,8 +88,13 @@ pub fn metadata() -> Result<serde_json::Value, String> {
     serde_json::from_slice(&out.stdout).map_err(|e| format!("cargo metadata: bad JSON: {e}"))
 }
 
+/// Whether this table judges the crate named `name`. Craft Slides crates only: the rest of the suite workspace has its own tables (`cargo xtask layers`).
+fn judged_here(name: &str) -> bool {
+    name.starts_with("deckcraft")
+}
+
 fn cmd_layers() -> Result<(), String> {
-    let crates = layers::from_metadata(&metadata()?)?;
+    let crates: Vec<_> = layers::from_metadata(&metadata()?)?.into_iter().filter(|c| judged_here(&c.name)).collect();
     println!("Dependency layering (plan/architecture.md §3)\n");
     println!("{:<28} {:<14} workspace deps", "crate", "layer");
     for c in &crates {
@@ -230,4 +233,13 @@ fn cmd_ci() -> Result<(), String> {
     }
     println!("\nCI summary: all {} steps passed ({})", done.len(), done.join(", "));
     Ok(())
+}
+
+#[cfg(test)]
+mod judged_here_tests {
+    #[test]
+    fn each_app_judges_only_its_own_crates() {
+        assert!(super::judged_here("deckcraft-engine"));
+        assert!(!super::judged_here("gridcraft-engine"));
+    }
 }
