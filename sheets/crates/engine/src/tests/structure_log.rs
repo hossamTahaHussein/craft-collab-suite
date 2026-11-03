@@ -40,7 +40,7 @@ fn renaming_and_deleting_sheets_are_logged() {
     let log = after(&mut s, "sheet.rename", json!({"sheet": 0, "name": "Data"}));
     assert_eq!(log, [Structural::Renamed { from: "Sheet1".into(), to: "Data".into() }]);
     let log = after(&mut s, "home.deleteSheet", json!({"sheet": 0}));
-    assert_eq!(log, [Structural::Removed { name: "Data".into(), index: 0 }]);
+    assert_eq!(log, [Structural::Removed { name: "Data".into(), index: 0, next: "Sheet2".into() }]);
 }
 
 #[test]

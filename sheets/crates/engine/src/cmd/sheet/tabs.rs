@@ -50,7 +50,8 @@ pub(super) fn delete_sheet(s: &mut Session, p: &Json) -> Result<Json> {
     let d = s.doc_mut()?;
     edit_doc(d, |cx| {
         cx.wb.sheets.remove(i);
-        cx.wb.structure.push(gridcraft_model::structure::Structural::Removed { name: name.clone(), index: i });
+        let next = cx.wb.sheet(i.min(cx.wb.sheets.len().saturating_sub(1))).map(|s| s.name.clone()).unwrap_or_default();
+        cx.wb.structure.push(gridcraft_model::structure::Structural::Removed { name: name.clone(), index: i, next });
         for si in 0..cx.wb.sheets.len() {
             let keys: Vec<(CellRef, Arc<gridcraft_model::Formula>)> =
                 cx.wb.sheets.get(si).map(|s| s.cells.iter().filter_map(|(c, x)| x.formula.clone().map(|f| (c, f))).collect()).unwrap_or_default();

@@ -95,3 +95,10 @@ fn a_replayed_edit_cant_run_code_or_read_this_computers_files() {
     assert!(r.is_err(), "a replayed import from a local path: {r:?}");
     assert_eq!(v(&s, "A1"), Value::Empty);
 }
+
+#[test]
+fn a_structural_edit_is_sent_even_where_it_changed_no_content() {
+    let mut s = s();
+    s.execute("home.insertRows", json!({"rows": "1:2"})).unwrap();
+    assert_eq!(s.take_outbox().len(), 1, "rows inserted into an empty sheet move other people's positions");
+}

@@ -112,6 +112,27 @@ impl Session {
         self.collab.recording = on;
     }
 
+    /// Whether edits are recorded now (see [`Session::set_recording`]).
+    pub fn recording(&self) -> bool {
+        self.collab.recording
+    }
+
+    /// Co-editing: the active workbook's content becomes `wb` (the shared document, or the one
+    /// rebuilt from it), in the same window; its calculation graph follows. A session with no
+    /// workbook gets one, untrusted like anything read from elsewhere.
+    pub fn set_collab_workbook(&mut self, wb: std::sync::Arc<gridcraft_model::Workbook>) {
+        match self.active_mut() {
+            Some(d) => {
+                d.calc.rebuild(&wb);
+                d.wb = wb;
+            }
+            None => {
+                let d = crate::DocState::from_saved((*wb).clone(), None, "Shared workbook".into(), crate::Trust::FromFile);
+                self.add_document(d);
+            }
+        }
+    }
+
     /// The edits recorded since the last call.
     pub fn take_outbox(&mut self) -> Vec<Recorded> {
         std::mem::take(&mut self.collab.outbox)
@@ -129,13 +150,13 @@ impl Session {
         Some(SheetPlace { sheet: d.wb.active()?.name.clone(), selection: d.selection.clone() })
     }
 
-    /// Put the active workbook's selection at `place` (its sheet becomes the active one); a
-    /// sheet that is gone leaves the sheet as it is.
+    /// Put the active workbook's selection at `place` (its sheet becomes the active one). A
+    /// sheet that is gone gives the first one: every replica must run an edit on the same sheet,
+    /// whichever one its window last showed.
     pub fn set_collab_place(&mut self, place: &SheetPlace) {
         let Some(d) = self.active_mut() else { return };
-        if let Some(i) = d.wb.sheets.iter().position(|s| s.name == place.sheet) {
-            d.wb.set_active_sheet(i);
-        }
+        let i = d.wb.sheets.iter().position(|s| s.name == place.sheet).unwrap_or(0);
+        d.wb.set_active_sheet(i);
         d.selection = place.selection.clone();
     }
 
@@ -205,7 +226,11 @@ impl Session {
         let ctx = self.run_ctx();
         let result = self.run_under(&ctx, id, params.clone());
         let changed = match (&before, self.active()) {
-            (Some((uid, wb)), Some(d)) => d.uid == *uid && !std::sync::Arc::ptr_eq(wb, &d.wb) && !wb.same_content(&d.wb),
+            // A structural edit moves people's positions even where it changed no content (rows
+            // inserted into an empty sheet).
+            (Some((uid, wb)), Some(d)) => {
+                d.uid == *uid && !std::sync::Arc::ptr_eq(wb, &d.wb) && (!wb.same_content(&d.wb) || wb.structure.len() != d.wb.structure.len())
+            }
             _ => false,
         };
         if result.is_ok() && changed {

@@ -53,6 +53,7 @@ gridcraft-ui-egui = { path = "sheets/crates/ui-egui" }
 gridcraft-mcp = { path = "sheets/crates/mcp" }
 gridcraft-pdf = { path = "sheets/crates/pdf" }
 gridcraft-math = { path = "sheets/crates/math" }
+gridcraft-collab = { path = "sheets/crates/collab" }
 # Craft Slides
 deckcraft-geom = { path = "slides/crates/geom" }
 deckcraft-color = { path = "slides/crates/color" }

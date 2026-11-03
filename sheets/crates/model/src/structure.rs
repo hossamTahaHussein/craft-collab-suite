@@ -24,10 +24,12 @@ pub enum Structural {
         from: String,
         to: String,
     },
-    /// Sheet `name`, which was at `index`, was deleted.
+    /// Sheet `name`, which was at `index`, was deleted; `next` is the sheet now in its place
+    /// (or the one before it, for the last sheet), where positions on it go.
     Removed {
         name: String,
         index: usize,
+        next: String,
     },
 }
 
