@@ -141,8 +141,17 @@ impl Session {
 
     /// Run a command under `ctx`, as every replica runs an edit: its author, its clock and its
     /// random numbers.
+    ///
+    /// The edit came from someone else, through the relay: what co-editing refuses (code,
+    /// macros, swapping the workbook, undo of this session's own history) is refused here too,
+    /// and nothing it runs reaches this computer's files.
     pub fn execute_with(&mut self, ctx: &RunCtx, id: &str, params: Json) -> Result<Json> {
+        if disabled(id) || COLLAB_UNDO.contains(&id) {
+            return Err(EngineError::Disabled(id.to_string(), "This isn't available while co-editing".into()));
+        }
+        let sandbox = crate::io::ScriptSandbox::enter();
         let result = self.run_under(ctx, id, params);
+        drop(sandbox);
         // A replayed edit opens no dialogs on this replica.
         self.ui_requests.clear();
         result

@@ -75,3 +75,23 @@ fn a_replayed_edit_is_not_recorded_again() {
     assert!(s.take_outbox().is_empty());
     assert_eq!(v(&s, "A1"), Value::Number(1.0));
 }
+
+/// Another person's edit is replayed on every replica: one that runs code or reaches this
+/// computer's files must not run here, whatever the relay passed on.
+#[test]
+fn a_replayed_edit_cant_run_code_or_read_this_computers_files() {
+    let mut s = s();
+    s.set_recording(false);
+    let ctx = RunCtx::default();
+    for (cmd, p) in
+        [("macro.run", json!({"name": "M"})), ("python.run", json!({})), ("file.open", json!({"path": "/etc/hostname"})), ("edit.undo", json!({}))]
+    {
+        assert!(s.execute_with(&ctx, cmd, p).is_err(), "{cmd} replayed");
+    }
+    let file = std::env::temp_dir().join(format!("gridcraft-collab-replay-{}.csv", std::process::id()));
+    std::fs::write(&file, "secret,1\n").unwrap();
+    let r = s.execute_with(&ctx, "data.fromTextCsv", json!({"path": file.to_str().unwrap()}));
+    let _ = std::fs::remove_file(&file);
+    assert!(r.is_err(), "a replayed import from a local path: {r:?}");
+    assert_eq!(v(&s, "A1"), Value::Empty);
+}
