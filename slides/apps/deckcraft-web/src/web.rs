@@ -30,6 +30,10 @@ pub fn start() {
         {
             create.instance_descriptor.backends = eframe::wgpu::Backends::GL;
         }
+        // `?host=parent`: a same-origin page framing Craft Slides (the embed SDK) opens and saves
+        // its files through `crate::host`.
+        let page_bridge = if query_param("host").as_deref() == Some("parent") { crate::host::Bridge::new() } else { None };
+        let app_bridge = page_bridge.clone();
         let result = eframe::WebRunner::new()
             .start(
                 canvas,
@@ -44,9 +48,21 @@ pub fn start() {
                         return Ok(Box::new(presenter) as Box<dyn eframe::App>);
                     }
                     let inbox: Inbox = Inbox::default();
-                    let mut app = SlideApp::new(Session::new(), services(inbox.clone(), cc.egui_ctx.clone()));
+                    let bridge = app_bridge;
+                    let mut services = services(inbox.clone(), cc.egui_ctx.clone());
+                    if let Some(b) = &bridge {
+                        b.connect(&mut services, cc.egui_ctx.clone());
+                    }
+                    let mut app = SlideApp::new(Session::new(), services);
                     let q = query();
-                    if !q.contains("blank") {
+                    if let Some(author) = query_param("author").filter(|_| bridge.is_some()) {
+                        crate::host::Bridge::set_author(&mut app, &author);
+                    }
+                    if bridge.is_some() {
+                        if let Err(e) = app.run("file.new", serde_json::json!({})) {
+                            log::error!("new presentation: {e}");
+                        }
+                    } else if !q.contains("blank") {
                         if let Err(e) = deckcraft_engine::sample::open_sample(&mut app.session) {
                             log::error!("sample deck: {e}");
                         }
@@ -56,10 +72,19 @@ pub fn start() {
                     if q.contains("show") {
                         app.start_show(0, false);
                     }
-                    Ok(Box::new(WebShell { app, inbox }))
+                    // `?collab=1` (with a host bridge): co-edit the presentation the page's relay shares.
+                    let collab = (bridge.is_some() && query_param("collab").as_deref() == Some("1"))
+                        .then(|| deckcraft_collab::link::CollabLink::new(query_param("docName")));
+                    if let Some(b) = &bridge {
+                        b.post_ready();
+                    }
+                    Ok(Box::new(WebShell { app, inbox, bridge, collab, batch: Default::default(), status: (0, None, 0) }))
                 }),
             )
             .await;
+        if let (Err(e), Some(bridge)) = (&result, &page_bridge) {
+            bridge.post_failed(&format!("{e:?}"));
+        }
         if let Some(el) = document.get_element_by_id(LOADING_ID) {
             match result {
                 Ok(()) => el.remove(),
@@ -73,17 +98,68 @@ fn query() -> String {
     web_sys::window().and_then(|w| w.location().search().ok()).unwrap_or_default()
 }
 
+fn query_param(key: &str) -> Option<String> {
+    web_sys::UrlSearchParams::new_with_str(&query()).ok()?.get(key)
+}
+
 /// Wraps the app to read dropped files asynchronously (browsers can't read them synchronously)
 /// and feed them through the inbox.
 struct WebShell {
     app: SlideApp,
     inbox: Inbox,
+    bridge: Option<crate::host::Bridge>,
+    /// Co-editing (`?collab=1`): the link between the replica and the page's relay.
+    collab: Option<deckcraft_collab::link::CollabLink>,
+    /// Other people's edits wait here to be applied together.
+    batch: craft_collab_link::batch::RemoteBatch,
+    /// The co-editing status last posted to the parent (pending edits, revision, people).
+    status: (usize, Option<u64>, usize),
 }
 
 impl eframe::App for WebShell {
     /// Delegate one eframe logic pass to the wrapped application.
     fn logic(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        let now = ctx.input(|i| i.time) * 1000.0;
+        if let Some(bridge) = &self.bridge {
+            for (name, bytes) in bridge.take_files() {
+                let id = self.app.begin_external_file("open");
+                push_inbox(&self.inbox, InboxEvent::File(InboxFile { id, name, bytes }));
+            }
+        }
+        if let (Some(link), Some(bridge)) = (self.collab.as_mut(), self.bridge.as_ref()) {
+            for msg in bridge.take_collab() {
+                self.batch.push(msg);
+            }
+            for msg in self.batch.release(now) {
+                for out in link.on_message(&msg, &mut self.app.session) {
+                    bridge.post_collab(&out);
+                }
+            }
+            if let Some(wait) = self.batch.wait(now) {
+                ctx.request_repaint_after(std::time::Duration::from_secs_f64(wait / 1000.0));
+            }
+            link.take_document_ready();
+        }
         self.app.logic(ctx);
+        if let (Some(link), Some(bridge)) = (self.collab.as_mut(), self.bridge.as_ref()) {
+            for out in link.tick(&mut self.app.session, now) {
+                bridge.post_collab(&out);
+            }
+            if let Some(note) = link.take_note() {
+                self.app.notify(note);
+            }
+            let status = (link.pending(), link.rev(), link.peers(&self.app.session).len() + 1);
+            if status != self.status {
+                self.status = status;
+                bridge.post_collab_status(status.0, status.1, status.2);
+            }
+            if link.presence_pending() {
+                ctx.request_repaint_after(std::time::Duration::from_millis(100));
+            }
+        }
+        if let Some(bridge) = &self.bridge {
+            bridge.sync(&self.app);
+        }
         if self.app.show.is_none()
             && let Some(host) = self.app.services.presenter.as_mut()
         {

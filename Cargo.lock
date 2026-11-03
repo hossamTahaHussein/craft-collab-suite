@@ -1125,6 +1125,7 @@ dependencies = [
  "base64 0.23.1",
  "craft-collab-core",
  "log",
+ "serde",
  "serde_json",
 ]
 
@@ -1689,6 +1690,8 @@ dependencies = [
 name = "deckcraft-web"
 version = "1.0.2"
 dependencies = [
+ "craft-collab-link",
+ "deckcraft-collab",
  "deckcraft-engine",
  "deckcraft-ui-egui",
  "eframe",
@@ -2823,8 +2826,10 @@ dependencies = [
 name = "gridcraft-web"
 version = "1.0.2"
 dependencies = [
+ "craft-collab-link",
  "eframe",
  "egui",
+ "gridcraft-collab",
  "gridcraft-engine",
  "gridcraft-ui-egui",
  "js-sys",
@@ -8469,6 +8474,7 @@ name = "wordcraft-web"
 version = "1.0.2"
 dependencies = [
  "base64 0.23.1",
+ "craft-collab-link",
  "eframe",
  "egui",
  "js-sys",

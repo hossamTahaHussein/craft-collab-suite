@@ -9,6 +9,9 @@
 //!   as PDF. The parent stores it and reports failures itself.
 //! - `gridcraft:dirty` (to the parent): `{ dirty }` whenever unsaved changes appear or go away.
 //! - `gridcraft:failed` (to the parent): `{ error }` when the app couldn't start.
+//! - `gridcraft:collab` (both ways, with `?collab=1`): `{ msg }`, one co-editing relay message
+//!   as a JSON string (`craft_collab_core::proto`); the parent carries them to and from the relay.
+//! - `gridcraft:collab.status` (to the parent): `{ pending, rev, people }` when any changes.
 //!
 //! Only the parent window on the page's own origin is heard or answered. In host mode the page
 //! starts with an empty workbook instead of a sample, and the parent guards leaving the page.
@@ -37,6 +40,8 @@ pub struct Bridge {
     saved: Rc<RefCell<Vec<String>>>,
     /// The unsaved-changes state last reported to the parent.
     reported: Rc<Cell<Option<bool>>>,
+    /// Co-editing relay messages from the parent, for the next frame.
+    collab: Rc<RefCell<std::collections::VecDeque<String>>>,
 }
 
 impl Bridge {
@@ -48,7 +53,7 @@ impl Bridge {
             return None;
         }
         let origin = window.location().origin().ok()?;
-        Some(Self { window, parent, origin, saved: Rc::default(), reported: Rc::default() })
+        Some(Self { window, parent, origin, saved: Rc::default(), reported: Rc::default(), collab: Rc::default() })
     }
 
     /// Send saved and exported files to the parent instead of downloading them, and hear files
@@ -109,16 +114,45 @@ impl Bridge {
         Ok(())
     }
 
+    /// The co-editing messages the parent sent since the last call.
+    pub fn take_collab(&self) -> Vec<String> {
+        self.collab.borrow_mut().drain(..).collect()
+    }
+
+    /// Send a co-editing message to the relay, through the parent.
+    pub fn post_collab(&self, msg: &str) {
+        self.send(&[("type", "gridcraft:collab".into()), ("msg", msg.into())]);
+    }
+
+    /// Tell the parent how co-editing stands.
+    pub fn post_collab_status(&self, pending: usize, rev: Option<u64>, people: usize) {
+        self.send(&[
+            ("type", "gridcraft:collab.status".into()),
+            ("pending", (pending as f64).into()),
+            ("rev", rev.map_or(JsValue::NULL, |r| (r as f64).into())),
+            ("people", (people as f64).into()),
+        ]);
+    }
+
     fn listen(&self, inbox: Inbox, ctx: egui::Context) {
         let parent = self.parent.clone();
         let origin = self.origin.clone();
+        let collab = self.collab.clone();
         let on_message = Closure::<dyn FnMut(web_sys::MessageEvent)>::new(move |event: web_sys::MessageEvent| {
             if event.origin() != origin || !event.source().is_some_and(|s| js_sys::Object::is(&s, &parent)) {
                 return;
             }
             let data = event.data();
-            if string(&data, "type").as_deref() != Some("gridcraft:open") {
-                return;
+            match string(&data, "type").as_deref() {
+                Some("gridcraft:open") => {}
+                Some("gridcraft:collab") => {
+                    if let Some(msg) = string(&data, "msg") {
+                        collab.borrow_mut().push_back(msg);
+                        ctx.request_repaint();
+                    }
+                    return;
+                }
+                _ => return,
             }
             let name = string(&data, "name").filter(|n| !n.trim().is_empty()).unwrap_or_else(|| "Book.xlsx".to_string());
             let Some(bytes) = bytes(&data) else { return };

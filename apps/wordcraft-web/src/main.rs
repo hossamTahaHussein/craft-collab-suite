@@ -23,7 +23,7 @@ mod perf;
 #[cfg(any(target_arch = "wasm32", test))]
 mod prefs;
 #[cfg(any(target_arch = "wasm32", test))]
-mod remote_batch;
+pub(crate) use craft_collab_link::batch as remote_batch;
 #[cfg(any(target_arch = "wasm32", test))]
 mod save_fallback;
 

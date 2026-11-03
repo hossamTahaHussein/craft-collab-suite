@@ -96,7 +96,10 @@ pub fn start() {
                         }
                         bridge.post_ready();
                     }
-                    Ok(Box::new(WebShell { app, inbox, bridge: app_bridge, prefs }))
+                    // `?collab=1` (with a host bridge): co-edit the workbook the page's relay shares.
+                    let collab = (app_bridge.is_some() && query_param("collab").as_deref() == Some("1"))
+                        .then(|| gridcraft_collab::link::CollabLink::new(query_param("docName")));
+                    Ok(Box::new(WebShell { app, inbox, bridge: app_bridge, prefs, collab, batch: Default::default(), status: (0, None, 0) }))
                 }),
             )
             .await;
@@ -125,6 +128,12 @@ struct WebShell {
     inbox: Inbox,
     bridge: Option<crate::host::Bridge>,
     prefs: crate::prefs::PrefsSync,
+    /// Co-editing (`?collab=1`): the link between the replica and the page's relay.
+    collab: Option<gridcraft_collab::link::CollabLink>,
+    /// Other people's edits wait here to be applied together.
+    batch: craft_collab_link::batch::RemoteBatch,
+    /// The co-editing status last posted to the parent (pending edits, revision, people).
+    status: (usize, Option<u64>, usize),
 }
 
 fn local_storage() -> Option<web_sys::Storage> {
@@ -153,7 +162,40 @@ impl eframe::App for WebShell {
                 }
             });
         }
+        let now = ctx.input(|i| i.time) * 1000.0;
+        if let (Some(link), Some(bridge)) = (self.collab.as_mut(), self.bridge.as_ref()) {
+            for msg in bridge.take_collab() {
+                self.batch.push(msg);
+            }
+            for msg in self.batch.release(now) {
+                for out in link.on_message(&msg, &mut self.app.session) {
+                    bridge.post_collab(&out);
+                }
+            }
+            if let Some(wait) = self.batch.wait(now) {
+                ctx.request_repaint_after(std::time::Duration::from_secs_f64(wait / 1000.0));
+            }
+            if link.take_document_ready() {
+                self.app.backstage = None;
+            }
+        }
         self.app.logic(ctx);
+        if let (Some(link), Some(bridge)) = (self.collab.as_mut(), self.bridge.as_ref()) {
+            for out in link.tick(&mut self.app.session, now) {
+                bridge.post_collab(&out);
+            }
+            if let Some(note) = link.take_note() {
+                self.app.toast = Some((note, gridcraft_ui_egui::now_ms()));
+            }
+            let status = (link.pending(), link.rev(), link.peers(&self.app.session).len() + 1);
+            if status != self.status {
+                self.status = status;
+                bridge.post_collab_status(status.0, status.1, status.2);
+            }
+            if link.presence_pending() {
+                ctx.request_repaint_after(std::time::Duration::from_millis(100));
+            }
+        }
         // Store changed preferences straight away: a reload or closed tab runs no exit code (#1562).
         let changed = self.prefs.changed(&self.app);
         if !changed.is_empty() {
