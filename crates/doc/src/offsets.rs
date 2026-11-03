@@ -6,7 +6,9 @@
 //! survives as `(story, offset)` while the paths around it change, and two documents can be
 //! compared by their linear text to see where an edit happened.
 
-use crate::{Block, Blocks, Document, Paragraph, Path, Pos, StoryRef};
+use std::sync::Arc;
+
+use crate::{Block, Document, Paragraph, Path, Pos, StoryRef};
 
 /// Deeper table nesting than this is not walked (offsets inside it are `None`).
 const MAX_DEPTH: usize = 32;
@@ -17,20 +19,31 @@ const ROW_END: char = '\u{1}';
 
 /// The story's linear text (see the module docs); empty for a story that doesn't exist.
 pub fn linear_text(doc: &Document, story: StoryRef) -> String {
+    doc.story(story).map(|b| blocks_text(b)).unwrap_or_default()
+}
+
+/// The linear text of a run of a story's blocks: the story's linear text is its blocks' texts
+/// one after the other.
+pub fn blocks_text(blocks: &[Arc<Block>]) -> String {
     let mut out = String::new();
-    if let Some(blocks) = doc.story(story) {
-        walk(blocks, &mut Vec::new(), &mut 0, 0, &mut |visit| {
-            match visit {
-                Visit::Para(_, p, _) => {
-                    out.push_str(&p.text);
-                    out.push(PARA_END);
-                }
-                Visit::Marker(c) => out.push(c),
+    walk(blocks, &mut Vec::new(), &mut 0, 0, &mut |visit| {
+        match visit {
+            Visit::Para(_, p, _) => {
+                out.push_str(&p.text);
+                out.push(PARA_END);
             }
-            true
-        });
-    }
+            Visit::Marker(c) => out.push(c),
+        }
+        true
+    });
     out
+}
+
+/// The length of [`blocks_text`], without writing it out.
+pub fn blocks_len(blocks: &[Arc<Block>]) -> usize {
+    let mut len = 0;
+    walk(blocks, &mut Vec::new(), &mut len, 0, &mut |_| true);
+    len
 }
 
 /// The offset of `pos` in its story's linear text; `None` when the paragraph doesn't exist or
@@ -100,7 +113,7 @@ enum Visit<'a> {
 
 /// Visit every paragraph and marker in reading order; the visitor returns false to stop.
 /// Returns false once stopped.
-fn walk(blocks: &Blocks, path: &mut Vec<u32>, offset: &mut usize, depth: usize, visit: &mut dyn FnMut(Visit<'_>) -> bool) -> bool {
+fn walk(blocks: &[Arc<Block>], path: &mut Vec<u32>, offset: &mut usize, depth: usize, visit: &mut dyn FnMut(Visit<'_>) -> bool) -> bool {
     if depth > MAX_DEPTH {
         return true;
     }

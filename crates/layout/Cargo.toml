@@ -22,6 +22,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 image = { workspace = true }
 log = { workspace = true }
+rustc-hash = { workspace = true }
 
 [target.'cfg(all(target_arch = "wasm32", target_os = "unknown"))'.dependencies]
 # The browser clock (`SystemTime::now()`/`Instant::now()` panic on wasm32-unknown-unknown).

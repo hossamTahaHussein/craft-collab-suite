@@ -18,8 +18,12 @@
 mod api;
 #[cfg(any(target_arch = "wasm32", test))]
 mod collab_link;
+#[cfg(test)]
+mod perf;
 #[cfg(any(target_arch = "wasm32", test))]
 mod prefs;
+#[cfg(any(target_arch = "wasm32", test))]
+mod remote_batch;
 #[cfg(any(target_arch = "wasm32", test))]
 mod save_fallback;
 

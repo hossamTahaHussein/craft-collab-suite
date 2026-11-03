@@ -9,6 +9,23 @@
 thread_local! {
     /// The steps counted on this thread (layout runs on the thread that calls it).
     static STEPS: std::cell::Cell<u64> = const { std::cell::Cell::new(0) };
+    /// Paragraphs laid out on this thread ([`crate::para::layout_para`]), cached or not.
+    static PARAS: std::cell::Cell<u64> = const { std::cell::Cell::new(0) };
+}
+
+/// Count one paragraph laid out (nothing outside tests).
+#[inline(always)]
+pub(crate) fn para_laid_out() {
+    #[cfg(test)]
+    PARAS.with(|s| s.set(s.get().saturating_add(1)));
+}
+
+/// The paragraphs `f` lays out.
+#[cfg(test)]
+pub(crate) fn paras(f: impl FnOnce()) -> u64 {
+    let before = PARAS.with(std::cell::Cell::get);
+    f();
+    PARAS.with(std::cell::Cell::get).saturating_sub(before)
 }
 
 /// Count `n` steps of a walk (nothing outside tests).

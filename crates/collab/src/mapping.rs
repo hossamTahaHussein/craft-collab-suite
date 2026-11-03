@@ -5,7 +5,7 @@
 use std::collections::BTreeSet;
 use std::sync::Arc;
 
-use wordcraft_doc::offsets::linear_text;
+use wordcraft_doc::offsets::{blocks_len, blocks_text, linear_text};
 use wordcraft_doc::{Blocks, Document, StoryRef};
 
 /// The changed part of a text: `start..old_end` before became `start..new_end` after. All three
@@ -98,10 +98,60 @@ fn same_blocks(a: &Blocks, b: &Blocks) -> bool {
 /// What changed in each story; in the story of `hint` (the edit's selection start), the change is
 /// placed there when it could be (`mapping::span_near`).
 pub fn changes(before: &Document, after: &Document, hint: Option<(StoryRef, usize)>) -> Vec<(StoryRef, Span)> {
-    changed_stories(before, after)
-        .into_iter()
-        .filter_map(|story| diff_near(&linear_text(before, story), &linear_text(after, story), story, hint).map(|s| (story, s)))
-        .collect()
+    changed_stories(before, after).into_iter().filter_map(|story| story_diff(before, after, story, hint).map(|s| (story, s))).collect()
+}
+
+/// [`diff_near`] of the story's linear texts in `before` and `after`. The blocks the two share
+/// at the start and the end (an edit copies only the blocks it touches) are measured, not
+/// written out and compared: only the blocks between are. Where that could give another answer
+/// (the change reaches the shared blocks, or `hint` sits before it) the whole texts are compared.
+pub fn story_diff(before: &Document, after: &Document, story: StoryRef, hint: Option<(StoryRef, usize)>) -> Option<Span> {
+    if let Some(exact) = middle_diff(before, after, story, hint) {
+        return exact;
+    }
+    diff_near(&linear_text(before, story), &linear_text(after, story), story, hint)
+}
+
+/// [`story_diff`] from the blocks between the shared ones; `None` when it must compare the
+/// whole texts.
+fn middle_diff(before: &Document, after: &Document, story: StoryRef, hint: Option<(StoryRef, usize)>) -> Option<Option<Span>> {
+    let (a, b) = (before.story(story)?, after.story(story)?);
+    let lead_blocks = a.iter().zip(b).take_while(|(x, y)| Arc::ptr_eq(x, y)).count();
+    let room = a.len().min(b.len()) - lead_blocks;
+    let tail_blocks = a.iter().rev().zip(b.iter().rev()).take(room).take_while(|(x, y)| Arc::ptr_eq(x, y)).count();
+    if lead_blocks + tail_blocks == 0 {
+        return None;
+    }
+    let (am, bm) = (blocks_text(&a[lead_blocks..a.len() - tail_blocks]), blocks_text(&b[lead_blocks..b.len() - tail_blocks]));
+    if am == bm {
+        return Some(None);
+    }
+    let (lead, tail) = (blocks_len(&a[..lead_blocks]), blocks_len(&a[a.len() - tail_blocks..]));
+    let (x, y) = (am.as_bytes(), bm.as_bytes());
+    let shorter = x.len().min(y.len());
+    // As `span` on the whole texts: the shared start, then the shared end in the room left.
+    let prefix = x.iter().zip(y).take_while(|(p, q)| p == q).count();
+    if prefix == shorter {
+        return None;
+    }
+    let mut start = prefix;
+    while start > 0 && !am.is_char_boundary(start) {
+        start -= 1;
+    }
+    let suffix = x.iter().rev().zip(y.iter().rev()).take_while(|(p, q)| p == q).count();
+    if suffix >= shorter || tail + suffix >= shorter + tail - start {
+        return None;
+    }
+    let (mut old_end, mut new_end) = (x.len() - suffix, y.len() - suffix);
+    while !am.is_char_boundary(old_end) || !bm.is_char_boundary(new_end) {
+        old_end += 1;
+        new_end += 1;
+    }
+    let s = Span { start: lead + start, old_end: lead + old_end, new_end: lead + new_end };
+    match hint {
+        Some((hs, h)) if hs == story && h < s.start => None,
+        _ => Some(Some(s)),
+    }
 }
 
 pub fn diff_near(before: &str, after: &str, story: StoryRef, hint: Option<(StoryRef, usize)>) -> Option<Span> {
@@ -209,6 +259,59 @@ mod tests {
 
     fn para(s: &str) -> Arc<Block> {
         Arc::new(Block::Para(Paragraph::with_text(s, Default::default())))
+    }
+
+    /// Documents for [`story_diff`]: paragraphs of a few repeated letters (so changes are often
+    /// ambiguous) and a table, an edit's copy sharing the blocks it didn't touch.
+    fn edited(texts: &[String], table_at: usize, edit: (u8, usize, usize, String)) -> (Document, Document) {
+        let mut a = Document::new();
+        a.body = texts.iter().map(|t| para(t)).collect();
+        let mut t = wordcraft_doc::Table::new(1, 2, 200.0);
+        t.rows[0].cells[0] = wordcraft_doc::table::Cell::with_text("ab");
+        t.rows[0].cells[1] = wordcraft_doc::table::Cell::with_text("ba");
+        a.body.insert(table_at.min(a.body.len()), Arc::new(Block::Table(t)));
+        let mut b = a.clone();
+        let (kind, i, at, text) = edit;
+        let i = i % b.body.len();
+        match kind % 4 {
+            // Type into or delete from paragraph i.
+            0 | 1 => {
+                if let Block::Para(p) = &*b.body[i] {
+                    let mut s = p.text.clone();
+                    let at = at % (s.len() + 1);
+                    if kind % 4 == 0 {
+                        s.insert_str(at, &text);
+                    } else {
+                        s.replace_range(at..(at + text.len()).min(s.len()), "");
+                    }
+                    b.body[i] = para(&s);
+                }
+            }
+            2 => b.body.insert(i, para(&text)),
+            _ => {
+                if b.body.len() > 1 {
+                    b.body.remove(i);
+                }
+            }
+        }
+        (a, b)
+    }
+
+    proptest::proptest! {
+        /// The fast comparison gives exactly what comparing the whole linear texts gives: every
+        /// replica must place an edit the same way, whichever it ran.
+        #[test]
+        fn story_diff_matches_comparing_the_whole_texts(
+            texts in proptest::collection::vec("[ab]{0,6}", 1..8),
+            table_at in 0usize..9,
+            edit in (0u8..4, 0usize..9, 0usize..8, "[ab]{1,3}"),
+            hint in proptest::option::of(0usize..80),
+        ) {
+            let (a, b) = edited(&texts, table_at, edit);
+            let hint = hint.map(|h| (StoryRef::Body, h));
+            let whole = diff_near(&linear_text(&a, StoryRef::Body), &linear_text(&b, StoryRef::Body), StoryRef::Body, hint);
+            proptest::prop_assert_eq!(story_diff(&a, &b, StoryRef::Body, hint), whole);
+        }
     }
 
     #[test]

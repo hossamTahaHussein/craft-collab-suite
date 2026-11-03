@@ -117,6 +117,7 @@ pub fn start() {
                         bridge: app_bridge.clone(),
                         collab_status: (0, None, 1),
                         watcher: crate::api::Watcher::default(),
+                        batch: crate::remote_batch::RemoteBatch::default(),
                     }))
                 }),
             )
@@ -158,6 +159,8 @@ struct WebShell {
     collab_status: (usize, Option<u64>, usize),
     /// What the page's JavaScript API was last told (`crate::api::Watcher`).
     watcher: crate::api::Watcher,
+    /// Other people's edits wait here to be applied together (`crate::remote_batch`).
+    batch: crate::remote_batch::RemoteBatch,
 }
 
 fn local_storage() -> Option<web_sys::Storage> {
@@ -180,9 +183,16 @@ impl eframe::App for WebShell {
         }
         if let (Some(link), Some(bridge)) = (self.collab.as_mut(), self.bridge.as_ref()) {
             for msg in bridge.take_collab() {
+                self.batch.push(msg);
+            }
+            let now = ctx.input(|i| i.time) * 1000.0;
+            for msg in self.batch.release(now) {
                 for out in link.on_message(&msg, &mut self.app.session) {
                     bridge.post_collab(&out);
                 }
+            }
+            if let Some(wait) = self.batch.wait(now) {
+                ctx.request_repaint_after(std::time::Duration::from_secs_f64(wait / 1000.0));
             }
             if link.take_document_ready() {
                 self.app.ui.backstage = false;

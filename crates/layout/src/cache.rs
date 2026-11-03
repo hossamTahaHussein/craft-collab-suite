@@ -9,7 +9,8 @@ use super::{
 pub(crate) struct Key {
     pub(crate) rev: u64,
     pub(crate) width: u32,
-    pub(crate) label: Option<String>,
+    /// The label's text and its level's look ([`LayoutCache::level_key`]).
+    pub(crate) label: Option<(String, u64)>,
     pub(crate) page: Option<(u32, u32, u32, u32, u64, wordcraft_doc::section::NumFormat)>,
     /// The pages a split paragraph's fields are on after its first (`FieldCtx::page_from`).
     pub(crate) page_from: u64,
@@ -29,23 +30,33 @@ pub(crate) struct Key {
     pub(crate) typing: Option<(usize, usize)>,
 }
 
+/// List levels [`LayoutCache::level_key`] remembers (a document has a few).
+const MAX_LEVELS: usize = 64;
+
+/// The paragraph cache's maps: their keys are hashed several times per paragraph on every
+/// layout, so they use a fast hasher (the keys aren't chosen by anyone who could attack it).
+type FastMap<K, V> = HashMap<K, V, rustc_hash::FxBuildHasher>;
+
 /// Memoised paragraph layouts.
 #[derive(Default)]
 pub struct LayoutCache {
-    pub(crate) paras: HashMap<Key, Arc<ParaLayout>>,
+    pub(crate) paras: FastMap<Key, Arc<ParaLayout>>,
     /// Narrowest and widest content of paragraphs measured for table autofit ([`Ctx::para_measured`]).
-    pub(crate) measures: HashMap<Key, (f32, f32)>,
+    pub(crate) measures: FastMap<Key, (f32, f32)>,
     /// Outlines of pictures' opaque pixels (Tight and Through wrapping), by media key, the
     /// media's bytes (address and length) and crop. Kept from one layout to the next, so each
     /// entry holds a weak reference to its bytes: their allocation isn't freed while the entry is
     /// kept, so no other picture's bytes can come to have its address ([`Outlines`]).
     pub(crate) outlines: Outlines,
     pub(crate) env: u64,
-    pub(crate) used: HashSet<Key>,
+    pub(crate) used: HashSet<Key, rustc_hash::FxBuildHasher>,
     /// The STYLEREF style index of the last pass and what it was built from: the body blocks
     /// (shared, so an edited block is a different pointer) and `env` (styles and numbering). Kept
     /// while both are unchanged, so headers using STYLEREF don't rebuild it on every pass.
     pub(crate) styleref: Option<(Blocks, u64, Arc<styleref::StyleIndex>)>,
+    /// List levels met and a fingerprint of how each lays out its label (written out once per
+    /// level, not once per paragraph).
+    pub(crate) levels: Vec<(wordcraft_doc::numbering::Level, u64)>,
     pub hits: u64,
     pub misses: u64,
 }
@@ -65,6 +76,20 @@ impl LayoutCache {
         self.measures.clear();
         self.outlines.clear();
         self.styleref = None;
+        self.levels.clear();
+    }
+
+    /// A fingerprint of what of list level `l` a paragraph's layout depends on.
+    pub(crate) fn level_key(&mut self, l: &wordcraft_doc::numbering::Level) -> u64 {
+        if let Some((_, k)) = self.levels.iter().find(|(m, _)| m == l) {
+            return *k;
+        }
+        let k = hash_of(&format!("{}|{}|{:?}|{:?}|{:?}|{:?}", l.indent, l.hanging, l.suffix, l.align, l.tab, l.chr));
+        if self.levels.len() >= MAX_LEVELS {
+            self.levels.clear();
+        }
+        self.levels.push((l.clone(), k));
+        k
     }
 
     /// The STYLEREF style index for `doc`, rebuilt only when the body or the styles changed.

@@ -2487,6 +2487,31 @@ fn kept_headings_measure_the_next_paragraph_through_the_cache() {
     assert_eq!(starts(&l), starts(&proofed));
 }
 
+/// With spelling and grammar marked, a heading kept with its paragraph still measures that
+/// paragraph through the cache: laying the document out again after an edit lays out only the
+/// edited paragraph, not every paragraph after a heading (co-editing a long document relaid it
+/// out on every keystroke).
+#[test]
+fn kept_headings_measure_the_next_paragraph_through_the_cache_with_proofing() {
+    let mut d = Document::new();
+    let kept = ParaProps { keep_next: Some(true), ..Default::default() };
+    for i in 0..40 {
+        let mut heading = wordcraft_doc::Paragraph::with_text(&format!("Heading {i}"), Default::default());
+        heading.props = kept.clone();
+        d.body.push(wordcraft_doc::para_block(heading));
+        let body = format!("Body text {i} under its heading, long enough to wrap onto a second line in the column. ").repeat(3);
+        d.body.push(wordcraft_doc::para_block(wordcraft_doc::Paragraph::with_text(&body, Default::default())));
+    }
+    let opts = LayoutOptions { proofing: true, ..Default::default() };
+    let mut c = LayoutCache::new();
+    let first = work::paras(|| drop(layout(&d, &mut c, &opts)));
+    assert_eq!(first, d.body.len() as u64, "each paragraph laid out once");
+    let last = d.body.len() - 1;
+    d.insert_text(&Pos::body(last, 0), "x", &Default::default()).unwrap();
+    let again = work::paras(|| drop(layout(&d, &mut c, &opts)));
+    assert_eq!(again, 1, "only the edited paragraph is laid out again");
+}
+
 /// Autofit measures every cell at an unbounded width; the cache keeps what it measured, not
 /// those layouts, so a long table holds one layout per cell paragraph. Laying the document out
 /// again after an edit elsewhere measures nothing again.

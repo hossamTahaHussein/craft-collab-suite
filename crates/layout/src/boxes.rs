@@ -563,8 +563,13 @@ pub(crate) fn fit_box(items: Vec<Placed>, height: f32) -> Vec<Placed> {
 /// border goes above the first of them only, the bottom one below the last, and the shading and
 /// side borders run on through the space between them (`table`: the cell's paragraph properties).
 fn border_group(doc: &Document, a: &Paragraph, b: &Paragraph, table: Option<&wordcraft_doc::props::ParaProps>) -> bool {
-    let (a, b) = (doc.styles.resolve_para_in(&a.props, table), doc.styles.resolve_para_in(&b.props, table));
-    a.borders.is_some() && a.borders == b.borders && a.indent_left == b.indent_left && a.indent_right == b.indent_right
+    // Most paragraphs have no border: the other one's style is looked up only when this one has.
+    let a = doc.styles.resolve_para_in(&a.props, table);
+    if a.borders.is_none() {
+        return false;
+    }
+    let b = doc.styles.resolve_para_in(&b.props, table);
+    a.borders == b.borders && a.indent_left == b.indent_left && a.indent_right == b.indent_right
 }
 
 /// Whether paragraph `i` of `blocks` and the one at `j` are of one border group.

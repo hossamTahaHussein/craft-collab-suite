@@ -11,7 +11,6 @@
 use std::collections::{BTreeSet, VecDeque};
 
 use wordcraft_doc::Document;
-use wordcraft_doc::offsets::linear_text;
 use wordcraft_engine::Session;
 
 use crate::proto::{Op, OpKind};
@@ -137,7 +136,7 @@ impl UndoLog {
         let mut new = headless(self.checkpoints[ci].1.clone());
         for entry in self.entries.iter_mut().filter(|e| e.rev > start) {
             let story = entry.op.sel.story;
-            let moved = crate::mapping::diff_near(&linear_text(&old.doc, story), &linear_text(&new.doc, story), story, None);
+            let moved = crate::mapping::story_diff(&old.doc, &new.doc, story, None);
             let mut new_sel = crate::replica::move_anchor(&entry.op.sel, moved.as_ref());
             // Redoing a run of typing: each piece goes after the one redone before it, not at
             // the same place (a position at an insertion stays before it otherwise).

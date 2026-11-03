@@ -16,12 +16,12 @@
 use std::collections::VecDeque;
 
 use serde_json::Value;
-use wordcraft_doc::offsets::{linear_text, offset_of, pos_at};
+use wordcraft_doc::offsets::{offset_of, pos_at};
 use wordcraft_doc::{Document, Pos, StoryRef};
 use wordcraft_engine::{Selection, Session};
 
 use crate::hash::{HASH_EVERY, doc_hash};
-use crate::mapping::{Span, changes, map, span};
+use crate::mapping::{Span, changes, map};
 use crate::proto::{Anchor, HistEntry, HistSpan, Op, OpKind, Outbound};
 use crate::undo::UndoLog;
 
@@ -570,14 +570,14 @@ impl Replica {
                 continue;
             }
             let story = op.sel.story;
-            let old_text = linear_text(&self.scratch.doc, story);
-            let moved = crate::mapping::diff_near(&old_text, &linear_text(&visible.doc, story), story, hint);
+            let moved = crate::mapping::story_diff(&self.scratch.doc, &visible.doc, story, hint);
             let new_sel = move_anchor(&op.sel, moved.as_ref());
+            let old_chain = self.scratch.doc.clone();
             let _ = run_at(&mut self.scratch, &op, &op.sel.clone());
             // The remote change's place moves with this edit on the old chain.
             if let Some((hs, h)) = hint
                 && hs == story
-                && let Some(own) = span(&old_text, &linear_text(&self.scratch.doc, story))
+                && let Some(own) = crate::mapping::story_diff(&old_chain, &self.scratch.doc, story, None)
             {
                 hint = Some((hs, map(&own, h, false)));
             }
@@ -596,7 +596,7 @@ impl Replica {
         visible.viewing = viewing;
         self.pending = kept;
         if let Some(a) = caret {
-            let moved = crate::mapping::diff_near(&linear_text(&old_visible, a.story), &linear_text(&visible.doc, a.story), a.story, hint);
+            let moved = crate::mapping::story_diff(&old_visible, &visible.doc, a.story, hint);
             visible.sel = selection_at(&visible.doc, &move_anchor(&a, moved.as_ref()));
         }
         visible.clamp_selection();

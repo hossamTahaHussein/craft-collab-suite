@@ -246,16 +246,16 @@ impl Ctx<'_> {
     }
 
     /// `p` laid out on its own, as the paragraph after a kept one is measured before it is placed
-    /// (no wrap areas, proofing, typed word or resized text boxes), through the cache when
-    /// [`Ctx::para_labelled`] would lay it out with those same inputs: it is then not laid out a
-    /// second time when it is placed. Counts nothing (list labels, equation numbers, page totals).
-    /// `None` when the inputs differ.
+    /// (no wrap areas, typed word or resized text boxes; marked for spelling when proofing is on, as
+    /// it will be placed), through the cache when [`Ctx::para_labelled`] would lay it out with those
+    /// same inputs: it is then not laid out a second time when it is placed. Counts nothing (list
+    /// labels, equation numbers, page totals). `None` when the inputs differ.
     pub(crate) fn para_ahead(&mut self, p: &Paragraph, width: f32, label: Option<(String, Level)>) -> Option<Arc<ParaLayout>> {
         let resized = p
             .objects
             .iter()
             .any(|o| matches!(o, InlineObject::Shape { story: Some(_), float, .. } if float.wrap == Wrap::Inline && float.rot == 0.0));
-        if self.opts.proofing || self.boxes.inside() || resized || self.hide_deleted != self.opts.hides_deleted(StoryRef::Body) {
+        if self.boxes.inside() || resized || self.hide_deleted != self.opts.hides_deleted(StoryRef::Body) {
             return None;
         }
         let kept = (self.eq_count, self.uses_totals);
@@ -360,7 +360,7 @@ impl Ctx<'_> {
         let key = Key {
             rev: p.rev,
             width: width.to_bits(),
-            label: label.map(|(t, l)| format!("{t}|{}|{}|{:?}|{:?}|{:?}|{:?}", l.indent, l.hanging, l.suffix, l.align, l.tab, l.chr)),
+            label: label.map(|(t, l)| (t.clone(), self.cache.level_key(l))),
             page_from: if page.is_some() && !self.fields.page_from.is_empty() { hash_of(&self.fields.page_from) } else { 0 },
             page,
             table: table.map(|t| self.table_key(t)).unwrap_or(0),
