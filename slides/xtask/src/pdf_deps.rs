@@ -85,7 +85,10 @@ fn validate(metadata: &Value) -> Result<(), String> {
         let features = node.get("features").and_then(Value::as_array).ok_or_else(|| format!("{name}: no resolved features"))?;
         let actual: BTreeSet<_> = features.iter().filter_map(Value::as_str).collect();
         let expected: BTreeSet<_> = expected_features.into_iter().collect();
-        if actual != expected {
+        // The development parser is shared with the suite's other apps, whose tests turn on more
+        // of its features: it needs at least its own, and stays out of production (below).
+        let parser = name == "hayro-syntax";
+        if (parser && !expected.is_subset(&actual)) || (!parser && actual != expected) {
             return Err(format!("{name}: expected features {expected:?}; got {features:?}"));
         }
     }
@@ -193,12 +196,21 @@ mod tests {
             (1, json!(["write", "write-simple-text", "write-pdf"])),
             (2, json!(["raster-images", "rayon", "simple-text", "pdf"])),
             (2, json!(["raster-images"])),
-            (3, json!(["std", "images"])),
+            (3, json!([])),
         ] {
             let mut m = metadata();
             m["resolve"]["nodes"][node]["features"] = features;
             assert!(validate(&m).is_err());
         }
+    }
+
+    /// In the suite workspace the development parser is shared with Docs' tests, which turn on
+    /// more of its features; what matters is that it stays out of the production exporter.
+    #[test]
+    fn the_development_parser_may_have_other_apps_features() {
+        let mut m = metadata();
+        m["resolve"]["nodes"][3]["features"] = json!(["default", "images", "std", "unsafe"]);
+        assert!(validate(&m).is_ok());
     }
 
     #[test]

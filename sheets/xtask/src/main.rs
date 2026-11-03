@@ -168,7 +168,14 @@ fn cmd_wasm() -> Result<(), String> {
 
 /// Targets for the test build. Examples are left out so they aren't linked; clippy
 /// `--all-targets` still compiles them.
-const TEST_TARGETS: [&str; 4] = ["--workspace", "--lib", "--bins", "--tests"];
+const TEST_TARGETS: [&str; 3] = ["--lib", "--bins", "--tests"];
+
+/// `-p <name>` for every crate this app's gate covers ([`judged_here`]): the suite workspace holds
+/// three apps (Docs, Sheets, Slides), and each app's gate formats, lints and tests only its own.
+fn own_packages() -> Result<Vec<String>, String> {
+    let crates = layers::from_metadata(&metadata()?)?;
+    Ok(crates.into_iter().filter(|c| judged_here(&c.name)).flat_map(|c| ["-p".to_string(), c.name]).collect())
+}
 
 fn nextest_available() -> bool {
     cargo().args(["nextest", "--version"]).stdout(Stdio::null()).stderr(Stdio::null()).status().is_ok_and(|s| s.success())
@@ -184,15 +191,15 @@ fn cmd_test() -> Result<(), String> {
         c.arg("test");
         "test"
     };
-    c.args(TEST_TARGETS);
-    run(c, &format!("cargo {tool} {}", TEST_TARGETS.join(" ")))
+    c.args(own_packages()?).args(TEST_TARGETS);
+    run(c, &format!("cargo {tool} (this app's packages) {}", TEST_TARGETS.join(" ")))
 }
 
 /// nextest does not run doctests.
 fn cmd_doctest() -> Result<(), String> {
     let mut c = cargo();
-    c.args(["test", "--workspace", "--doc"]);
-    run(c, "cargo test --workspace --doc")
+    c.args(["test", "--doc"]).args(own_packages()?);
+    run(c, "cargo test --doc (this app's packages)")
 }
 
 fn cmd_ci() -> Result<(), String> {
@@ -204,16 +211,16 @@ fn cmd_ci() -> Result<(), String> {
             "fmt",
             Box::new(|| {
                 let mut c = cargo();
-                c.args(["fmt", "--all", "--", "--check"]);
-                run(c, "cargo fmt --all -- --check")
+                c.arg("fmt").args(own_packages()?).args(["--", "--check"]);
+                run(c, "cargo fmt (this app's packages) -- --check")
             }),
         ),
         (
             "clippy",
             Box::new(|| {
                 let mut c = cargo();
-                c.args(["clippy", "--workspace", "--all-targets", "--keep-going", "--", "-D", "warnings"]);
-                run(c, "cargo clippy --workspace --all-targets --keep-going -- -D warnings")
+                c.arg("clippy").args(own_packages()?).args(["--all-targets", "--keep-going", "--", "-D", "warnings"]);
+                run(c, "cargo clippy (this app's packages) --all-targets --keep-going -- -D warnings")
             }),
         ),
         ("test", Box::new(cmd_test)),
@@ -260,5 +267,13 @@ mod judged_here_tests {
     fn each_app_judges_only_its_own_crates() {
         assert!(super::judged_here("gridcraft-engine"));
         assert!(!super::judged_here("wordcraft-engine"));
+    }
+
+    #[test]
+    fn the_gate_names_only_this_apps_packages() {
+        let args = super::own_packages().unwrap();
+        assert!(args.iter().any(|a| a == "gridcraft-engine"), "{args:?}");
+        assert!(!args.iter().any(|a| a == "wordcraft-engine"), "{args:?}");
+        assert!(args.chunks(2).all(|p| p[0] == "-p"));
     }
 }

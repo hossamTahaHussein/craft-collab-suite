@@ -1,7 +1,10 @@
 name: CI
 
-# Quality gates for every push to main and every pull request (`cargo xtask ci`), through the
-# suite's shared gate workflow in craft-common-actions.
+# Quality gates for every push to main and every pull request, through the suite's shared gate
+# workflow in craft-common-actions. The repository holds three apps: Docs (the root), Craft Sheets
+# (sheets/) and Craft Slides (slides/). Each has its own gate (`cargo xtask ci`,
+# `cargo xtask-sheets ci`, `cargo xtask-slides ci`) over its own packages, and runs when its files
+# or the shared ones (the workspace manifest, shared crates, CI) change.
 on:
   push:
     branches: [main]
@@ -17,12 +20,77 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  gate:
+  changes:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      docs: ${{ steps.filter.outputs.docs }}
+      sheets: ${{ steps.filter.outputs.sheets }}
+      slides: ${{ steps.filter.outputs.slides }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - id: filter
+        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        with:
+          filters: |
+            shared: &shared
+              - Cargo.toml
+              - Cargo.lock
+              - .cargo/**
+              - .config/**
+              - rustfmt.toml
+              - clippy.toml
+              - .github/workflows/ci.yml
+              - xtask/**
+            docs:
+              - *shared
+              - crates/**
+              - apps/**
+              - assets/**
+              - i18n/**
+            sheets:
+              - *shared
+              - sheets/**
+            slides:
+              - *shared
+              - slides/**
+
+  docs:
+    needs: changes
+    if: needs.changes.outputs.docs == 'true' || github.event_name != 'pull_request'
     # Tracks @main so suite-wide CI fixes reach every app without a PR in each repository.
     uses: storytold/craft-common-actions/.github/workflows/gate.yml@main
     with:
+      command: cargo xtask ci
       # Same craft-fonts commit as release.yml.
       craft-fonts-ref: b076417b5880bd4154bd22f00695b1d28c6bea83
       packages: >-
         pkg-config libxkbcommon-dev libwayland-dev libx11-dev libxcursor-dev libxrandr-dev libxi-dev
         libgtk-3-dev libfontconfig1-dev libfreetype-dev mesa-vulkan-drivers
+
+  sheets:
+    needs: changes
+    if: needs.changes.outputs.sheets == 'true' || github.event_name != 'pull_request'
+    uses: storytold/craft-common-actions/.github/workflows/gate.yml@main
+    with:
+      command: cargo xtask-sheets ci
+      # One craft-fonts commit for Sheets and Slides (DeckCraft's pin, one ahead of GridCraft's).
+      craft-fonts-ref: 37827adc41fd165f9a9234ac40f94dbad353aa69
+      packages: >-
+        pkg-config libxkbcommon-dev libwayland-dev libx11-dev libxcursor-dev libxrandr-dev libxi-dev
+        libgtk-3-dev libfontconfig1-dev libfreetype-dev mesa-vulkan-drivers
+
+  slides:
+    needs: changes
+    if: needs.changes.outputs.slides == 'true' || github.event_name != 'pull_request'
+    uses: storytold/craft-common-actions/.github/workflows/gate.yml@main
+    with:
+      command: cargo xtask-slides ci
+      craft-fonts-ref: 37827adc41fd165f9a9234ac40f94dbad353aa69
+      packages: >-
+        pkg-config libasound2-dev libxkbcommon-dev libwayland-dev libx11-dev libxcursor-dev libxrandr-dev
+        libxi-dev libgtk-3-dev libfontconfig1-dev libfreetype-dev mesa-vulkan-drivers
