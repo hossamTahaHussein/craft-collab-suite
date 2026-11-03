@@ -1,0 +1,20 @@
+[package]
+name = "deckcraft-collab"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Craft Slides co-editing: a presentation as the suite's co-editing core sees it (no I/O, no UI)"
+
+[lints]
+workspace = true
+
+[dependencies]
+craft-collab-core = { workspace = true }
+deckcraft-model = { workspace = true }
+deckcraft-engine = { workspace = true }
+deckcraft-format = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+proptest = { workspace = true }

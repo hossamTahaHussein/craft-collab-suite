@@ -880,10 +880,10 @@ pub(crate) fn push_undo(st: &mut DocState, e: HistoryEntry) {
 
 pub mod collab;
 #[cfg(test)]
-mod tests_collab;
-#[cfg(test)]
 mod soak_tests;
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod tests_collab;
 #[cfg(test)]
 mod tests_keys;

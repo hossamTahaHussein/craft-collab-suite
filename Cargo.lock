@@ -1407,6 +1407,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "deckcraft-collab"
+version = "1.0.2"
+dependencies = [
+ "craft-collab-core",
+ "deckcraft-engine",
+ "deckcraft-format",
+ "deckcraft-model",
+ "proptest",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "deckcraft-color"
 version = "1.0.2"
 dependencies = [
@@ -1418,6 +1431,7 @@ name = "deckcraft-engine"
 version = "1.0.2"
 dependencies = [
  "chrono",
+ "craft-collab-core",
  "deckcraft-anim",
  "deckcraft-color",
  "deckcraft-fonts",

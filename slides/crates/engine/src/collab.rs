@@ -94,6 +94,9 @@ pub struct Recorded {
     pub params: Value,
     pub place: Option<SlidePlace>,
     pub ctx: RunCtx,
+    /// The presentation as it was before the edit ran: what its place and its parameters (a
+    /// slide index, a text position) referred to.
+    pub before: Option<Arc<Presentation>>,
 }
 
 #[derive(Debug)]
@@ -243,7 +246,8 @@ impl Session {
         if COLLAB_UNDO.contains(&id) && person {
             let place = self.collab_place();
             let ctx = self.run_ctx();
-            self.collab.outbox.push(Recorded { id: id.into(), params: params.clone(), place, ctx });
+            let before = self.active().map(|d| d.doc.clone());
+            self.collab.outbox.push(Recorded { id: id.into(), params: params.clone(), place, ctx, before });
             return Ok(serde_json::json!({"queued": true}));
         }
         // Every copy replays the edit, and they can't read this computer's files.
@@ -270,7 +274,8 @@ impl Session {
             _ => false,
         };
         if result.is_ok() && changed {
-            self.collab.outbox.push(Recorded { id: id.into(), params: params.clone(), place, ctx });
+            let before = before.map(|(_, doc)| doc);
+            self.collab.outbox.push(Recorded { id: id.into(), params: params.clone(), place, ctx, before });
         }
         result
     }

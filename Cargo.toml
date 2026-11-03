@@ -68,6 +68,7 @@ deckcraft-format = { path = "slides/crates/format" }
 deckcraft-anim = { path = "slides/crates/anim" }
 deckcraft-engine = { path = "slides/crates/engine" }
 deckcraft-mcp = { path = "slides/crates/mcp" }
+deckcraft-collab = { path = "slides/crates/collab" }
 deckcraft-ui-egui = { path = "slides/crates/ui-egui" }
 deckcraft-media = { path = "slides/crates/media" }
 # codecs (ported from FilmCraft, same owner and licence)
