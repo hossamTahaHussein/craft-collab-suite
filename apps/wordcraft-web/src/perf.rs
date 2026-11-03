@@ -82,7 +82,7 @@ impl Relay {
                 t.next += period;
                 t.seq += 1;
                 // Words of five letters and a space.
-                let ch = if t.seq % 6 == 0 { " " } else { &"wordc"[(t.seq % 6) as usize - 1..(t.seq % 6) as usize] };
+                let ch = if t.seq.is_multiple_of(6) { " " } else { &"wordc"[(t.seq % 6) as usize - 1..(t.seq % 6) as usize] };
                 let ctx = RunCtx { author: t.name.clone(), time: 1_790_000_000, ..Default::default() };
                 let op = Op {
                     client: t.client.clone(),

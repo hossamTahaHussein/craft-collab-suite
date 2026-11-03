@@ -87,6 +87,16 @@ impl Session {
     /// for this command only, and the session's own are put back afterwards. Tracking stays as
     /// the command left it when the command itself switched it (Review › Track Changes).
     pub fn run_with(&mut self, ctx: &RunCtx, id: &str, params: &Value) -> Result<Value, CmdError> {
+        // The edit came from someone else, through the relay: what co-editing refuses is refused
+        // here too, and nothing it runs reaches this computer's files.
+        if crate::outbox::COLLAB_DISABLED.contains(&id) || NONDETERMINISTIC.iter().any(|(nd, _)| *nd == id) {
+            return Err(CmdError::Disabled(format!("{id}: Not available while co-editing")));
+        }
+        let none = crate::file_access::AutomationRoots::none();
+        crate::file_access::confine(Some(&none), || self.run_with_ctx(ctx, id, params))
+    }
+
+    fn run_with_ctx(&mut self, ctx: &RunCtx, id: &str, params: &Value) -> Result<Value, CmdError> {
         let author = std::mem::replace(&mut self.author, ctx.author.clone());
         let initials = std::mem::replace(&mut self.initials, ctx.initials.clone());
         let autocorrect = std::mem::replace(&mut self.prefs.autocorrect, ctx.editing.autocorrect.clone());
@@ -113,3 +123,19 @@ impl Session {
 /// Commands that don't give the same document on every replica even under [`Session::run_with`]
 /// (id, why). Co-editing refuses them.
 pub const NONDETERMINISTIC: &[(&str, &str)] = &[];
+
+/// What the suite's co-editing core reads from an edit's context.
+impl craft_collab_core::CollabCtx for RunCtx {
+    fn author(&self) -> &str {
+        &self.author
+    }
+    fn time(&self) -> u64 {
+        self.time
+    }
+    fn track(&self) -> bool {
+        self.track
+    }
+    fn api(&self) -> bool {
+        self.api
+    }
+}

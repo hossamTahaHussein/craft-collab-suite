@@ -99,3 +99,25 @@ fn every_mutating_command_is_deterministic_under_run_with() {
     }
     assert!(differ.is_empty(), "nondeterministic under run_with: {differ:#?}");
 }
+
+/// Another person's edit is replayed on every replica (`run_with`): one that would read this
+/// computer's files, or that co-editing refuses, must not run here, whatever the relay passed on.
+#[test]
+fn a_replayed_edit_cant_read_this_computers_files() {
+    let png = std::env::temp_dir().join(format!("wordcraft-replay-{}.png", std::process::id()));
+    // A real 1×1 PNG: only the file access rule can stop it.
+    let bytes: &[u8] = &[
+        137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82, 0, 0, 0, 1, 0, 0, 0, 1, 8, 6, 0, 0, 0, 31, 21, 196, 137, 0, 0, 0, 13, 73, 68,
+        65, 84, 120, 218, 99, 100, 96, 248, 95, 15, 0, 2, 135, 1, 128, 235, 71, 186, 146, 0, 0, 0, 0, 73, 69, 78, 68, 174, 66, 96, 130,
+    ];
+    std::fs::write(&png, bytes).unwrap();
+    let mut plain = Session::new(wordcraft_doc::Document::new());
+    assert!(plain.run("insert.picture", &json!({"path": png.to_str().unwrap()})).is_ok(), "the picture itself is fine");
+    let mut s = Session::new(wordcraft_doc::Document::new());
+    let r = s.run_with(&ctx("Ann"), "insert.picture", &json!({"path": png.to_str().unwrap()}));
+    let _ = std::fs::remove_file(&png);
+    assert!(r.is_err(), "a replayed picture from a local path: {r:?}");
+    for (cmd, p) in [("file.open", json!({"path": "/etc/hostname"})), ("file.new", json!({}))] {
+        assert!(s.run_with(&ctx("Ann"), cmd, &p).is_err(), "{cmd} replayed");
+    }
+}

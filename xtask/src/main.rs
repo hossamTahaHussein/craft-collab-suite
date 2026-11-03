@@ -4,6 +4,7 @@
 //! invoked through `std::process::Command`.
 
 mod assets;
+mod brand;
 mod ico;
 mod layers;
 mod parity;
@@ -19,6 +20,8 @@ usage: cargo xtask <command>
 
 commands:
   assets          check that every icon/image/font/asset is attributed in ATTRIBUTION.md
+  brand           check that no ArtCraft marks remain outside LICENSE, NOTICE, ATTRIBUTION.md and
+                  README credit lines (the brand terms for modified versions)
   layers          enforce the crate dependency layering (plan/architecture.md §3)
   wasm            cargo check --target wasm32-unknown-unknown for the wasm-safe crates (one call)
   test            workspace tests (cargo nextest when installed, else cargo test), the interface
@@ -43,6 +46,7 @@ fn main() -> ExitCode {
     let rest: Vec<&str> = args.iter().skip(1).map(String::as_str).collect();
     let result = match args.first().map(String::as_str) {
         Some("assets") => assets::run(&root()),
+        Some("brand") => brand::run(&root()),
         Some("layers") => cmd_layers(),
         Some("wasm") => cmd_wasm(),
         Some("test") => cmd_test().and_then(|()| cmd_i18n_report()).and_then(|()| cmd_doctest()),
@@ -94,8 +98,13 @@ pub fn metadata() -> Result<serde_json::Value, String> {
     serde_json::from_slice(&out.stdout).map_err(|e| format!("cargo metadata: bad JSON: {e}"))
 }
 
+/// Whether this table judges the crate named `name`. Docs and the suite crates: Craft Sheets (`gridcraft-*`) and Craft Slides (`deckcraft-*`) have their own tables (`cargo xtask-sheets layers`, `cargo xtask-slides layers`).
+fn judged_here(name: &str) -> bool {
+    !name.starts_with("gridcraft") && !name.starts_with("deckcraft")
+}
+
 fn cmd_layers() -> Result<(), String> {
-    let crates = layers::from_metadata(&metadata()?)?;
+    let crates: Vec<_> = layers::from_metadata(&metadata()?)?.into_iter().filter(|c| judged_here(&c.name)).collect();
     println!("Dependency layering (plan/architecture.md §3)\n");
     println!("{:<28} {:<14} workspace deps", "crate", "layer");
     for c in &crates {
@@ -163,7 +172,14 @@ fn cmd_wasm() -> Result<(), String> {
 
 /// Test targets for the test build. Examples are left out so they aren't
 /// linked; clippy `--all-targets` still compiles them.
-const TEST_TARGETS: [&str; 4] = ["--workspace", "--lib", "--bins", "--tests"];
+const TEST_TARGETS: [&str; 3] = ["--lib", "--bins", "--tests"];
+
+/// `-p <name>` for every crate this app's gate covers ([`judged_here`]): the suite workspace holds
+/// three apps (Docs, Sheets, Slides), and each app's gate formats, lints and tests only its own.
+fn own_packages() -> Result<Vec<String>, String> {
+    let crates = layers::from_metadata(&metadata()?)?;
+    Ok(crates.into_iter().filter(|c| judged_here(&c.name)).flat_map(|c| ["-p".to_string(), c.name]).collect())
+}
 
 fn nextest_available() -> bool {
     cargo().args(["nextest", "--version"]).stdout(Stdio::null()).stderr(Stdio::null()).status().is_ok_and(|s| s.success())
@@ -187,11 +203,11 @@ fn cmd_i18n_report() -> Result<(), String> {
 fn test_run(nextest: &[&str], libtest: &[&str]) -> Result<(), String> {
     let mut c = cargo();
     if nextest_available() {
-        c.args(["nextest", "run"]).args(TEST_TARGETS).args(nextest);
+        c.args(["nextest", "run"]).args(own_packages()?).args(TEST_TARGETS).args(nextest);
         run(c, &format!("cargo nextest run {} {}", TEST_TARGETS.join(" "), nextest.join(" ")))
     } else {
         eprintln!("note: cargo-nextest is not installed, running cargo test (cargo install cargo-nextest --locked)");
-        c.arg("test").args(TEST_TARGETS).arg("--").args(libtest);
+        c.arg("test").args(own_packages()?).args(TEST_TARGETS).arg("--").args(libtest);
         run(c, &format!("cargo test {} -- {}", TEST_TARGETS.join(" "), libtest.join(" ")))
     }
 }
@@ -199,8 +215,8 @@ fn test_run(nextest: &[&str], libtest: &[&str]) -> Result<(), String> {
 /// nextest does not run doctests.
 fn cmd_doctest() -> Result<(), String> {
     let mut c = cargo();
-    c.args(["test", "--workspace", "--doc"]);
-    run(c, "cargo test --workspace --doc")
+    c.args(["test", "--doc"]).args(own_packages()?);
+    run(c, "cargo test --doc (this app's packages)")
 }
 
 fn cmd_ci() -> Result<(), String> {
@@ -210,22 +226,23 @@ fn cmd_ci() -> Result<(), String> {
             "fmt",
             Box::new(|| {
                 let mut c = cargo();
-                c.args(["fmt", "--all", "--", "--check"]);
-                run(c, "cargo fmt --all -- --check")
+                c.arg("fmt").args(own_packages()?).args(["--", "--check"]);
+                run(c, "cargo fmt (this app's packages) -- --check")
             }),
         ),
         (
             "clippy",
             Box::new(|| {
                 let mut c = cargo();
-                c.args(["clippy", "--workspace", "--all-targets", "--", "-D", "warnings"]);
-                run(c, "cargo clippy --workspace --all-targets -- -D warnings")
+                c.arg("clippy").args(own_packages()?).args(["--all-targets", "--", "-D", "warnings"]);
+                run(c, "cargo clippy (this app's packages) --all-targets -- -D warnings")
             }),
         ),
         ("test", Box::new(cmd_test)),
         ("i18n-report", Box::new(cmd_i18n_report)),
         ("doctest", Box::new(cmd_doctest)),
         ("assets", Box::new(|| assets::run(&root()))),
+        ("brand", Box::new(|| brand::run(&root()))),
         ("layers", Box::new(cmd_layers)),
         ("wasm", Box::new(cmd_wasm)),
     ];
@@ -283,4 +300,21 @@ Tests that use a corpus skip cleanly when it is absent.
     let n = std::fs::read_dir(&dest).map(|d| d.flatten().filter(|e| e.path().extension().is_some_and(|x| x == "png")).count()).unwrap_or(0);
     println!("PngSuite: {n} PNG files in {}", dest.display());
     if n == 0 { Err("no PNG files extracted".into()) } else { Ok(()) }
+}
+
+#[cfg(test)]
+mod judged_here_tests {
+    #[test]
+    fn each_app_judges_only_its_own_crates() {
+        assert!(super::judged_here("wordcraft-engine"));
+        assert!(!super::judged_here("gridcraft-engine"));
+    }
+
+    #[test]
+    fn the_gate_names_only_this_apps_packages() {
+        let args = super::own_packages().unwrap();
+        assert!(args.iter().any(|a| a == "wordcraft-engine"), "{args:?}");
+        assert!(!args.iter().any(|a| a == "gridcraft-engine"), "{args:?}");
+        assert!(args.chunks(2).all(|p| p[0] == "-p"));
+    }
 }

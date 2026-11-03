@@ -18,9 +18,15 @@ pub fn is_asset(path: &str) -> bool {
     ASSET_DIRS.iter().any(|d| path.starts_with(d)) || ASSET_EXT.contains(&ext.as_str())
 }
 
+/// Craft Sheets and Craft Slides keep their own ATTRIBUTION.md, checked by their own xtask
+/// (`cargo xtask-sheets assets`, `cargo xtask-slides assets`).
+fn other_app(path: &str) -> bool {
+    path.starts_with("sheets/") || path.starts_with("slides/")
+}
+
 /// Paths that need an ATTRIBUTION.md entry but lack one.
 pub fn missing(files: &[String], assets_md: &str) -> Vec<String> {
-    files.iter().filter(|f| is_asset(f) && !assets_md.contains(&format!("`{f}`"))).cloned().collect()
+    files.iter().filter(|f| !other_app(f) && is_asset(f) && !assets_md.contains(&format!("`{f}`"))).cloned().collect()
 }
 
 /// The paths in `git ls-files -z` output: NUL-separated and never quoted, so a name with
@@ -43,7 +49,7 @@ pub fn run(root: &Path) -> Result<(), String> {
     let md = std::fs::read_to_string(root.join("ATTRIBUTION.md")).map_err(|e| format!("ATTRIBUTION.md: {e}"))?;
     let miss = missing(&files, &md);
     if miss.is_empty() {
-        println!("assets: all {} asset files attributed in ATTRIBUTION.md", files.iter().filter(|f| is_asset(f)).count());
+        println!("assets: all {} asset files attributed in ATTRIBUTION.md", files.iter().filter(|f| !other_app(f) && is_asset(f)).count());
         Ok(())
     } else {
         Err(format!("{} asset file(s) lack an ATTRIBUTION.md entry (author, source, licence):\n  {}", miss.len(), miss.join("\n  ")))
@@ -61,6 +67,12 @@ mod tests {
         assert_eq!(missing(&files, md), vec!["docs/images/b.png".to_string(), "tests/fixture.png".into()]);
         assert!(!is_asset("crates/x/src/lib.rs"));
         assert!(is_asset("assets/fonts/OFL.txt"));
+    }
+
+    #[test]
+    fn sheets_and_slides_assets_are_their_own_tables_business() {
+        let files = vec!["sheets/assets/a.png".to_string(), "slides/assets/b.svg".into(), "assets/c.png".into()];
+        assert_eq!(missing(&files, ""), vec!["assets/c.png".to_string()]);
     }
 
     #[test]

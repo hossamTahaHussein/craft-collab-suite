@@ -48,6 +48,8 @@ pub const TABLE: &[(&str, Class)] = &[
     ("engine", Class::Layer(4)),
     ("mcp", Class::Layer(5)),
     ("collab", Class::Layer(5)),
+    // The suite's co-editing core, shared by Docs, Sheets and Slides: no workspace crate below it.
+    ("craft-collab-core", Class::Standalone),
     ("zotero", Class::Layer(5)),
     ("ui-egui", Class::Layer(6)),
     ("testkit", Class::Testkit),
@@ -251,6 +253,14 @@ mod tests {
             c("wordcraft-cli", &[("wordcraft-ui-egui", Normal, true)]),
         ];
         assert!(check(&g).is_empty(), "{:?}", check(&g));
+    }
+
+    #[test]
+    fn collab_core_has_no_app_deps() {
+        assert!(check(&[c("craft-collab-core", &[("serde", Normal, false), ("serde_json", Normal, false)])]).is_empty());
+        let v = check(&[c("craft-collab-core", &[("wordcraft-engine", Normal, true)])]);
+        assert!(matches!(v[..], [Violation::StandaloneHasWorkspaceDep { .. }]), "{v:?}");
+        assert!(check(&[c("wordcraft-collab", &[("craft-collab-core", Normal, true), ("wordcraft-engine", Normal, true)])]).is_empty());
     }
 
     #[test]
