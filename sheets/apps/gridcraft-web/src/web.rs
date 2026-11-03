@@ -187,7 +187,12 @@ impl eframe::App for WebShell {
             if let Some(note) = link.take_note() {
                 self.app.toast = Some((note, gridcraft_ui_egui::now_ms()));
             }
-            let status = (link.pending(), link.rev(), link.peers(&self.app.session).len() + 1);
+            let peers = link.peers(&self.app.session);
+            let status = (link.pending(), link.rev(), peers.len() + 1);
+            self.app.peers = peers
+                .into_iter()
+                .map(|p| gridcraft_ui_egui::grid::peers::RemotePeer { typing: p.typing(now), name: p.name, color: p.color, place: p.sel })
+                .collect();
             if status != self.status {
                 self.status = status;
                 bridge.post_collab_status(status.0, status.1, status.2);

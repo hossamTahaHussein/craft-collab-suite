@@ -31,6 +31,7 @@ mod geo;
 mod interact;
 mod keyboard;
 mod menus;
+pub mod peers;
 mod quadrant;
 mod selection;
 mod show;

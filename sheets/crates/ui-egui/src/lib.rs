@@ -217,6 +217,8 @@ pub struct Perf {
 
 pub struct SheetApp {
     pub session: Session,
+    /// Other people in a co-edited workbook, as the host's co-editing link sees them now.
+    pub peers: Vec<grid::peers::RemotePeer>,
     pub ui: UiState,
     /// The window chrome to draw (see [`Chrome`]).
     pub chrome: Chrome,

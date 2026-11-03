@@ -30,6 +30,7 @@ impl SheetApp {
     pub fn new(session: Session, services: Services) -> SheetApp {
         SheetApp {
             session,
+            peers: Vec::new(),
             ui: UiState::default(),
             chrome: Chrome::default(),
             views: HashMap::new(),
