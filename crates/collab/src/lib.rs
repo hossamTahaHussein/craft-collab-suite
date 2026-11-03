@@ -8,6 +8,7 @@
 
 pub mod adapter;
 pub mod hash;
+pub mod link;
 pub mod mapping;
 pub mod proto;
 pub mod replica;

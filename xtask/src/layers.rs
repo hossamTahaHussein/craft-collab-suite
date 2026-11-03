@@ -50,6 +50,8 @@ pub const TABLE: &[(&str, Class)] = &[
     ("collab", Class::Layer(5)),
     // The suite's co-editing core, shared by Docs, Sheets and Slides: no workspace crate below it.
     ("craft-collab-core", Class::Standalone),
+    // The page ↔ replica glue all three apps share: on the core only.
+    ("craft-collab-link", Class::Layer(1)),
     ("zotero", Class::Layer(5)),
     ("ui-egui", Class::Layer(6)),
     ("testkit", Class::Testkit),

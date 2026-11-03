@@ -1119,6 +1119,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "craft-collab-link"
+version = "1.0.2"
+dependencies = [
+ "base64 0.23.1",
+ "craft-collab-core",
+ "log",
+ "serde_json",
+]
+
+[[package]]
 name = "craft-fonts-build"
 version = "0.1.0"
 source = "git+https://github.com/storytold/craft-libs?rev=c5a1cbfb5f9049f9270955caffb5bee5997aebf7#c5a1cbfb5f9049f9270955caffb5bee5997aebf7"
@@ -8193,6 +8203,7 @@ name = "wordcraft-collab"
 version = "1.0.2"
 dependencies = [
  "craft-collab-core",
+ "craft-collab-link",
  "miniz_oxide 0.9.1",
  "proptest",
  "serde",

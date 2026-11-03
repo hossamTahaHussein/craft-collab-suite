@@ -34,6 +34,7 @@ wordcraft-proof = { path = "crates/proof" }
 wordcraft-engine = { path = "crates/engine" }
 wordcraft-collab = { path = "crates/collab" }
 craft-collab-core = { path = "crates/collab-core" }
+craft-collab-link = { path = "crates/collab-link" }
 wordcraft-mcp = { path = "crates/mcp" }
 wordcraft-zotero = { path = "crates/zotero" }
 wordcraft-control-key = { path = "crates/control-key" }
