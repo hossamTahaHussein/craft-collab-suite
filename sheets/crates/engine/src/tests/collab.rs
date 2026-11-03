@@ -102,3 +102,15 @@ fn a_structural_edit_is_sent_even_where_it_changed_no_content() {
     s.execute("home.insertRows", json!({"rows": "1:2"})).unwrap();
     assert_eq!(s.take_outbox().len(), 1, "rows inserted into an empty sheet move other people's positions");
 }
+
+/// Shared content is never this computer's own: whatever the workbook it replaces was trusted
+/// with, it is trusted as anything read from elsewhere is.
+#[test]
+fn a_shared_workbook_is_not_trusted_as_a_local_one() {
+    let mut s = s();
+    assert_eq!(s.doc().unwrap().trust, crate::Trust::Local);
+    s.set_collab_workbook(std::sync::Arc::new(gridcraft_model::Workbook::new()));
+    let d = s.doc().unwrap();
+    assert_eq!(d.trust, crate::Trust::FromFile);
+    assert!(!d.scripts_trusted);
+}

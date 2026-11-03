@@ -122,7 +122,10 @@ impl Session {
     /// workbook gets one, untrusted like anything read from elsewhere.
     pub fn set_collab_workbook(&mut self, wb: std::sync::Arc<gridcraft_model::Workbook>) {
         match self.active_mut() {
+            // Shared content is never this computer's own, whatever the workbook it replaces was.
             Some(d) => {
+                d.trust = crate::Trust::FromFile;
+                d.scripts_trusted = false;
                 d.calc.rebuild(&wb);
                 d.wb = wb;
             }

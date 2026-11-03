@@ -61,7 +61,7 @@ jobs:
               - *shared
               - slides/**
 
-  # Every pull request, whatever it touches: no ArtCraft marks anywhere (the brand terms for a
+  # Every pull request, whatever it touches: no brand marks of the original project (its terms for a
   # modified version), and each app's crate layering.
   suite-checks:
     uses: storytold/craft-common-actions/.github/workflows/gate.yml@main
