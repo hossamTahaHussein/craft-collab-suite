@@ -6,6 +6,7 @@
 
 pub mod adapter;
 pub mod change;
+pub mod link;
 
 pub use adapter::{SLIDE_INDEX_KEYS, SlideOp, SlideSel, SlidesDoc, decode};
 

@@ -114,3 +114,26 @@ fn a_shared_workbook_is_not_trusted_as_a_local_one() {
     assert_eq!(d.trust, crate::Trust::FromFile);
     assert!(!d.scripts_trusted);
 }
+
+/// A viewer changes nothing; a commenter only comments; read only (offline too long) is a
+/// viewer too, until it is lifted.
+#[test]
+fn roles_and_read_only_limit_what_the_person_may_change() {
+    use crate::collab::CollabRole;
+    let mut s = s();
+    s.set_collab_role(CollabRole::View);
+    assert!(s.execute("cell.set", json!({"cell": "A1", "input": "x"})).is_err());
+    assert_eq!(v(&s, "A1"), Value::Empty, "nothing changed");
+    assert!(s.execute("edit.undo", json!({})).is_err());
+    s.execute("edit.goTo", json!({"reference": "C3"})).unwrap();
+    s.set_collab_role(CollabRole::Comment);
+    assert!(s.execute("cell.set", json!({"cell": "A1", "input": "x"})).is_err());
+    s.execute("review.newNote", json!({"cell": "B2", "text": "check"})).unwrap();
+    s.set_collab_role(CollabRole::Edit);
+    s.set_read_only(true, true);
+    assert!(s.execute("cell.set", json!({"cell": "A1", "input": "x"})).is_err());
+    s.set_read_only(false, false);
+    s.execute("cell.set", json!({"cell": "A1", "input": "x"})).unwrap();
+    let ids: Vec<String> = s.take_outbox().into_iter().map(|r| r.id).collect();
+    assert_eq!(ids, ["review.newNote", "cell.set"]);
+}

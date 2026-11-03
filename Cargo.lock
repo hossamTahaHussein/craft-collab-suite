@@ -1421,6 +1421,7 @@ name = "deckcraft-collab"
 version = "1.0.2"
 dependencies = [
  "craft-collab-core",
+ "craft-collab-link",
  "deckcraft-engine",
  "deckcraft-format",
  "deckcraft-model",
@@ -2688,6 +2689,7 @@ name = "gridcraft-collab"
 version = "1.0.2"
 dependencies = [
  "craft-collab-core",
+ "craft-collab-link",
  "gridcraft-core",
  "gridcraft-engine",
  "gridcraft-formula",

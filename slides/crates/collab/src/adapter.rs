@@ -35,7 +35,7 @@ pub struct SlideSel {
 }
 
 /// The text body `key` names in `doc`.
-fn body(doc: &Presentation, key: TextKey) -> Option<&TextBody> {
+pub fn text_body(doc: &Presentation, key: TextKey) -> Option<&TextBody> {
     match key {
         TextKey::Notes(slide) => doc.slides.iter().find(|s| s.id == slide).map(|s| &s.notes),
         TextKey::Shape(shape) => {
@@ -60,7 +60,7 @@ impl SlideSel {
     pub fn of(place: SlidePlace, doc: &Presentation, params: &Value) -> SlideSel {
         let text = place.selection.text.as_ref().filter(|t| t.cell.is_none()).and_then(|t| {
             let key = if t.notes { TextKey::Notes(place.slide) } else { TextKey::Shape(t.shape) };
-            let b = body(doc, key)?;
+            let b = text_body(doc, key)?;
             Some((key, offset_of(b, t.anchor), offset_of(b, t.caret)))
         });
         let slides = SLIDE_INDEX_KEYS
@@ -98,7 +98,7 @@ fn select(s: &mut Session, sel: &SlideSel) {
     s.set_collab_place(&sel.place);
     let Some((key, a, c)) = sel.text else { return };
     let Some(d) = s.active() else { return };
-    let Some(b) = body(&d.doc, key) else { return };
+    let Some(b) = text_body(&d.doc, key) else { return };
     let (anchor, caret) = (pos_at(b, a), pos_at(b, c));
     if let Some(d) = s.active_mut()
         && let Some(t) = d.selection.text.as_mut()

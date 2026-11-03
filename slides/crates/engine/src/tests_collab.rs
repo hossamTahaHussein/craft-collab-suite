@@ -100,3 +100,26 @@ fn an_edit_runs_on_the_slide_it_was_made_on() {
     a.set_collab_place(&gone);
     assert_eq!(a.doc().unwrap().selection.slide, 0, "a slide that is gone gives the first");
 }
+
+/// A viewer changes nothing; a commenter only comments; read only (offline too long) is a
+/// viewer too, until it is lifted.
+#[test]
+fn roles_and_read_only_limit_what_the_person_may_change() {
+    use crate::collab::CollabRole;
+    let mut s = s();
+    let slides = |s: &Session| s.doc().unwrap().doc.slides.len();
+    s.set_collab_role(CollabRole::View);
+    assert!(s.execute("slide.new", &json!({})).is_err());
+    assert_eq!(slides(&s), 1, "nothing changed");
+    assert!(s.execute("edit.undo", &json!({})).is_err());
+    s.set_collab_role(CollabRole::Comment);
+    assert!(s.execute("slide.new", &json!({})).is_err());
+    s.execute("comment.add", &json!({"text": "check"})).unwrap();
+    s.set_collab_role(CollabRole::Edit);
+    s.set_read_only(true, true);
+    assert!(s.execute("slide.new", &json!({})).is_err());
+    s.set_read_only(false, false);
+    s.execute("slide.new", &json!({})).unwrap();
+    let ids: Vec<String> = s.take_outbox().into_iter().map(|r| r.id).collect();
+    assert_eq!(ids, ["comment.add", "slide.new"]);
+}

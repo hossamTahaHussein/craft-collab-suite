@@ -99,10 +99,29 @@ pub struct Recorded {
     pub before: Option<Arc<Presentation>>,
 }
 
+/// What the person may do in a co-edited presentation (their join token's role).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum CollabRole {
+    #[default]
+    Edit,
+    /// Everything, as suggestions others accept or reject (until those come, nothing).
+    Suggest,
+    /// Comments only.
+    Comment,
+    /// Read only.
+    View,
+}
+
+/// What a commenter may change.
+pub const COMMENT_COMMANDS: &[&str] = &["comment.add", "comment.reply", "comment.delete", "comment.resolve"];
+
 #[derive(Debug)]
 pub(crate) struct CollabState {
     on: bool,
     recording: bool,
+    role: CollabRole,
+    /// Read only (Viewing, or offline too long) and whether the person may lift it themselves.
+    read_only: (bool, bool),
     /// A recorded command is running: the commands it runs aren't recorded again.
     busy: bool,
     outbox: Vec<Recorded>,
@@ -110,7 +129,7 @@ pub(crate) struct CollabState {
 
 impl Default for CollabState {
     fn default() -> Self {
-        CollabState { on: false, recording: true, busy: false, outbox: Vec::new() }
+        CollabState { on: false, recording: true, role: CollabRole::Edit, read_only: (false, false), busy: false, outbox: Vec::new() }
     }
 }
 
@@ -142,6 +161,40 @@ impl Session {
 
     pub fn recording(&self) -> bool {
         self.collab.recording
+    }
+
+    /// What the person may do while co-editing; the relay refuses the rest anyway, this says so
+    /// before the edit shows.
+    pub fn set_collab_role(&mut self, role: CollabRole) {
+        self.collab.role = role;
+    }
+
+    pub fn collab_role(&self) -> CollabRole {
+        self.collab.role
+    }
+
+    /// Read only while co-editing (`locked`: the person can't lift it, as when offline too long).
+    pub fn set_read_only(&mut self, on: bool, locked: bool) {
+        self.collab.read_only = (on, locked);
+    }
+
+    pub fn read_only(&self) -> (bool, bool) {
+        self.collab.read_only
+    }
+
+    /// Whether the person may make edit `id` now, and why not.
+    fn may_change(&self, id: &str) -> Result<()> {
+        let refuse = |why: &str| Err(EngineError::Disabled(id.into(), why.into()));
+        if self.collab.read_only.0 {
+            return refuse("This presentation is read only for now");
+        }
+        match self.collab.role {
+            CollabRole::Edit => Ok(()),
+            CollabRole::Comment if COMMENT_COMMANDS.contains(&id) => Ok(()),
+            CollabRole::Comment => refuse("You can only comment on this presentation"),
+            CollabRole::Suggest => refuse("Suggesting isn't available in Craft Slides yet"),
+            CollabRole::View => refuse("You can only view this presentation"),
+        }
     }
 
     /// The edits recorded since the last call.
@@ -244,6 +297,7 @@ impl Session {
         }
         let person = self.collab.recording;
         if COLLAB_UNDO.contains(&id) && person {
+            self.may_change(id)?;
             let place = self.collab_place();
             let ctx = self.run_ctx();
             let before = self.active().map(|d| d.doc.clone());
@@ -274,6 +328,15 @@ impl Session {
             _ => false,
         };
         if result.is_ok() && changed {
+            // What the person may not change is put back: the edit never happened.
+            if let Err(e) = self.may_change(id) {
+                if let (Some((_, doc)), Some(d)) = (before, self.active_mut()) {
+                    d.doc = doc;
+                    d.revision += 1;
+                    crate::clamp_selection(d);
+                }
+                return Err(e);
+            }
             let before = before.map(|(_, doc)| doc);
             self.collab.outbox.push(Recorded { id: id.into(), params: params.clone(), place, ctx, before });
         }

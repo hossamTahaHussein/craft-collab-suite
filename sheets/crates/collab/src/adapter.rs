@@ -248,6 +248,11 @@ fn move_through(sel: &SheetSel, edits: &[Structural]) -> SheetSel {
     SheetSel { place: map_through(&sel.place, edits), refs }
 }
 
+/// A workbook as a snapshot (native JSON).
+pub fn encode_workbook(doc: &Workbook) -> Result<String, String> {
+    String::from_utf8(encode_bytes(doc)?).map_err(|e| e.to_string())
+}
+
 fn encode_bytes(doc: &Workbook) -> Result<Vec<u8>, String> {
     gridcraft_engine::io::save_bytes(doc, "shared.json").map_err(|e| e.to_string())
 }
