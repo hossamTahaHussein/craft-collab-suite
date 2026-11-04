@@ -2837,6 +2837,7 @@ name = "gridcraft-pdf"
 version = "2.0.0"
 dependencies = [
  "skrifa 0.47.0",
+ "subsetter",
  "unicode-bidi",
  "wordcraft-fonts",
 ]

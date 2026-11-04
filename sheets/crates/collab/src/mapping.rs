@@ -3,72 +3,10 @@
 //! them (the one now in their place), cut-and-pasted cells go with the block, a renamed sheet
 //! keeps its people, and the people on a deleted sheet go to the sheet now in its place.
 
-use gridcraft_core::{CellRef, MAX_COLS, MAX_ROWS, RangeRef};
+use gridcraft_core::{CellRef, RangeRef};
 use gridcraft_engine::collab::SheetPlace;
-use gridcraft_formula::adjust::{Axis, Edit};
+use gridcraft_formula::adjust::{Edit, map_cell};
 use gridcraft_model::structure::Structural;
-
-/// `v` after `count` lines were inserted before `at`.
-fn inserted(v: u32, at: u32, count: u32, limit: u32) -> u32 {
-    if v >= at { v.saturating_add(count).min(limit - 1) } else { v }
-}
-
-/// `v` after the `count` lines from `at` were deleted.
-fn deleted(v: u32, at: u32, count: u32) -> u32 {
-    if v >= at.saturating_add(count) {
-        v - count
-    } else if v >= at {
-        at
-    } else {
-        v
-    }
-}
-
-/// A cell after an edit on its own sheet.
-pub fn map_cell(c: CellRef, e: &Edit) -> CellRef {
-    match *e {
-        Edit::Insert { axis: Axis::Rows, at, count } => CellRef { row: inserted(c.row, at, count, MAX_ROWS), ..c },
-        Edit::Insert { axis: Axis::Cols, at, count } => CellRef { col: inserted(c.col, at, count, MAX_COLS), ..c },
-        Edit::Delete { axis: Axis::Rows, at, count } => CellRef { row: deleted(c.row, at, count), ..c },
-        Edit::Delete { axis: Axis::Cols, at, count } => CellRef { col: deleted(c.col, at, count), ..c },
-        Edit::Move { from, to_row, to_col } | Edit::MoveToSheet { from, to_row, to_col, .. } if from.contains(c) => moved(c, from, to_row, to_col),
-        Edit::Move { .. } | Edit::MoveToSheet { .. } => c,
-        // Insert Cells shifting down (right): the cells in the range's columns (rows), from its
-        // first row (column) on, move by its height (width); Delete Cells moves them back, and
-        // the deleted ones go to the first cell after.
-        Edit::InsertCells { axis: Axis::Rows, range } if in_cols(c, range) => {
-            CellRef { row: inserted(c.row, range.start.row, height(range), MAX_ROWS), ..c }
-        }
-        Edit::InsertCells { axis: Axis::Cols, range } if in_rows(c, range) => {
-            CellRef { col: inserted(c.col, range.start.col, width(range), MAX_COLS), ..c }
-        }
-        Edit::DeleteCells { axis: Axis::Rows, range } if in_cols(c, range) => CellRef { row: deleted(c.row, range.start.row, height(range)), ..c },
-        Edit::DeleteCells { axis: Axis::Cols, range } if in_rows(c, range) => CellRef { col: deleted(c.col, range.start.col, width(range)), ..c },
-        Edit::InsertCells { .. } | Edit::DeleteCells { .. } => c,
-    }
-}
-
-fn in_cols(c: CellRef, r: RangeRef) -> bool {
-    c.col >= r.start.col && c.col <= r.end.col
-}
-
-fn in_rows(c: CellRef, r: RangeRef) -> bool {
-    c.row >= r.start.row && c.row <= r.end.row
-}
-
-fn height(r: RangeRef) -> u32 {
-    r.end.row - r.start.row + 1
-}
-
-fn width(r: RangeRef) -> u32 {
-    r.end.col - r.start.col + 1
-}
-
-fn moved(c: CellRef, from: RangeRef, to_row: u32, to_col: u32) -> CellRef {
-    let row = (c.row - from.start.row).saturating_add(to_row).min(MAX_ROWS - 1);
-    let col = (c.col - from.start.col).saturating_add(to_col).min(MAX_COLS - 1);
-    CellRef { row, col }
-}
 
 fn map_range(r: RangeRef, e: &Edit) -> RangeRef {
     let (a, b) = (map_cell(r.start, e), map_cell(r.end, e));
@@ -131,6 +69,8 @@ mod tests {
     use gridcraft_engine::Selection;
 
     use super::*;
+    use gridcraft_core::MAX_ROWS;
+    use gridcraft_formula::adjust::Axis;
 
     fn at(a1: &str) -> SheetPlace {
         SheetPlace { sheet: "Sheet1".into(), selection: Selection::at(CellRef::parse(a1).unwrap()) }

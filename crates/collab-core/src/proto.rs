@@ -94,6 +94,10 @@ pub enum Inbound<D: CollabDoc> {
         /// none: `edit`).
         #[serde(default)]
         role: Option<String>,
+        /// The name the relay knows this person by (their join token's): it stamps their edits
+        /// with it, so the editor makes them under it too (an older relay sends none).
+        #[serde(default)]
+        user: Option<String>,
     },
     Op(Box<Op<D>>),
     /// Upload a snapshot of the confirmed document.

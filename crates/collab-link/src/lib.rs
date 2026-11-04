@@ -56,6 +56,9 @@ pub trait LinkHost: CollabDoc {
     fn show_shared(s: &mut Self::Session, doc: Self::Doc, name: Option<&str>);
     /// What the person may do (the relay refuses the rest anyway; this says so first).
     fn set_role(s: &mut Self::Session, role: Role);
+    /// The person's name while co-editing: the relay stamps their edits with their join token's
+    /// name, so the editor makes them under it too.
+    fn set_author(s: &mut Self::Session, name: &str);
     /// Viewing and its lock, as they are.
     fn read_only(s: &Self::Session) -> (bool, bool);
     fn set_read_only(s: &mut Self::Session, viewing: (bool, bool));
@@ -326,9 +329,12 @@ impl<H: LinkHost> CollabLink<H> {
 
     fn handle(&mut self, message: Inbound<H>, visible: &mut H::Session) -> Vec<String> {
         match message {
-            Inbound::Welcome { rev, snapshot, ops, you, seen, history, peers, role } => {
+            Inbound::Welcome { rev, snapshot, ops, you, seen, history, peers, role, user } => {
                 self.role = Role::parse(role.as_deref().unwrap_or("edit"));
                 H::set_role(visible, self.role);
+                if let Some(name) = user.as_deref().filter(|n| !n.is_empty()) {
+                    H::set_author(visible, name);
+                }
                 // The relay's list replaces ours (a reconnect may have missed joins and leaves).
                 self.peers.clear();
                 self.sent = None;

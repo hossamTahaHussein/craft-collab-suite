@@ -397,23 +397,20 @@ impl Session {
     /// with how it was ([`crate::suggest`]). What isn't an edit, and the review commands, run as
     /// they are; an edit that can't be suggested is refused.
     pub(crate) fn execute_tracked(&mut self, id: &str, params: &Value, author: &str, time: u64) -> Result<Value> {
-        let edits = crate::cmd::find_command(id).is_some_and(|spec| spec.undoable);
-        let run = |s: &mut Session| {
-            s.track_busy = true;
-            let r = s.execute(id, params);
-            s.track_busy = false;
-            r
-        };
-        // Starting and leaving text editing, and selecting, change no content.
-        if !edits || crate::suggest::REVIEW_COMMANDS.contains(&id) || matches!(id, "text.edit" | "text.exit") {
-            return run(self);
+        // Input-method typing changes text without an undo step of its own; it is suggested too.
+        let ime = matches!(id, "text.compose" | "text.commit" | "text.deleteSurrounding");
+        let edits = ime || crate::cmd::find_command(id).is_some_and(|spec| spec.undoable);
+        // Starting and leaving text editing change no content; comments are never suggestions;
+        // reviewing settles them.
+        if !edits || crate::suggest::REVIEW_COMMANDS.contains(&id) || COMMENT_COMMANDS.contains(&id) || matches!(id, "text.edit" | "text.exit") {
+            return self.run_wrapped(id, params);
         }
         if !crate::suggest::SUGGEST_COMMANDS.contains(&id) {
             return Err(EngineError::Disabled(id.into(), "This can't be suggested: only changes to slides, shapes and their text can".into()));
         }
-        let before = self.active().map(|d| (d.uid, d.doc.clone()));
-        let result = run(self)?;
-        let Some((uid, before)) = before else { return Ok(result) };
+        let before = self.active().map(|d| (d.uid, d.doc.clone(), d.history.undo.len(), d.history.redo.clone()));
+        let result = self.run_wrapped(id, params)?;
+        let Some((uid, before, undo_len, redo)) = before else { return Ok(result) };
         let Some(d) = self.active_mut().filter(|d| d.uid == uid && !Arc::ptr_eq(&before, &d.doc)) else { return Ok(result) };
         let mut doc = (*d.doc).clone();
         match crate::suggest::record(&before, &mut doc, author, time) {
@@ -422,11 +419,38 @@ impl Session {
                 Ok(result)
             }
             Err(e) => {
+                // The edit never happened: its undo step goes too.
                 d.doc = before;
+                d.history.undo.truncate(undo_len);
+                d.history.redo = redo;
                 d.revision += 1;
                 crate::clamp_selection(d);
                 Err(e)
             }
         }
+    }
+
+    /// Runs a top-level command outside the suggestion wrappers.
+    fn run_wrapped(&mut self, id: &str, params: &Value) -> Result<Value> {
+        self.track_busy = true;
+        let r = self.execute(id, params);
+        self.track_busy = false;
+        r
+    }
+
+    /// Runs a direct edit (not a suggestion) in a presentation with suggestions: what it changes
+    /// settles them ([`crate::suggest::follow`]). Reviewing, undo and redo leave them as those
+    /// commands set them.
+    pub(crate) fn execute_followed(&mut self, id: &str, params: &Value) -> Result<Value> {
+        let keeps = crate::suggest::REVIEW_COMMANDS.contains(&id) || COLLAB_UNDO.contains(&id);
+        let before = self.active().filter(|d| !keeps && d.doc.tags.iter().any(|(k, _)| k == crate::suggest::TAG)).map(|d| (d.uid, d.doc.clone()));
+        let result = self.run_wrapped(id, params)?;
+        let Some((uid, before)) = before else { return Ok(result) };
+        let Some(d) = self.active_mut().filter(|d| d.uid == uid && !Arc::ptr_eq(&before, &d.doc)) else { return Ok(result) };
+        let mut doc = (*d.doc).clone();
+        if crate::suggest::follow(&before, &mut doc) {
+            d.doc = Arc::new(doc);
+        }
+        Ok(result)
     }
 }

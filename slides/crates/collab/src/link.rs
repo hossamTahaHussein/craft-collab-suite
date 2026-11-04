@@ -40,6 +40,10 @@ impl LinkHost for SlidesDoc {
         }
     }
 
+    fn set_author(s: &mut Session, name: &str) {
+        s.prefs.author = name.to_string();
+    }
+
     fn set_role(s: &mut Session, role: Role) {
         s.set_collab_role(match role {
             Role::Edit => CollabRole::Edit,

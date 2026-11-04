@@ -39,6 +39,10 @@ impl LinkHost for SheetsDoc {
         }
     }
 
+    fn set_author(s: &mut Session, name: &str) {
+        s.prefs.user_name = name.to_string();
+    }
+
     fn set_role(s: &mut Session, role: Role) {
         s.set_collab_role(match role {
             Role::Edit => CollabRole::Edit,

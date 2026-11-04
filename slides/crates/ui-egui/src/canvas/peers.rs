@@ -119,7 +119,7 @@ pub fn suggestion_color(author: &str) -> Color32 {
 /// name under it.
 pub(super) fn paint_suggestions(st: &DocState, painter: &egui::Painter, xf: Xf) {
     let Some(slide) = st.doc.slides.get(st.selection.slide).map(|s| s.id) else { return };
-    for x in deckcraft_engine::suggest::suggestions(&st.doc).iter().filter(|x| x.slide() == slide) {
+    for x in deckcraft_engine::suggest::cached(&st.doc).iter().filter(|x| x.slide() == slide) {
         let Some(sh) = x.shape().and_then(|id| st.shape(id)) else { continue };
         let c = suggestion_color(&x.author);
         let xr = deckcraft_engine::cmd::xfrm_of(&st.doc, &st.selection, sh);

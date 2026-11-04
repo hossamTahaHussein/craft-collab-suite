@@ -56,8 +56,17 @@ fn reads_rtl(p: &Paragraph) -> bool {
     p.props.rtl.unwrap_or_else(|| deckcraft_model::bidi::first_strong_is_rtl(&p.text()))
 }
 
-/// The controls that make an RTF paragraph right to left (right-aligned, right-to-left runs).
-const RTL: &str = "\\rtlpar\\qr\\rtlch ";
+/// The controls that make an RTF paragraph right to left: right-to-left runs, aligned as the
+/// paragraph is (at the right unless it says otherwise).
+fn rtl_controls(p: Option<&Paragraph>) -> &'static str {
+    use deckcraft_model::text::Align;
+    match p.and_then(|p| p.props.align) {
+        Some(Align::Center) => "\\rtlpar\\qc\\rtlch ",
+        Some(Align::Justify | Align::JustLow | Align::Distributed | Align::ThaiDistributed) => "\\rtlpar\\qj\\rtlch ",
+        Some(Align::Left) => "\\rtlpar\\ql\\rtlch ",
+        _ => "\\rtlpar\\qr\\rtlch ",
+    }
+}
 
 /// The presentation's outline (slide titles and body text) as RTF. Right-to-left paragraphs
 /// (Arabic, Hebrew) are right-to-left RTF paragraphs.
@@ -71,7 +80,7 @@ pub fn slides_to_rtf(p: &Presentation) -> String {
         let rtl = tps.peek().map_or_else(|| deckcraft_model::bidi::first_strong_is_rtl(&s.title()), |p| reads_rtl(p));
         out.push_str("\\pard\\outlinelevel0\\sb240\\b\\fs32 ");
         if rtl {
-            out.push_str(RTL);
+            out.push_str(rtl_controls(tps.peek().copied()));
         }
         if tps.peek().is_none() {
             escape(&mut out, &s.title());
@@ -92,7 +101,7 @@ pub fn slides_to_rtf(p: &Presentation) -> String {
                 let lvl = para.level.min(8) as u32;
                 out.push_str(&format!("\\pard\\outlinelevel{}\\li{}\\fs24 ", lvl + 1, 360 * (lvl + 1)));
                 if reads_rtl(para) {
-                    out.push_str(RTL);
+                    out.push_str(rtl_controls(Some(para)));
                 }
                 runs(&mut out, para);
                 out.push_str("\\par\n");
@@ -505,5 +514,15 @@ mod tests {
     fn word_list_bullets_are_not_text_and_keep_the_indent() {
         let rtf = r"{\rtf1\ansi\pard Title\par\pard\fi-360\li720{\listtext\pard\plain\f1\'b7\tab}Point\par\pard\li720{\pntext\f1\'b7\tab}Old\par}";
         assert_eq!(rtf_to_outline(rtf), "Title\n\t\tPoint\n\t\tOld\n");
+    }
+
+    /// A centred right-to-left paragraph stays centred (review finding 20).
+    #[test]
+    fn a_centred_right_to_left_paragraph_stays_centred() {
+        let mut body = deckcraft_model::text::TextBody::from_text("مرحبا");
+        body.paragraphs[0].props.align = Some(deckcraft_model::text::Align::Center);
+        let para = &body.paragraphs[0];
+        assert_eq!(super::rtl_controls(Some(para)), "\\rtlpar\\qc\\rtlch ");
+        assert_eq!(super::rtl_controls(None), "\\rtlpar\\qr\\rtlch ");
     }
 }

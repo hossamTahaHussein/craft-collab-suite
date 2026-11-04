@@ -97,10 +97,14 @@ fn suggesting(app: &mut SheetApp, ui: &mut Ui) {
     if r.clicked() && !suggester {
         act(app, "review.suggesting", json!({"on": !on}));
     }
+    // Reviewing is for people who may edit, as in Craft Docs.
+    if suggester {
+        return;
+    }
     crate::rtl::vertical(ui, |ui| {
         for (icon, label, tip, id) in [
-            (Icon::Check, "Accept", "Accept the suggestion in this cell", "review.acceptSuggestion"),
-            (Icon::Close, "Reject", "Reject the suggestion in this cell", "review.rejectSuggestion"),
+            (Icon::Check, "Accept", "Accept the suggestions in the selected cells", "review.acceptSuggestion"),
+            (Icon::Close, "Reject", "Reject the suggestions in the selected cells", "review.rejectSuggestion"),
         ] {
             if small_button(ui, icon, label, tip, false).clicked() {
                 act(app, id, json!({}));

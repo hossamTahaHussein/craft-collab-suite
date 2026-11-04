@@ -313,14 +313,22 @@ pub(super) fn general_halign(v: &Value, numeric: bool, text: &str, rtl: bool) ->
     }
 }
 
-/// The horizontal alignment to paint with. Cells are painted left to right and a right-to-left
-/// sheet is mirrored afterwards, so an explicit Left or Right is swapped first to end up on the
-/// side the user chose: Align Right stays on the right in either sheet direction, as in Excel.
-/// General alignment is resolved from the value before this and follows the sheet direction.
 /// Paints `galley` (wrapped text at `origin`, `width` wide) justified, row by row: every row that
 /// doesn't end its paragraph (every row, `all_rows`, for Distributed) is stretched to the width,
-/// Arabic with kashida, other text by its word gaps; the rest start at their reading start.
-pub(super) fn paint_justified(p: &Painter, galley: &egui::Galley, origin: Pos2, width: f32, font: &FontId, color: Color32, all_rows: bool) {
+/// Arabic with kashida, other text by its word gaps; the rest start at their reading start. On a
+/// right-to-left sheet (`rtl_sheet`) the painted cell is mirrored afterwards, word by word, so
+/// each row is laid out the other way round here.
+#[allow(clippy::too_many_arguments)]
+pub(super) fn paint_justified(
+    p: &Painter,
+    galley: &egui::Galley,
+    origin: Pos2,
+    width: f32,
+    font: &FontId,
+    color: Color32,
+    all_rows: bool,
+    rtl_sheet: bool,
+) {
     use gridcraft_engine::justify::{TATWEEL, takes_kashida, with_kashida, word_positions};
     let one = |t: String| p.layout_no_wrap(t, font.clone(), color);
     let tatweel = one(TATWEEL.to_string()).size().x;
@@ -332,7 +340,7 @@ pub(super) fn paint_justified(p: &Painter, galley: &egui::Galley, origin: Pos2, 
             continue;
         }
         let y = origin.y + row.pos.y;
-        let rtl = gridcraft_engine::display::reads_rtl(line);
+        let rtl = gridcraft_engine::display::reads_rtl(line) != rtl_sheet;
         let ends_paragraph = row.ends_with_newline || k + 1 == rows.len();
         let at_start = |g: &std::sync::Arc<egui::Galley>| if rtl { origin.x + width - g.size().x } else { origin.x };
         if ends_paragraph && !all_rows {
@@ -358,6 +366,10 @@ pub(super) fn paint_justified(p: &Painter, galley: &egui::Galley, origin: Pos2, 
     }
 }
 
+/// The horizontal alignment to paint with. Cells are painted left to right and a right-to-left
+/// sheet is mirrored afterwards, so an explicit Left or Right is swapped first to end up on the
+/// side the user chose: Align Right stays on the right in either sheet direction, as in Excel.
+/// General alignment is resolved from the value before this and follows the sheet direction.
 pub(super) fn painted_halign(h: HAlign, rtl: bool) -> HAlign {
     match h {
         HAlign::Left if rtl => HAlign::Right,

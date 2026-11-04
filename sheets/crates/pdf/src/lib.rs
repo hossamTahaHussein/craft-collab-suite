@@ -76,6 +76,29 @@ pub enum Font {
     Symbol,
 }
 
+impl Font {
+    /// Whether it is a bold face (shaped text takes a bold face too).
+    pub(crate) fn bold(self) -> bool {
+        matches!(
+            self,
+            Font::HelveticaBold | Font::HelveticaBoldOblique | Font::TimesBold | Font::TimesBoldItalic | Font::CourierBold | Font::CourierBoldOblique
+        )
+    }
+
+    /// Whether it is an italic or oblique face.
+    pub(crate) fn italic(self) -> bool {
+        matches!(
+            self,
+            Font::HelveticaOblique
+                | Font::HelveticaBoldOblique
+                | Font::TimesItalic
+                | Font::TimesBoldItalic
+                | Font::CourierOblique
+                | Font::CourierBoldOblique
+        )
+    }
+}
+
 /// How many fonts a document can use.
 const FONT_COUNT: usize = 13;
 
@@ -206,7 +229,7 @@ impl Font {
 /// Width of `text` in points when set in `font` at `size` points.
 pub fn text_width(font: Font, size: f32, text: &str) -> f32 {
     if font != Font::Symbol && complex::needs(text) {
-        return complex::pieces(text).iter().map(|p| p.width(size, |t| plain_width(font, size, t))).sum();
+        return complex::pieces(text, font.bold(), font.italic()).iter().map(|p| p.width(size, |t| plain_width(font, size, t))).sum();
     }
     plain_width(font, size, text)
 }
@@ -431,6 +454,11 @@ impl Page {
     /// reading as written (it isn't flipped).
     pub fn set_mirrored(&mut self, on: bool) {
         self.mirrored = on;
+    }
+
+    /// Whether drawing is mirrored now ([`Page::set_mirrored`]).
+    pub fn mirrored(&self) -> bool {
+        self.mirrored
     }
 
     /// `x` where it is drawn.
@@ -716,7 +744,7 @@ impl Page {
     /// glyph by glyph in their embedded face, marked with their text.
     fn complex_text(&mut self, origin: Point, size: f32, font: Font, color: Rgb, text: &str, (sn, cs): (f32, f32)) {
         let mut pen = 0.0f32;
-        for piece in complex::pieces(text) {
+        for piece in complex::pieces(text, font.bold(), font.italic()) {
             let at = |d: f32, up: f32| Point::new(origin.x + d * cs - up * sn, origin.y + d * sn + up * cs);
             match &piece {
                 complex::Piece::Plain(t) => self.plain_text(at(pen, 0.0), size, font, color, t, (sn, cs)),
@@ -958,14 +986,14 @@ impl PdfDoc {
             }
         }
         let mut objects: Vec<(u32, Vec<u8>)> = Vec::new();
-        // The embedded faces of shaped text: five objects each, named /E1, /E2…
+        // The embedded faces of shaped text: six objects each, named /E1, /E2…
         let mut shaped_fonts = String::new();
         {
             let reg = self.shaped.borrow();
             for (slot, e) in reg.faces.iter().enumerate() {
                 let _ = write!(shaped_fonts, "/E{} {} 0 R ", slot + 1, next);
                 objects.extend(complex::objects(e, slot, next));
-                next += 5;
+                next += complex::OBJECTS_PER_FACE;
             }
         }
         let mut kids = Vec::new();

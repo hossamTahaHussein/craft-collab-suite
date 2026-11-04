@@ -96,6 +96,12 @@ fn justified_cells_stretch_arabic_with_kashida_and_english_by_its_gaps() {
     if let Ok(path) = std::env::var("CRAFT_SHEETS_RTL_SCREENSHOT") {
         h.render().unwrap().save(std::path::Path::new(&path).with_file_name("sheets-justify.png")).unwrap();
     }
+    // On a right-to-left sheet each row reads from the right too (review finding 11).
+    h.state_mut().run("view.rightToLeft", json!({"on": true})).unwrap();
+    h.run_steps(4);
+    if let Ok(path) = std::env::var("CRAFT_SHEETS_RTL_SCREENSHOT") {
+        h.render().unwrap().save(std::path::Path::new(&path).with_file_name("sheets-justify-rtl.png")).unwrap();
+    }
 }
 
 /// About names the suite and credits its author, in the interface language (Arabic credit read

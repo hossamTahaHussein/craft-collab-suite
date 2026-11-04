@@ -1,8 +1,9 @@
 //! Text the standard fonts can't set: right-to-left scripts (Arabic, Hebrew) and scripts that
 //! need shaping (joining, ligatures, marks). Such runs are put in display order (the Unicode
 //! bidirectional algorithm), shaped with a bundled or installed face that covers them
-//! (`wordcraft_fonts`, the fonts Craft Docs shapes with), and drawn glyph by glyph in that face,
-//! embedded whole. Each shaped run is marked with its text (`/ActualText`), so readers copy and
+//! (`wordcraft_fonts`, the fonts Craft Docs shapes with, in the cell's weight and slant), and
+//! drawn glyph by glyph in that face, embedded with only the glyphs drawn (its own font out of a
+//! collection). Each shaped run is marked with its text (`/ActualText`), so readers copy and
 //! search it as written, Arabic vowels included; the face's `/ToUnicode` map is a fallback.
 
 use std::collections::BTreeMap;
@@ -84,8 +85,9 @@ pub(crate) fn needs(text: &str) -> bool {
 }
 
 /// `text` as runs in display order: a right-to-left run or one with characters the standard
-/// fonts lack is shaped, the rest stays plain. Without a face for a run, it stays plain.
-pub(crate) fn pieces(text: &str) -> Vec<Piece> {
+/// fonts lack is shaped, in a `bold` or `italic` face when the text is; the rest stays plain.
+/// Without a face for a run, it stays plain.
+pub(crate) fn pieces(text: &str, bold: bool, italic: bool) -> Vec<Piece> {
     if !needs(text) {
         return vec![Piece::Plain(text.to_string())];
     }
@@ -101,7 +103,7 @@ pub(crate) fn pieces(text: &str) -> Vec<Piece> {
                 continue;
             }
             let chars: Vec<char> = piece.chars().filter(|c| !c.is_whitespace()).collect();
-            let Some(face) = FontDb::global().fallback_for_run(&chars, 0, false, false) else {
+            let Some(face) = FontDb::global().fallback_for_run(&chars, 0, bold, italic) else {
                 out.push(Piece::Plain(piece.to_string()));
                 continue;
             };
@@ -188,13 +190,46 @@ pub(crate) fn utf16_hex(text: &str) -> String {
     s
 }
 
+/// Whether the face has TrueType outlines (else CFF).
+fn truetype_face(e: &Embedded) -> bool {
+    e.face.skrifa().is_some_and(|f| f.table_data(skrifa::raw::types::Tag::new(b"glyf")).is_some())
+}
+
+/// How many PDF object ids [`objects`] takes for one face.
+pub(crate) const OBJECTS_PER_FACE: u32 = 6;
+
+/// The face's own font, with only the glyphs drawn in it (and glyph 0), for embedding: TrueType
+/// gets the map from the glyph ids drawn (the CIDs) to the subset's (a `/CIDToGIDMap` stream); a
+/// CFF font keeps every glyph up to the last drawn, so its ids stay. `None` when the font can't
+/// be subset (embedded as it is).
+fn subset(e: &Embedded, truetype: bool) -> Option<(Vec<u8>, Option<Vec<u8>>)> {
+    let last = e.glyphs.keys().next_back().copied().unwrap_or(0);
+    let mut remap = subsetter::GlyphRemapper::new();
+    remap.remap(0);
+    if truetype {
+        for gid in e.glyphs.keys() {
+            remap.remap(*gid);
+        }
+    } else {
+        for gid in 0..=last {
+            remap.remap(gid);
+        }
+    }
+    let bytes = subsetter::subset(e.face.data(), e.face.index(), &remap).ok()?;
+    let map = truetype.then(|| (0..=last).flat_map(|cid| remap.get(cid).unwrap_or(0).to_be_bytes()).collect());
+    Some((bytes, map))
+}
+
 /// The PDF objects for embedded face `e` named `/E{slot+1}`: the Type 0 font (at `first_id`), its
-/// CID font, descriptor, font file and ToUnicode map (the four ids after it).
+/// CID font, descriptor, font file, ToUnicode map and CIDToGIDMap (the five ids after it).
 pub(crate) fn objects(e: &Embedded, slot: usize, first_id: u32) -> Vec<(u32, Vec<u8>)> {
     let (font, cid, desc, file, cmap) = (first_id, first_id + 1, first_id + 2, first_id + 3, first_id + 4);
-    let name = format!("CraftShaped{}", slot + 1);
+    let embedded = subset(e, truetype_face(e));
+    // A subset's name carries a six-letter tag (PDF 9.6.4).
+    let tag: String = (0..6).map(|i| char::from(b'A' + ((slot / 26usize.pow(i)) % 26) as u8)).collect();
+    let name = if embedded.is_some() { format!("{tag}+CraftShaped{}", slot + 1) } else { format!("CraftShaped{}", slot + 1) };
     let data = e.face.data();
-    let truetype = e.face.skrifa().is_some_and(|f| f.table_data(skrifa::raw::types::Tag::new(b"glyf")).is_some());
+    let truetype = truetype_face(e);
     let upem = e.face.units_per_em().max(1.0);
     let (asc, desc_m) = e.face.vertical_metrics();
     let em = |v: f64| (v * 1000.0 / upem).round() as i64;
@@ -208,7 +243,11 @@ pub(crate) fn objects(e: &Embedded, slot: usize, first_id: u32) -> Vec<(u32, Vec
         format!("<< /Type /Font /Subtype /Type0 /BaseFont /{name} /Encoding /Identity-H /DescendantFonts [{cid} 0 R] /ToUnicode {cmap} 0 R >>")
             .into_bytes(),
     ));
-    let (subtype, map) = if truetype { ("CIDFontType2", " /CIDToGIDMap /Identity") } else { ("CIDFontType0", "") };
+    let map_ref = match &embedded {
+        Some((_, Some(_))) => format!(" /CIDToGIDMap {} 0 R", cmap + 1),
+        _ => " /CIDToGIDMap /Identity".to_string(),
+    };
+    let (subtype, map) = if truetype { ("CIDFontType2", map_ref.as_str()) } else { ("CIDFontType0", "") };
     out.push((
         cid,
         format!(
@@ -230,10 +269,22 @@ pub(crate) fn objects(e: &Embedded, slot: usize, first_id: u32) -> Vec<(u32, Vec
         .into_bytes(),
     ));
     let sub = if truetype { String::new() } else { " /Subtype /OpenType".to_string() };
-    let mut o = format!("<< /Length {} /Length1 {}{sub} >>\nstream\n", data.len(), data.len()).into_bytes();
-    o.extend_from_slice(data);
+    let bytes: &[u8] = embedded.as_ref().map_or(data, |(b, _)| b.as_slice());
+    let mut o = format!("<< /Length {} /Length1 {}{sub} >>\nstream\n", bytes.len(), bytes.len()).into_bytes();
+    o.extend_from_slice(bytes);
     o.extend_from_slice(b"\nendstream");
     out.push((file, o));
+    // TrueType: the glyph ids drawn stay the CIDs, mapped to the subset's own glyph ids.
+    // (The id is the face's either way: an empty object when the map is the identity.)
+    match &embedded {
+        Some((_, Some(map))) => {
+            let mut o = format!("<< /Length {} >>\nstream\n", map.len()).into_bytes();
+            o.extend_from_slice(map);
+            o.extend_from_slice(b"\nendstream");
+            out.push((cmap + 1, o));
+        }
+        _ => out.push((cmap + 1, b"null".to_vec())),
+    }
     let mut cm = String::from(
         "/CIDInit /ProcSet findresource begin\n12 dict begin\nbegincmap\n/CIDSystemInfo << /Registry (Adobe) /Ordering (UCS) /Supplement 0 >> def\n/CMapName /Adobe-Identity-UCS def\n/CMapType 2 def\n1 begincodespacerange\n<0000> <FFFF>\nendcodespacerange\n",
     );

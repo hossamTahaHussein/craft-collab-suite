@@ -192,13 +192,14 @@ impl<H: LinkHost> Agent<H> {
                 );
             }
             let Some(msg) = wire.recv(left).map_err(WireError::message)? else { continue };
-            let Ok(Inbound::<H>::Welcome { rev, snapshot, ops, you, history, peers, role, .. }) = decode_inbound::<H>(&msg) else { continue };
+            let Ok(Inbound::<H>::Welcome { rev, snapshot, ops, you, history, peers, role, user, .. }) = decode_inbound::<H>(&msg) else { continue };
             let Some(json) = snapshot else {
                 return Err("nobody has opened this document yet: an agent joins a document a person has open".into());
             };
             let doc = H::decode(&json).ok_or_else(|| format!("the shared document isn't a {} document", app.name))?;
             let replica = Replica::join_with_history(you, rev, doc, history, ops).map_err(|e| e.to_string())?;
-            (app.set_author)(session, name);
+            // The relay stamps the agent's edits with its join token's name.
+            (app.set_author)(session, user.as_deref().filter(|n| !n.is_empty()).unwrap_or(name));
             replica.attach(session);
             H::set_role(session, Role::parse(role.as_deref().unwrap_or("edit")));
             let peers = peers.into_iter().map(|p| (p.client, (p.user, p.color))).collect();

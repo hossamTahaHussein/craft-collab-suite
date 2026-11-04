@@ -492,7 +492,8 @@ pub struct Session {
     pub suggesting: bool,
     /// An edit replayed with `track` on: whose suggestion it records and when.
     track_ctx: Option<(String, u64)>,
-    /// A suggested edit is running: the commands it runs aren't suggested again.
+    /// A top-level command is running inside the suggestion wrappers ([`suggest`]): the commands it
+    /// runs aren't wrapped again.
     track_busy: bool,
     /// Crash-recovery folder (the app sets it; saving or closing a presentation removes its entry).
     pub recovery_dir: Option<std::path::PathBuf>,
@@ -637,11 +638,11 @@ impl Session {
         if self.collab_wraps() {
             return self.execute_collab(id, params);
         }
-        if self.depth == 0
-            && !self.track_busy
-            && let Some((author, time)) = self.track_now()
-        {
-            return self.execute_tracked(id, params, &author, time);
+        if self.depth == 0 && !self.track_busy {
+            return match self.track_now() {
+                Some((author, time)) => self.execute_tracked(id, params, &author, time),
+                None => self.execute_followed(id, params),
+            };
         }
         self.guarded(id, |s| s.execute_unguarded(id, params))
     }

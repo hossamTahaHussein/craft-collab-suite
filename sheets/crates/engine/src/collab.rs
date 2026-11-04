@@ -358,21 +358,16 @@ impl Session {
     /// are; an edit that can't be suggested is refused.
     pub(crate) fn execute_tracked(&mut self, id: &str, params: Json, author: &str, time_ms: u64) -> Result<Json> {
         let edits = crate::cmd::find_command(id).is_some_and(|spec| spec.undoable);
-        let run = |s: &mut Session, params: Json| {
-            s.track_busy = true;
-            let r = s.execute(id, params);
-            s.track_busy = false;
-            r
-        };
-        if !edits || crate::suggest::REVIEW_COMMANDS.contains(&id) {
-            return run(self, params);
+        // Comments and notes are never suggestions; reviewing settles them.
+        if !edits || crate::suggest::REVIEW_COMMANDS.contains(&id) || COMMENT_COMMANDS.contains(&id) {
+            return self.run_wrapped(id, params);
         }
         if !crate::suggest::SUGGEST_COMMANDS.contains(&id) {
             return Err(EngineError::Disabled(id.to_string(), "This can't be suggested: only changes to cells' contents and formatting can".into()));
         }
-        let before = self.active().map(|d| (d.uid, d.wb.clone()));
-        let result = run(self, params)?;
-        let Some((uid, before)) = before else { return Ok(result) };
+        let before = self.active().map(|d| (d.uid, d.wb.clone(), d.undo.len(), d.redo.clone()));
+        let result = self.run_wrapped(id, params)?;
+        let Some((uid, before, undo_len, redo)) = before else { return Ok(result) };
         let Some(d) = self.active_mut().filter(|d| d.uid == uid && !std::sync::Arc::ptr_eq(&before, &d.wb)) else { return Ok(result) };
         let mut wb = (*d.wb).clone();
         match crate::suggest::record(&before, &mut wb, author, time_ms) {
@@ -381,10 +376,36 @@ impl Session {
                 Ok(result)
             }
             Err(e) => {
+                // The edit never happened: its undo step goes too.
                 d.calc.rebuild(&before);
                 d.wb = before;
+                d.undo.truncate(undo_len);
+                d.redo = redo;
                 Err(e)
             }
         }
+    }
+
+    /// Runs a top-level command outside the suggestion wrappers.
+    fn run_wrapped(&mut self, id: &str, params: Json) -> Result<Json> {
+        self.track_busy = true;
+        let r = self.execute(id, params);
+        self.track_busy = false;
+        r
+    }
+
+    /// Runs a direct edit (not a suggestion) in a workbook with suggestions: they follow it
+    /// ([`crate::suggest::follow`]). Reviewing, undo and redo leave them as those commands set them.
+    pub(crate) fn execute_followed(&mut self, id: &str, params: Json) -> Result<Json> {
+        let keeps = crate::suggest::REVIEW_COMMANDS.contains(&id) || COLLAB_UNDO.contains(&id) || matches!(id, "edit.undoTo" | "edit.redoTo");
+        let before = self.active().filter(|d| !keeps && crate::suggest::any(&d.wb)).map(|d| (d.uid, d.wb.clone()));
+        let result = self.run_wrapped(id, params)?;
+        let Some((uid, before)) = before else { return Ok(result) };
+        let Some(d) = self.active_mut().filter(|d| d.uid == uid && !std::sync::Arc::ptr_eq(&before, &d.wb)) else { return Ok(result) };
+        let mut wb = (*d.wb).clone();
+        if crate::suggest::follow(&before, &mut wb)? {
+            d.wb = std::sync::Arc::new(wb);
+        }
+        Ok(result)
     }
 }

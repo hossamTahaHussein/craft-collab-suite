@@ -30,7 +30,7 @@ fn doc(s: &Session) -> std::sync::Arc<deckcraft_model::Presentation> {
 
 /// What a command needs first (not suggested): editing text, a caret to delete before.
 fn setup(s: &mut Session, id: &str) {
-    if matches!(id, "text.insert" | "text.delete") {
+    if matches!(id, "text.insert" | "text.delete" | "text.compose" | "text.commit" | "text.deleteSurrounding") {
         s.execute("text.edit", &json!({"end": true})).unwrap();
     }
     let first = match id {
@@ -46,6 +46,9 @@ fn params(s: &Session, id: &str) -> Value {
     let a = box_id(s);
     match id {
         "text.insert" => json!({"text": "!"}),
+        "text.compose" => json!({"text": "に"}),
+        "text.commit" => json!({"text": "日本"}),
+        "text.deleteSurrounding" => json!({"before": 2, "after": 0}),
         "text.set" => json!({"id": a, "text": "Bonjour"}),
         "format.font" => json!({"family": "Georgia"}),
         "format.size" => json!({"size": 40}),
@@ -196,4 +199,115 @@ fn a_replayed_suggestion_is_recorded_alike_on_every_replica() {
     a.execute("shape.move", &json!({"ids": [id], "dx": 5})).unwrap();
     let out = a.take_outbox();
     assert_eq!((out.len(), out[0].ctx.track), (1, true), "a suggester's edit goes out as a suggestion");
+}
+
+/// Review finding 3: comments are made while suggesting and by a suggester.
+#[test]
+fn comments_are_made_while_suggesting() {
+    let mut s = deck();
+    s.suggesting = true;
+    s.execute("comment.add", &json!({"text": "Why?"})).unwrap();
+    assert!(suggestions(&doc(&s)).is_empty(), "not a suggestion");
+    assert_eq!(doc(&s).slides[0].comments.len(), 1);
+}
+
+/// Review finding 4: typing through an input method is a suggestion too; a cancelled composition
+/// suggests nothing.
+#[test]
+fn input_method_typing_is_suggested() {
+    let mut s = deck();
+    let before = doc(&s);
+    s.suggesting = true;
+    s.execute("text.edit", &json!({"end": true})).unwrap();
+    s.execute("text.compose", &json!({"text": "に"})).unwrap();
+    s.execute("text.compose", &json!({"text": ""})).unwrap();
+    assert!(suggestions(&doc(&s)).is_empty(), "cancelled: nothing suggested");
+    s.execute("text.compose", &json!({"text": "にほん"})).unwrap();
+    s.execute("text.commit", &json!({"text": "日本"})).unwrap();
+    assert_eq!(suggestions(&doc(&s)).len(), 1);
+    s.execute("text.exit", &json!({})).unwrap();
+    s.suggesting = false;
+    s.execute("review.rejectAllSuggestions", &json!({})).unwrap();
+    assert!(as_it_was(&before, &doc(&s)));
+}
+
+/// Review finding 5: in a deck with sections, slides are added, duplicated and deleted as
+/// suggestions, and rejecting puts the sections back.
+#[test]
+fn slides_in_sections_are_suggested_and_rejected() {
+    let mut s = deck();
+    s.execute("section.add", &json!({"name": "Intro", "at": 0})).unwrap();
+    s.execute("section.add", &json!({"name": "Body", "at": 1})).unwrap();
+    let before = doc(&s);
+    s.suggesting = true;
+    for (id, p) in [("slide.new", json!({})), ("slide.duplicate", json!({})), ("slide.delete", json!({}))] {
+        s.execute("slide.go", &json!({"index": 0})).unwrap();
+        s.execute(id, &p).unwrap_or_else(|e| panic!("{id}: {e}"));
+    }
+    assert_eq!(suggestions(&doc(&s)).len(), 3);
+    s.suggesting = false;
+    s.execute("review.rejectAllSuggestions", &json!({})).unwrap();
+    assert!(as_it_was(&before, &doc(&s)), "slides and sections as they were");
+}
+
+/// Review finding 6: rejecting a suggested slide setting keeps others' later notes and comments.
+#[test]
+fn rejecting_a_setting_keeps_later_notes_and_comments() {
+    let mut s = deck();
+    s.suggesting = true;
+    s.execute("slide.hide", &json!({"index": 0})).unwrap();
+    s.suggesting = false;
+    s.execute("slide.notes", &json!({"index": 0, "text": "Say hello"})).unwrap();
+    s.execute("comment.add", &json!({"text": "Bob's"})).unwrap();
+    s.execute("review.rejectAllSuggestions", &json!({})).unwrap();
+    let sl = &doc(&s).slides[0];
+    assert!(!sl.hidden, "the suggestion was rejected");
+    assert_eq!(sl.notes.text(), "Say hello");
+    assert_eq!(sl.comments.len(), 1);
+}
+
+/// Review finding 7: a direct edit of a suggested shape settles its suggestion.
+#[test]
+fn a_direct_edit_settles_the_suggestion() {
+    let mut s = deck();
+    let a = box_id(&s);
+    s.suggesting = true;
+    s.execute("shape.move", &json!({"ids": [a], "dx": 40})).unwrap();
+    s.suggesting = false;
+    s.execute("shape.rotate", &json!({"ids": [a], "deg": 10})).unwrap();
+    assert!(suggestions(&doc(&s)).is_empty(), "settled");
+}
+
+/// Review finding 8: Reject with a shape selected that has no suggestion rejects nothing.
+#[test]
+fn reject_with_an_unsuggested_shape_selected_does_nothing() {
+    let mut s = deck();
+    s.suggesting = true;
+    s.execute("shape.insert", &json!({"preset": "rect", "rect": [500, 300, 100, 80]})).unwrap();
+    s.suggesting = false;
+    s.execute("edit.select", &json!({"ids": [box_id(&s)]})).unwrap();
+    assert_eq!(s.execute("review.rejectSuggestion", &json!({})).unwrap()["count"], 0);
+    assert_eq!(suggestions(&doc(&s)).len(), 1);
+}
+
+/// Review findings 13 and 16: a refused suggestion leaves no undo step; an unreadable record is
+/// kept.
+#[test]
+fn a_refused_suggestion_leaves_no_undo_step_and_unknown_records_are_kept() {
+    let mut s = deck();
+    let undo = s.active().unwrap().history.undo.len();
+    s.suggesting = true;
+    assert!(s.execute("design.theme", &json!({"name": "Ember"})).is_err());
+    assert_eq!(s.active().unwrap().history.undo.len(), undo);
+    {
+        let d = s.active_mut().unwrap();
+        let mut p = (*d.doc).clone();
+        p.tags.push((super::TAG.to_string(), r#"[{"before":{"kind":"fromTheFuture"},"author":"X","time":1}]"#.to_string()));
+        d.doc = std::sync::Arc::new(p);
+    }
+    s.execute("shape.move", &json!({"ids": [box_id(&s)], "dx": 5})).unwrap();
+    let d = doc(&s);
+    let stored = &d.tags.iter().find(|(k, _)| k == super::TAG).unwrap().1;
+    assert!(stored.contains("fromTheFuture"), "kept: {stored}");
+    assert_eq!(suggestions(&d).len(), 1);
 }

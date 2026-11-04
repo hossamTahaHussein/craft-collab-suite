@@ -396,7 +396,7 @@ fn paint_cell(q: &QuadrantPaint<'_>, painted: &(CellRef, Rect, Look, Option<CfLo
         let text_clip = wrapped_text_clip(p, *rect, &galley, y, st.align.v);
         if matches!(st.align.h, HAlign::Justify | HAlign::Distributed) {
             let all_rows = st.align.h == HAlign::Distributed;
-            paint_justified(&p.with_clip_rect(text_clip), &galley, pos2(text_left + pad + indent, y), wrap_w, &font, color, all_rows);
+            paint_justified(&p.with_clip_rect(text_clip), &galley, pos2(text_left + pad + indent, y), wrap_w, &font, color, all_rows, geo.rtl);
             return;
         }
         p.with_clip_rect(text_clip).galley(pos2(x, y), galley, color);
@@ -556,10 +556,11 @@ fn paint_borders(q: &mut QuadrantPaint<'_>, looks: &[(CellRef, Rect, Look, Optio
     let (r0, r1) = q.rows;
     let (c0, c1) = q.cols;
     // Suggested cells, with who suggested each.
-    let suggested: Vec<(CellRef, String)> = gridcraft_engine::suggest::suggestions(wb)
-        .into_iter()
+    let suggested: std::collections::HashMap<CellRef, String> = gridcraft_engine::suggest::cached(wb)
+        .iter()
         .filter(|x| x.sheet == sh.name)
-        .filter_map(|x| Some((CellRef::parse(&x.cell)?, x.author)))
+        .filter_map(|x| Some((CellRef::parse(&x.cell)?, x.author.clone())))
+        .filter(|(c, _)| (r0..=r1).contains(&c.row) && (c0..=c1).contains(&c.col))
         .collect();
     let dark = p.ctx().global_style().visuals.dark_mode;
     // Borders (over fills and text).
@@ -602,7 +603,7 @@ fn paint_borders(q: &mut QuadrantPaint<'_>, looks: &[(CellRef, Rect, Look, Optio
             ));
         }
         // A suggestion: its author's colour along the bottom, and a corner at the bottom left.
-        if let Some((_, author)) = suggested.iter().find(|(at, _)| at == c) {
+        if let Some(author) = suggested.get(c) {
             let col = super::peers::suggestion_color(author, dark);
             let s = 6.0 * z.max(0.7);
             p.line_segment([rect.left_bottom() + vec2(0.0, -1.0), rect.right_bottom() + vec2(0.0, -1.0)], Stroke::new(2.0, col));

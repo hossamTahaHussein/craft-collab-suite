@@ -58,15 +58,25 @@ fn p_open(i: usize, p: &Paragraph) -> &'static str {
 /// The `dir` a block's tag source gives (`rtl` → `Some(true)`, `ltr` → `Some(false)`).
 fn block_dir(src: &str) -> Option<bool> {
     let lower = src.to_ascii_lowercase();
-    let at = lower.find("dir=")? + 4;
-    let value = lower[at..].trim_start_matches(['"', '\'']);
-    if value.starts_with("rtl") {
-        Some(true)
-    } else if value.starts_with("ltr") {
-        Some(false)
-    } else {
-        None
+    let b = lower.as_bytes();
+    // The `dir` attribute itself (not `data-dir`), its `=` with or without spaces around it.
+    let mut from = 0;
+    while let Some(i) = lower[from..].find("dir").map(|k| from + k) {
+        from = i + 3;
+        if i > 0 && !b[i - 1].is_ascii_whitespace() {
+            continue;
+        }
+        let rest = lower[from..].trim_start();
+        let Some(value) = rest.strip_prefix('=') else { continue };
+        let value = value.trim_start().trim_start_matches(['"', '\'']);
+        if value.starts_with("rtl") {
+            return Some(true);
+        } else if value.starts_with("ltr") {
+            return Some(false);
+        }
+        return None;
     }
+    None
 }
 
 /// The text without formatting, or "" (no HTML on the clipboard) when even that is too big: a
@@ -625,5 +635,18 @@ mod tests {
     fn a_huge_fragment_is_refused() {
         let html = "x".repeat(MAX_HTML + 1);
         assert!(html_to_body(&html).is_none());
+    }
+}
+
+#[cfg(test)]
+mod block_dir_tests {
+    /// The `dir` attribute is read with spaces around its `=`, and `data-dir` isn't it (review
+    /// finding 20).
+    #[test]
+    fn reads_the_dir_attribute_only() {
+        assert_eq!(super::block_dir(r#"<p dir = "rtl">"#), Some(true));
+        assert_eq!(super::block_dir(r#"<p data-dir="rtl" dir='ltr'>"#), Some(false));
+        assert_eq!(super::block_dir(r#"<p data-dir="rtl">"#), None);
+        assert_eq!(super::block_dir("<p>"), None);
     }
 }

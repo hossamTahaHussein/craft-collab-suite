@@ -35,6 +35,10 @@ impl LinkHost for DocsDoc {
         s.dirty = false;
     }
 
+    fn set_author(s: &mut Session, name: &str) {
+        s.author = name.to_string();
+    }
+
     fn set_role(s: &mut Session, role: Role) {
         s.set_collab_role(match role {
             Role::Edit => CollabRole::Edit,

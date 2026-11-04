@@ -743,7 +743,7 @@ pub(crate) fn paint_overlays(input: OverlayInput<'_>) {
     if let Some(c) = hover
         && app.editor.is_none()
         && app.grid.drag == Drag::None
-        && let Some(x) = gridcraft_engine::suggest::suggestions(wb).into_iter().find(|x| x.sheet == sh.name && x.cell == c.a1())
+        && let Some(x) = gridcraft_engine::suggest::cached(wb).iter().find(|x| x.sheet == sh.name && x.cell == c.a1()).cloned()
     {
         let r = geo.cell_rect(sh, c);
         let (at, pivot) = (geo.mirror_pos(pos2(r.left(), r.bottom() + 4.0)), if geo.rtl { Align2::RIGHT_TOP } else { Align2::LEFT_TOP });

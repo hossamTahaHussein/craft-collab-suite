@@ -521,7 +521,8 @@ pub struct Session {
     pub suggesting: bool,
     /// An edit replayed with `track` on: whose suggestion it records and when.
     track_ctx: Option<(String, u64)>,
-    /// A suggested edit is running: the commands it runs aren't suggested again.
+    /// A top-level command is running inside the suggestion wrappers ([`suggest`]): the commands it
+    /// runs aren't wrapped again.
     track_busy: bool,
     /// Open undo groups, innermost last.
     groups: Vec<OpenGroup>,
@@ -679,11 +680,11 @@ impl Session {
         if self.collab_wraps() {
             return self.execute_collab(id, params);
         }
-        if self.depth == 0
-            && !self.track_busy
-            && let Some((author, time_ms)) = self.track_now()
-        {
-            return self.execute_tracked(id, params, &author, time_ms);
+        if self.depth == 0 && !self.track_busy {
+            return match self.track_now() {
+                Some((author, time_ms)) => self.execute_tracked(id, params, &author, time_ms),
+                None => self.execute_followed(id, params),
+            };
         }
         let spec = find_command(id).ok_or_else(|| EngineError::UnknownCommand(id.to_string()))?;
         if let Err(why) = (spec.enabled)(self) {

@@ -67,10 +67,17 @@ fn suggesting(app: &mut SlideApp, ui: &mut Ui) {
     if r.on_hover_text(crate::i18n::tr("Suggest changes that others accept or reject")).clicked() {
         run(app, "review.suggesting", json!({"on": !on}));
     }
-    let any = app.session.active().is_some_and(|d| !deckcraft_engine::suggest::suggestions(&d.doc).is_empty());
+    // Reviewing is for people who may edit, as in Craft Docs.
+    if suggester {
+        return;
+    }
+    let (any, here) = app.session.active().map_or((false, false), |d| {
+        let list = deckcraft_engine::suggest::cached(&d.doc);
+        (!list.is_empty(), !deckcraft_engine::suggest::reachable(&d.doc, &d.selection, &list).is_empty())
+    });
     rows(ui, |ui| {
         for (icon, label, id) in [(Icon::Check, "Accept", "review.acceptSuggestion"), (Icon::Close, "Reject", "review.rejectSuggestion")] {
-            if small_button(ui, icon, label, any, false).on_hover_text(tip(id, label)).clicked() {
+            if small_button(ui, icon, label, here, false).on_hover_text(tip(id, label)).clicked() {
                 run(app, id, json!({}));
             }
         }
@@ -85,7 +92,7 @@ fn suggesting(app: &mut SlideApp, ui: &mut Ui) {
             run(app, "review.rejectAllSuggestions", json!({}));
         }
         let mut people: Vec<String> =
-            app.session.active().map(|d| deckcraft_engine::suggest::suggestions(&d.doc).into_iter().map(|x| x.author).collect()).unwrap_or_default();
+            app.session.active().map(|d| deckcraft_engine::suggest::cached(&d.doc).iter().map(|x| x.author.clone()).collect()).unwrap_or_default();
         people.sort();
         people.dedup();
         for person in people {

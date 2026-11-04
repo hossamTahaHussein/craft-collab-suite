@@ -875,6 +875,21 @@ fn a_right_to_left_sheet_prints_mirrored_with_column_a_at_the_right() {
     assert!(contains(&rtl, "(First) Tj"));
 }
 
+/// An equation on a right-to-left sheet moves to the mirrored place as a whole: it still reads
+/// x, then +, then 1, left to right (review finding 9).
+#[test]
+fn objects_on_a_right_to_left_sheet_move_whole_and_read_as_written() {
+    let mut s = s();
+    s.execute("insert.equation", json!({"latex": "x+1", "cell": "B2"})).unwrap();
+    let (ltr, _) = pdf_of(&mut s, json!({}));
+    s.execute("view.rightToLeft", json!({"on": true})).unwrap();
+    let (rtl, _) = pdf_of(&mut s, json!({}));
+    let (Some(x), Some(one)) = (text_at(&rtl, "x"), text_at(&rtl, "1")) else { panic!("the equation's glyphs") };
+    assert!(x.0 < one.0, "x before 1, as written ({} < {})", x.0, one.0);
+    let lx = text_at(&ltr, "x").unwrap().0;
+    assert!(x.0 > lx + 100.0, "the equation moved to the mirrored side ({lx} -> {})", x.0);
+}
+
 /// The x of the first glyph drawn in the `n`th (from 0) run of shaped text.
 fn shaped_x(pdf: &[u8], n: usize) -> Option<f32> {
     let s = String::from_utf8_lossy(pdf);

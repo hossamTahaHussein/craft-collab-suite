@@ -166,11 +166,13 @@ pub(super) fn context_menu(app: &mut SheetApp, ui: &mut egui::Ui) {
                 );
             }
             // On a suggested cell, its suggestion is accepted or rejected from here too.
-            let suggested = app.session.active().is_some_and(|d| {
-                let sheet = d.wb.active().map(|sh| sh.name.clone()).unwrap_or_default();
-                let cell = d.selection.active.a1();
-                gridcraft_engine::suggest::suggestions(&d.wb).iter().any(|x| x.sheet == sheet && x.cell == cell)
-            });
+            let reviews = app.session.collab_role() != gridcraft_engine::collab::CollabRole::Suggest;
+            let suggested = reviews
+                && app.session.active().is_some_and(|d| {
+                    let sheet = d.wb.active().map(|sh| sh.name.clone()).unwrap_or_default();
+                    let cell = d.selection.active.a1();
+                    gridcraft_engine::suggest::cached(&d.wb).iter().any(|x| x.sheet == sheet && x.cell == cell)
+                });
             if suggested {
                 items.splice(0..0, [("Accept Suggestion", "review.acceptSuggestion"), ("Reject Suggestion", "review.rejectSuggestion"), ("-", "")]);
             }

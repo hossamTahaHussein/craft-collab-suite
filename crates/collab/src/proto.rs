@@ -104,7 +104,17 @@ mod tests {
         let w = decode_inbound(r#"{"t":"Welcome","rev":3,"snapshot":null,"ops":[],"you":"c1"}"#).unwrap();
         assert_eq!(
             w,
-            Inbound::Welcome { rev: 3, snapshot: None, ops: vec![], you: "c1".into(), seen: None, history: vec![], peers: vec![], role: None }
+            Inbound::Welcome {
+                rev: 3,
+                snapshot: None,
+                ops: vec![],
+                you: "c1".into(),
+                seen: None,
+                history: vec![],
+                peers: vec![],
+                role: None,
+                user: None
+            }
         );
         assert_eq!(decode_inbound(r#"{"t":"Save"}"#).unwrap(), Inbound::Save);
         assert_eq!(decode_inbound(r#"{"t":"SnapshotRequest"}"#).unwrap(), Inbound::SnapshotRequest);

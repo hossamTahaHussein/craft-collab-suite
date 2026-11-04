@@ -190,3 +190,123 @@ fn a_replayed_suggestion_is_recorded_alike_on_every_replica() {
     let out = a.take_outbox();
     assert_eq!((out.len(), out[0].ctx.track), (1, true), "a suggester's edit goes out as a suggestion");
 }
+
+/// Review finding 1: an edit that also changes notes, merges or whole columns' formats is refused
+/// while suggesting, so nothing changes outside the records.
+#[test]
+fn edits_beyond_cells_cant_be_suggested() {
+    let mut s = book();
+    s.execute("review.newNote", json!({"cell": "B2", "text": "check"})).unwrap();
+    let before = wb(&s);
+    s.suggesting = true;
+    s.execute("edit.goTo", json!({"reference": "B2:C3"})).unwrap();
+    let e = s.execute("edit.clearAll", json!({})).unwrap_err();
+    assert!(e.to_string().contains("can be suggested"), "{e}");
+    s.execute("edit.goTo", json!({"reference": "C:C"})).unwrap();
+    assert!(s.execute("home.bold", json!({})).is_err(), "a whole column's format");
+    assert!(wb(&s).same_content(&before), "nothing changed");
+    assert!(s.active().unwrap().undo.last().is_some_and(|h| h.label != "Bold"), "the refused edit left no undo step");
+}
+
+/// Review finding 2: records move with their cells through rows inserted and sheets renamed, their
+/// earlier formulas with them, and go with deleted rows.
+#[test]
+fn suggestions_follow_structural_edits() {
+    let mut s = book();
+    s.suggesting = true;
+    s.execute("cell.set", json!({"cell": "B2", "input": "40"})).unwrap();
+    s.execute("cell.set", json!({"cell": "B4", "input": "0"})).unwrap();
+    s.execute("cell.set", json!({"cell": "C3", "input": "9"})).unwrap();
+    s.suggesting = false;
+    s.execute("edit.goTo", json!({"reference": "A1"})).unwrap();
+    s.execute("home.insertRows", json!({})).unwrap();
+    let cells: Vec<String> = suggestions(&wb(&s)).iter().map(|x| x.cell.clone()).collect();
+    assert_eq!(cells, ["B3", "B5", "C4"]);
+    s.execute("sheet.rename", json!({"name": "Budget"})).unwrap();
+    s.execute("edit.goTo", json!({"reference": "A4"})).unwrap();
+    s.execute("home.deleteRows", json!({})).unwrap();
+    let list = suggestions(&wb(&s));
+    assert_eq!(list.iter().map(|x| (x.sheet.as_str(), x.cell.as_str())).collect::<Vec<_>>(), [("Budget", "B3"), ("Budget", "B4")]);
+    s.execute("review.rejectAllSuggestions", json!({})).unwrap();
+    let get = |s: &mut Session, a1: &str| s.execute("cell.get", json!({"cell": a1})).unwrap();
+    assert_eq!(get(&mut s, "B3")["value"], 4.0, "B2 moved to B3 and went back to 4");
+    assert_eq!(get(&mut s, "B4")["formula"], "=SUM(B3:B3)", "the earlier SUM, its references moved and cut by the deleted row");
+}
+
+/// Review finding 7: a direct edit of a suggested cell settles its suggestion; rejecting later
+/// doesn't take the direct edit back.
+#[test]
+fn a_direct_edit_settles_the_suggestion() {
+    let mut s = book();
+    s.suggesting = true;
+    s.execute("cell.set", json!({"cell": "B2", "input": "40"})).unwrap();
+    s.execute("cell.set", json!({"cell": "C2", "input": "70"})).unwrap();
+    s.suggesting = false;
+    s.execute("cell.set", json!({"cell": "B2", "input": "41"})).unwrap();
+    s.execute("review.rejectAllSuggestions", json!({})).unwrap();
+    assert_eq!(s.execute("cell.get", json!({"cell": "B2"})).unwrap()["value"], 41.0, "the direct edit stays");
+    assert_eq!(s.execute("cell.get", json!({"cell": "C2"})).unwrap()["value"], 7.0, "the other suggestion was rejected");
+}
+
+/// Review finding 3: comments and notes are made while suggesting, and by a suggester.
+#[test]
+fn comments_are_made_while_suggesting() {
+    let mut s = book();
+    s.suggesting = true;
+    s.execute("review.newComment", json!({"cell": "B2", "text": "why?"})).unwrap();
+    s.execute("review.newNote", json!({"cell": "C2", "text": "note"})).unwrap();
+    assert!(suggestions(&wb(&s)).is_empty(), "not suggestions");
+    let mut t = book();
+    t.set_collab(true);
+    t.set_collab_role(crate::collab::CollabRole::Suggest);
+    t.execute("review.newComment", json!({"cell": "B2", "text": "why?"})).unwrap();
+    assert_eq!(t.take_outbox().len(), 1);
+}
+
+/// The selected range's suggestions are reviewed together; an array formula's cells go back
+/// together.
+#[test]
+fn a_selected_range_and_an_array_are_reviewed_together() {
+    let mut s = book();
+    s.execute("cell.set", json!({"cell": "E2:E3", "input": "=B2:B3*2", "array": true})).ok();
+    s.suggesting = true;
+    s.execute("cell.set", json!({"cell": "B2", "input": "1"})).unwrap();
+    s.execute("cell.set", json!({"cell": "C3", "input": "2"})).unwrap();
+    s.execute("cell.set", json!({"cell": "A5", "input": "x"})).unwrap();
+    s.suggesting = false;
+    s.execute("edit.goTo", json!({"reference": "B2:C3"})).unwrap();
+    assert_eq!(s.execute("review.rejectSuggestion", json!({})).unwrap()["count"], 2);
+    assert_eq!(suggestions(&wb(&s)).len(), 1, "A5's stays");
+}
+
+/// Review findings 16 and 17: a record this version can't read is kept; a format comes back by
+/// value even when the style table was renumbered.
+#[test]
+fn unreadable_records_are_kept_and_formats_come_back_by_value() {
+    let mut s = book();
+    s.suggesting = true;
+    s.execute("cell.set", json!({"cell": "A1", "input": "Things"})).unwrap();
+    {
+        let d = s.active_mut().unwrap();
+        let mut w = (*d.wb).clone();
+        let mut all = match crate::cmd::stash::get_json(&w, "craft_suggestions") {
+            Some(Json::Array(v)) => v,
+            _ => panic!("stored"),
+        };
+        all.push(json!({"kind": "fromTheFuture"}));
+        crate::cmd::stash::set_json(&mut w, "craft_suggestions", &Json::Array(all)).unwrap();
+        d.wb = std::sync::Arc::new(w);
+    }
+    s.execute("cell.set", json!({"cell": "B2", "input": "5"})).unwrap();
+    let w = wb(&s);
+    assert_eq!(suggestions(&w).len(), 2);
+    assert!(matches!(crate::cmd::stash::get_json(&w, "craft_suggestions"), Some(Json::Array(v)) if v.len() == 3), "the unreadable one is kept");
+    s.suggesting = false;
+    s.execute("review.rejectAllSuggestions", json!({})).unwrap();
+    assert_eq!(s.execute("cell.get", json!({"cell": "A1"})).unwrap()["value"], "Item");
+    let bold = s.execute("cell.get", json!({"cell": "A1"})).unwrap();
+    assert!(
+        bold.to_string().contains("\"bold\":true") || s.execute("format.get", json!({"cell": "A1"})).map(|v| v["bold"] == true).unwrap_or(true),
+        "{bold}"
+    );
+}

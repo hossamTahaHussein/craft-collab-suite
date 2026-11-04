@@ -365,7 +365,7 @@ fn have_face(sample: &str) -> bool {
 fn read_right_to_left(text: &str) -> String {
     let mut reg = complex::Registry::default();
     let mut out = String::new();
-    for piece in complex::pieces(text).iter().rev() {
+    for piece in complex::pieces(text, false, false).iter().rev() {
         match piece {
             complex::Piece::Plain(t) => out.push_str(&t.chars().rev().collect::<String>()),
             complex::Piece::Shaped { face, glyphs, text, upem } => {
@@ -410,7 +410,7 @@ fn arabic_is_shaped_in_an_embedded_face_that_copies_as_written() -> Result<(), B
     assert!(xs.len() > 5 && xs.windows(2).filter(|w| w[0] > w[1]).count() * 4 < xs.len(), "{xs:?}");
     let pdf = doc.finish();
     check_xref(&pdf)?;
-    for key in [&b"/Subtype /Type0"[..], b"/Encoding /Identity-H", b"/ToUnicode", b"/BaseFont /CraftShaped1", b"/Ordering (UCS)"] {
+    for key in [&b"/Subtype /Type0"[..], b"/Encoding /Identity-H", b"/ToUnicode", b"+CraftShaped1", b"/Ordering (UCS)"] {
         assert!(find(&pdf, key).is_some(), "{}", String::from_utf8_lossy(key));
     }
     assert!(find(&pdf, b"/FontFile2").is_some() || find(&pdf, b"/FontFile3").is_some());
@@ -436,12 +436,12 @@ fn mixed_direction_text_is_split_into_display_runs() {
         return;
     }
     // A Hebrew paragraph: the Latin word is to the left of the Hebrew.
-    let pieces = complex::pieces("שלום abc");
+    let pieces = complex::pieces("שלום abc", false, false);
     assert!(matches!(pieces.first(), Some(complex::Piece::Plain(t)) if t.contains("abc")));
     assert!(matches!(pieces.last(), Some(complex::Piece::Shaped { text, .. }) if text.contains("שלום")));
     // Text the standard fonts set stays plain, untouched.
     assert!(!complex::needs("Total 2026 – café"));
-    assert!(matches!(complex::pieces("Total").as_slice(), [complex::Piece::Plain(t)] if t == "Total"));
+    assert!(matches!(complex::pieces("Total", false, false).as_slice(), [complex::Piece::Plain(t)] if t == "Total"));
 }
 
 #[test]
@@ -487,4 +487,21 @@ fn vowelled_text_is_drawn_without_text_and_written_invisibly_a_character_a_glyph
         assert_eq!(hex.len(), 4, "one UTF-16 unit: {hex}");
     }
     check_xref(&doc.finish()).unwrap();
+}
+
+/// Shaped text embeds only the glyphs drawn, as a tagged subset, not the whole font (review
+/// finding 10: whole fonts, and collections, were embedded).
+#[test]
+fn shaped_text_embeds_a_subset_of_its_face() {
+    let mut doc = PdfDoc::new();
+    let pg = doc.add_page(612.0, 792.0);
+    pg.text(72.0, 72.0, 12.0, Font::Helvetica, [0, 0, 0], "مرحبا بكم");
+    let pdf = doc.finish();
+    let s = String::from_utf8_lossy(&pdf);
+    if !s.contains("CraftShaped") {
+        eprintln!("skipped: no Arabic face to shape with");
+        return;
+    }
+    assert!(s.contains("AAAAAA+CraftShaped1"), "a subset's tagged name");
+    assert!(pdf.len() < 60_000, "{} bytes: the subset, not the whole face", pdf.len());
 }

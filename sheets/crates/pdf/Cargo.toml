@@ -14,3 +14,5 @@ workspace = true
 wordcraft-fonts = { workspace = true }
 unicode-bidi = { workspace = true }
 skrifa = { workspace = true }
+# Only the glyphs drawn, from the face's own font in a collection (.ttc), are embedded.
+subsetter = { workspace = true }

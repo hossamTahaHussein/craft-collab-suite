@@ -69,6 +69,19 @@ fn decode_image(data: &[u8], max_w: u32, max_h: u32) -> Option<(Vec<u8>, u32, u3
 /// Draws charts, pictures, shapes and sparklines overlapping the body block of a page.
 /// `pics` memoizes decoded pictures for the whole render (one page at a time draws each
 /// picture again, but the decode happens once).
+/// Draws an object whose box is `(x, y, w, h)` with `draw`: on a mirrored page it moves as a whole
+/// to the mirrored box and is drawn as it is, so a chart keeps its axes and an equation reads as
+/// written, as the sheet shows them.
+fn whole(pg: &mut Page, (x, y, w, h): (f32, f32, f32, f32), draw: impl FnOnce(&mut Page, (f32, f32, f32, f32))) {
+    if !pg.mirrored() {
+        return draw(pg, (x, y, w, h));
+    }
+    let x = pg.width() - x - w;
+    pg.set_mirrored(false);
+    draw(pg, (x, y, w, h));
+    pg.set_mirrored(true);
+}
+
 pub(super) fn draw_objects(pg: &mut Page, wb: &Workbook, si: usize, sh: &Sheet, b: &Block, pics: &mut super::PicCache) {
     let block = b.range();
     let (sx0, sy0) = (sh.col_left(block.start.col), sh.row_top(block.start.row));
@@ -98,37 +111,37 @@ pub(super) fn draw_objects(pg: &mut Page, wb: &Workbook, si: usize, sh: &Sheet, 
         if !visible(r) {
             continue;
         }
-        let (x, y, w, h) = place(r);
-        if shp.kind == ShapeKind::Equation {
-            let ink = rgb_of(shp.line, wb).unwrap_or([0, 0, 0]);
-            match shp.math.get(&shp.text) {
-                Some(Ok(list)) => crate::cmd::equation::draw_pdf(pg, list, (x, y, w, h), crate::cmd::equation::PADDING * b.k, ink),
-                _ => {
-                    // No layout (the source does not parse, or the file was past the layout
-                    // budget): the source, one text run per line, as many as the frame holds.
-                    let line_h = 12.0 * b.scale;
-                    // A long line stays inside the frame; this clip nests in the block's.
-                    pg.save();
-                    pg.clip_rect(x, y, w, h);
-                    for (i, line) in fallback_lines(&shp.text, h, line_h).enumerate() {
-                        pg.text(x + 2.0 * b.k, y + line_h * (i + 1) as f32, 10.0 * b.scale, Font::Courier, ink, line);
+        whole(pg, place(r), |pg, (x, y, w, h)| {
+            if shp.kind == ShapeKind::Equation {
+                let ink = rgb_of(shp.line, wb).unwrap_or([0, 0, 0]);
+                match shp.math.get(&shp.text) {
+                    Some(Ok(list)) => crate::cmd::equation::draw_pdf(pg, list, (x, y, w, h), crate::cmd::equation::PADDING * b.k, ink),
+                    _ => {
+                        // No layout (the source does not parse, or the file was past the layout
+                        // budget): the source, one text run per line, as many as the frame holds.
+                        let line_h = 12.0 * b.scale;
+                        // A long line stays inside the frame; this clip nests in the block's.
+                        pg.save();
+                        pg.clip_rect(x, y, w, h);
+                        for (i, line) in fallback_lines(&shp.text, h, line_h).enumerate() {
+                            pg.text(x + 2.0 * b.k, y + line_h * (i + 1) as f32, 10.0 * b.scale, Font::Courier, ink, line);
+                        }
+                        pg.restore();
                     }
-                    pg.restore();
                 }
+                return;
             }
-            continue;
-        }
-        draw_shape(pg, wb, shp, b, (x, y, w, h));
+            draw_shape(pg, wb, shp, b, (x, y, w, h));
+        });
     }
     for ch in &sh.charts {
         let r = anchor_rect(sh, &ch.anchor);
         if !visible(r) {
             continue;
         }
-        let (x, y, _, _) = place(r);
         let data = gridcraft_chart::resolve(wb, si, ch);
         let prims = gridcraft_chart::render(ch, &data, r.2 as f32, r.3 as f32, &PdfMeasure);
-        draw_prims(pg, &prims, Xf { ox: x, oy: y, k: b.k });
+        whole(pg, place(r), |pg, (x, y, _, _)| draw_prims(pg, &prims, Xf { ox: x, oy: y, k: b.k }));
     }
     pg.restore();
 }
