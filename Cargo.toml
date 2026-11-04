@@ -36,6 +36,7 @@ wordcraft-collab = { path = "crates/collab" }
 craft-collab-core = { path = "crates/collab-core" }
 craft-collab-link = { path = "crates/collab-link" }
 craft-collab-ui = { path = "crates/collab-ui" }
+craft-collab-agent = { path = "crates/collab-agent" }
 wordcraft-mcp = { path = "crates/mcp" }
 wordcraft-zotero = { path = "crates/zotero" }
 wordcraft-control-key = { path = "crates/control-key" }

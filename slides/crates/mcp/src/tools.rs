@@ -65,6 +65,20 @@ const APP_ONLY: &str = " Desktop app only (`deckcraft-cli mcp --connect PORT`)."
 pub fn tool_definitions() -> Vec<Value> {
     vec![
         tool(
+            "who_is_here",
+            "Who is here",
+            "The people in the shared document with you (names and colours) and its revision. Only when joined to a shared document (deckcraft-cli collab-mcp).",
+            obj(json!({}), &[]),
+            true,
+        ),
+        tool(
+            "wait_for_changes",
+            "Wait for changes",
+            "Wait until someone changes the shared document after revision `since` (default: now), up to `timeoutMs` (default 30000, at most 120000), and list the changes: revision, who, which command. Only when joined to a shared document.",
+            obj(json!({"since": int("Revision to wait past"), "timeoutMs": int("Longest wait in milliseconds")}), &[]),
+            true,
+        ),
+        tool(
             "list_commands",
             "List commands",
             "Every command (id, label, ribbon/menu place, shortcut, parameter summary, whether it is enabled now). Filter by a substring of id or label.",
@@ -337,6 +351,17 @@ pub fn call_tool(b: &mut dyn Backend, name: &str, a: &Value) -> ToolResult {
         return ToolResult::error(msg);
     }
     match name {
+        // An agent in a shared presentation (`deckcraft-cli collab-mcp`) answers these.
+        "who_is_here" => wrap(b.call("collab.who", json!({}))),
+        "wait_for_changes" => {
+            let mut p = json!({});
+            for k in ["since", "timeoutMs"] {
+                if let Some(v) = a.get(k).filter(|v| !v.is_null()) {
+                    p[k] = v.clone();
+                }
+            }
+            wrap(b.call("collab.wait", p))
+        }
         "list_commands" => wrap(b.call("engine.commands", json!({})).map(|v| {
             let f = a.get("filter").and_then(Value::as_str).unwrap_or("").to_lowercase();
             Value::Array(

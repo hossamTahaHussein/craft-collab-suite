@@ -3,6 +3,7 @@
 #![forbid(unsafe_code)]
 
 mod automation_args;
+mod collab_agent;
 
 mod help;
 
@@ -87,6 +88,7 @@ fn main() -> ExitCode {
         Some("describe") => report(describe(rest.first().map(String::as_str))),
         Some("app") => report(app(rest)),
         Some("mcp") => report(mcp(rest)),
+        Some("collab-mcp") => report(collab_mcp(rest)),
         Some("links") => {
             use deckcraft_engine::links::{APP_PAGE, COMMUNITY, GITHUB, WEBSITE};
             outln!("Discord   {COMMUNITY}\nWebsite   {WEBSITE}\nApp page  {APP_PAGE}\nGitHub    {GITHUB}");
@@ -684,6 +686,32 @@ fn app(args: &[String]) -> Result<(), String> {
     };
     outln!("{}", serde_json::to_string_pretty(&v).unwrap_or_default());
     Ok(())
+}
+
+/// `collab-mcp --relay URL --token TOKEN [--name NAME]`: the MCP server is an agent in the shared
+/// presentation the join token names (`collab_agent`).
+fn collab_mcp(args: &[String]) -> Result<(), String> {
+    use deckcraft_mcp::{Backend, Server};
+    let (mut relay, mut token, mut name) = (None, None, "Agent".to_string());
+    let mut it = args.iter().cloned();
+    while let Some(a) = it.next() {
+        match a.as_str() {
+            "--relay" => relay = Some(it.next().ok_or("--relay needs the relay's ws:// or wss:// address")?),
+            "--token" => token = Some(it.next().ok_or("--token needs a join token")?),
+            "--name" => name = it.next().ok_or("--name needs a name")?,
+            "--help" | "-h" => {
+                outln!("{}", help_page("collab-mcp"));
+                return Ok(());
+            }
+            other => return Err(format!("unknown collab-mcp option `{other}`")),
+        }
+    }
+    let relay = relay.ok_or("--relay URL is required (the relay's ws:// or wss:// address)")?;
+    let token = token.ok_or("--token TOKEN is required (a join token from the site's backend)")?;
+    let backend = collab_agent::SlidesAgent::connect(&relay, &token, &name)?;
+    eprintln!("deckcraft-cli: MCP server on stdio ({})", backend.describe());
+    let stdin = std::io::stdin();
+    Server::new(Box::new(backend)).serve(stdin.lock(), std::io::stdout()).map_err(|e| e.to_string())
 }
 
 fn mcp(args: &[String]) -> Result<(), String> {

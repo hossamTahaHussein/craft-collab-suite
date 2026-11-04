@@ -1110,6 +1110,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "craft-collab-agent"
+version = "1.0.2"
+dependencies = [
+ "craft-collab-core",
+ "craft-collab-link",
+ "serde_json",
+ "tungstenite",
+]
+
+[[package]]
 name = "craft-collab-core"
 version = "1.0.2"
 dependencies = [
@@ -1421,6 +1431,9 @@ dependencies = [
 name = "deckcraft-cli"
 version = "1.0.2"
 dependencies = [
+ "craft-collab-agent",
+ "craft-collab-core",
+ "deckcraft-collab",
  "deckcraft-engine",
  "deckcraft-mcp",
  "serde_json",
@@ -2691,6 +2704,9 @@ dependencies = [
 name = "gridcraft-cli"
 version = "1.0.2"
 dependencies = [
+ "craft-collab-agent",
+ "craft-collab-core",
+ "gridcraft-collab",
  "gridcraft-engine",
  "gridcraft-mcp",
  "log",

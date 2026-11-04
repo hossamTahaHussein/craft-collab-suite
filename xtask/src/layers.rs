@@ -54,6 +54,8 @@ pub const TABLE: &[(&str, Class)] = &[
     ("craft-collab-link", Class::Layer(1)),
     // The co-editing windows Craft Sheets and Craft Slides share (egui only).
     ("craft-collab-ui", Class::Layer(6)),
+    // Agents in shared documents (a WebSocket client): native only, for the CLIs.
+    ("craft-collab-agent", Class::Exempt),
     ("zotero", Class::Layer(5)),
     ("ui-egui", Class::Layer(6)),
     ("testkit", Class::Testkit),

@@ -107,7 +107,8 @@ const BORDER_PRESETS: &[&str] = &[
 ];
 
 /// Tools that don't act on one workbook, so they take no `window`/`doc` target.
-const UNTARGETED: &[&str] = &["list_commands", "list_functions", "list_windows", "new_workbook", "open_workbook", "screenshot"];
+const UNTARGETED: &[&str] =
+    &["list_commands", "list_functions", "list_windows", "new_workbook", "open_workbook", "screenshot", "who_is_here", "wait_for_changes"];
 
 /// All tools, in `tools/list` order. Tools that act on a workbook take an optional `window` or
 /// `doc` id (from list_windows) and default to the active window.
@@ -128,6 +129,20 @@ pub fn tool_definitions() -> Vec<Value> {
 fn base_tool_definitions() -> Vec<Value> {
     let empty = || obj(json!({}), &[]);
     vec![
+        tool(
+            "who_is_here",
+            "Who is here",
+            "The people in the shared document with you (names and colours) and its revision. Only when joined to a shared document (gridcraft-cli collab-mcp).",
+            obj(json!({}), &[]),
+            true,
+        ),
+        tool(
+            "wait_for_changes",
+            "Wait for changes",
+            "Wait until someone changes the shared document after revision `since` (default: now), up to `timeoutMs` (default 30000, at most 120000), and list the changes: revision, who, which command. Only when joined to a shared document.",
+            obj(json!({"since": int("Revision to wait past"), "timeoutMs": int("Longest wait in milliseconds")}), &[]),
+            true,
+        ),
         // ----- generic -----
         tool(
             "execute_command",
@@ -636,6 +651,9 @@ fn dispatch(b: &mut dyn Backend, name: &str, a: &Args) -> Result<Value, String> 
             exec(b, cmd, p)
         }
         "list_commands" => b.call("engine.commands", pick(a, &["search"])),
+        // An agent in a shared workbook (`gridcraft-cli collab-mcp`) answers these.
+        "who_is_here" => b.call("collab.who", json!({})),
+        "wait_for_changes" => b.call("collab.wait", pick(a, &["since", "timeoutMs"])),
         "list_windows" => exec(b, "window.list", json!({})),
         "inspect_workbook" => b.call("document.inspect", json!({})),
         "read_range" => b.call("sheet.read", pick(a, &["range", "sheet", "formulas", "formatted"])),

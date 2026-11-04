@@ -16,6 +16,9 @@ path = "src/main.rs"
 [dependencies]
 gridcraft-engine = { workspace = true }
 gridcraft-mcp = { workspace = true }
+gridcraft-collab = { workspace = true }
+craft-collab-agent = { workspace = true }
+craft-collab-core = { workspace = true }
 serde_json = { workspace = true }
 log = { workspace = true }
 # `check`: validating the packages GridCraft writes (content types, relationships).
