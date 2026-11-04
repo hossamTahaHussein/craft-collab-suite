@@ -1,7 +1,7 @@
 # Craft Sheets
 
-The spreadsheet of [WordCraft Collab](https://github.com/hossamTahaHussein/craft-collab-suite): an open-source, clean-room spreadsheet in pure Rust, with
-real-time co-editing (in progress) alongside Craft Docs. Based on [GridCraft](https://github.com/storytold/gridcraft) by the
+The spreadsheet of [Craft Collab Suite](https://github.com/hossamTahaHussein/craft-collab-suite): an open-source, clean-room spreadsheet in pure Rust, with
+real-time co-editing, Suggesting, Arabic and right to left, alongside Craft Docs. Based on [GridCraft](https://github.com/storytold/gridcraft) by the
 ArtCraft team; this modified version is independent: it is not made, sponsored or endorsed by the ArtCraft team.
 
 In this repository it lives under `sheets/` and builds in the one suite workspace at the root:

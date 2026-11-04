@@ -1,5 +1,9 @@
 # Asset attribution
 
+Craft Docs' assets are listed below. Craft Sheets' are in [sheets/ATTRIBUTION.md](sheets/ATTRIBUTION.md)
+and Craft Slides' in [slides/ATTRIBUTION.md](slides/ATTRIBUTION.md); the Arabic and Hebrew fonts all
+three apps use come from the pinned craft-fonts input listed here.
+
 Every non-code asset in this repository (fonts, icons, images, example documents) is listed here with its author, source and licence. `cargo xtask assets` (part of `cargo xtask ci`) fails if an asset file is missing from this table.
 
 **Policy (mandatory):** WordCraft contains **no Microsoft, Adobe, Avid or Autodesk iconography, images, templates, themes, clip art, fonts or other assets**. Every asset is original work by WordCraft contributors or third-party material under an open licence (OSI open source, public domain / CC0, or a Creative Commons licence that allows redistribution). Screenshots of other vendors' software are never committed. New font files go to [storytold/craft-fonts](https://github.com/storytold/craft-fonts), not this repo.

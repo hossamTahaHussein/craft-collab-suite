@@ -1,18 +1,25 @@
-WordCraft Collab
-Based on WordCraft (https://github.com/storytold/wordcraft).
+Craft Collab Suite (Craft Docs, Craft Sheets and Craft Slides)
+Craft Docs is based on WordCraft (https://github.com/storytold/wordcraft).
 Copyright (c) 2026 ArtCraft Team and the WordCraft contributors.
-Real-time co-editing additions Copyright (c) 2026 Hossam Taha.
+Craft Sheets (sheets/) is based on GridCraft (https://github.com/storytold/gridcraft).
+Copyright (c) 2026 ArtCraft Team and the GridCraft contributors.
+Craft Slides (slides/) is based on DeckCraft (https://github.com/storytold/deckcraft).
+Copyright (c) 2026 ArtCraft Team and the DeckCraft contributors.
+Real-time co-editing, the suite, Arabic and right-to-left, suggesting and the integrations
+Copyright (c) 2026 Hossam Taha.
 Licensed under the MIT License or the Apache License, Version 2.0, at your option
 (LICENSE-MIT, LICENSE-APACHE).
 
-This is a modified version of WordCraft. It is not made, sponsored or endorsed by the ArtCraft
-Team. The ArtCraft name, wordmark and logos are trademarks of the ArtCraft Team; as their brand
+These are modified versions of WordCraft, GridCraft and DeckCraft. They are not made, sponsored
+or endorsed by the ArtCraft Team. The ArtCraft name, wordmark and logos are trademarks of the ArtCraft Team; as their brand
 terms require for modified versions, they have been removed from this repository.
 
 Third-party material
 
 This product bundles third-party material under its own licenses, listed below. The per-file
-list (author, source, license) is in ATTRIBUTION.md.
+list (author, source, license) is in ATTRIBUTION.md; Craft Sheets' and Craft Slides' own assets
+are listed in sheets/ATTRIBUTION.md and slides/ATTRIBUTION.md, with their notices in sheets/NOTICE
+and slides/NOTICE.
 
 - Source Sans 3 and Source Serif 4 (assets/fonts/Source*) — SIL Open Font License 1.1. See assets/fonts/OFL-SourceSans3.txt, OFL-SourceSerif4.txt.
 - Inter (assets/fonts/Inter-*.ttf) — SIL Open Font License 1.1. See assets/fonts/OFL-Inter.txt.
