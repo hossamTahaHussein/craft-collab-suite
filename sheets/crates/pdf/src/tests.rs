@@ -477,8 +477,8 @@ fn vowelled_text_is_drawn_without_text_and_written_invisibly_a_character_a_glyph
     let p = doc.page_mut(0).expect("the page");
     p.text(10.0, 40.0, 10.0, Font::Helvetica, [0, 0, 0], "الكِتَابُ");
     let content = page_content(&doc).to_string();
-    let vowelled =
-        &content[content.rfind("BT\n").map_or(0, |_| content.find("/Span << /ActualText <FEFF> >> BDC").expect("what shows carries no text"))..];
+    let at = content.find("/Span << /ActualText <FEFF> >> BDC").expect("what shows carries no text");
+    let vowelled = &content[at..];
     assert!(vowelled.contains("q\nBT\n3 Tr\n"), "{vowelled}");
     assert!(vowelled.trim_end().ends_with("ET\nQ"), "the invisible mode ends with its run: {vowelled}");
     // Every span the invisible run writes is one character.
