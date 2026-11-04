@@ -3,7 +3,7 @@
 **A Word-, Excel- and PowerPoint-style office suite in Rust that runs in the browser, with
 real-time co-editing, Arabic done properly, and AI agents as collaborators.**
 
-Version 1.0.2, by [Hossam Taha](https://hossamtaha.me).
+Version 2.0.0, by [Hossam Taha](https://hossamtaha.me).
 
 Three editors, one way of working together:
 
