@@ -64,6 +64,87 @@ fn text_align(align: HAlign, value: &Value) -> HAlign {
     }
 }
 
+/// For each line [`wrap_lines`] makes of `text`, whether it ends its paragraph (justified text
+/// leaves those as they are, but for Distributed); nothing for text that isn't `justified`.
+fn paragraph_ends(justified: bool, text: &str, font: Font, size: f32, width: f32) -> Vec<bool> {
+    if !justified {
+        return Vec::new();
+    }
+    text.split('\n')
+        .flat_map(|para| {
+            let n = wrap_lines(para, font, size, width).len();
+            (0..n).map(move |k| k + 1 == n)
+        })
+        .collect()
+}
+
+/// A cell's wrapped lines: which end their paragraph, the first's baseline and the line height.
+struct Lines<'a> {
+    lines: &'a [String],
+    ends: &'a [bool],
+    first_baseline: f32,
+    line_h: f32,
+}
+
+/// Draws a justified cell's lines in the box at `x` (`avail` wide) of the cell from `y`, `h`
+/// high: each line stretched but those that end a paragraph (all, `stretch_all`).
+#[allow(clippy::too_many_arguments)]
+fn justified_lines(
+    pg: &mut gridcraft_pdf::Page,
+    l: &Lines<'_>,
+    (x, y, h, avail): (f32, f32, f32, f32),
+    size: f32,
+    font: Font,
+    color: [u8; 3],
+    stretch_all: bool,
+    rtl_sheet: bool,
+) {
+    for (i, line) in l.lines.iter().enumerate() {
+        let ly = l.first_baseline + i as f32 * l.line_h;
+        let shown = !line.trim().is_empty() && ly - size <= y + h && ly >= y - l.line_h;
+        let stretch = stretch_all || !l.ends.get(i).copied().unwrap_or(true);
+        if shown {
+            justified_line(pg, line.trim_end(), (x, ly, avail), size, font, color, stretch, rtl_sheet);
+        }
+    }
+}
+
+/// Draws `line` justified in the box from `x`, `avail` wide, on baseline `y`: `stretch`ed to the
+/// width (Arabic with kashida, other text by its word gaps), else at its reading start. On a
+/// right-to-left sheet the page is drawn mirrored, so "from the right" is from the left here.
+#[allow(clippy::too_many_arguments)]
+fn justified_line(
+    pg: &mut gridcraft_pdf::Page,
+    line: &str,
+    (x, y, avail): (f32, f32, f32),
+    size: f32,
+    font: Font,
+    color: [u8; 3],
+    stretch: bool,
+    rtl_sheet: bool,
+) {
+    use crate::justify::{TATWEEL, takes_kashida, with_kashida, word_positions};
+    let width = |t: &str| gridcraft_pdf::text_width(font, size, t);
+    let from_right = crate::display::reads_rtl(line) != rtl_sheet;
+    let place = |at: f32, w: f32| if from_right { x + avail - at - w } else { x + at };
+    if !stretch {
+        pg.text(place(0.0, width(line)), y, size, font, color, line);
+        return;
+    }
+    let tatweel = width(&TATWEEL.to_string());
+    if tatweel > 0.0 && takes_kashida(line) {
+        let n = (((avail - width(line)) / tatweel).floor().max(0.0) as usize).min(400);
+        let s = with_kashida(line, n);
+        pg.text(place(0.0, width(&s)), y, size, font, color, &s);
+        return;
+    }
+    let words: Vec<&str> = line.split(' ').filter(|w| !w.is_empty()).collect();
+    let widths: Vec<f32> = words.iter().map(|w| width(w)).collect();
+    for ((word, w), at) in words.iter().zip(&widths).zip(word_positions(&widths, avail)) {
+        pg.text(place(at, *w), y, size, font, color, word);
+    }
+}
+
 /// Is a cell free for text to overflow into?
 fn empty_for_overflow(sh: &Sheet, c: CellRef, merges: &[RangeRef]) -> bool {
     sh.value_ref(c).is_none_or(|v| v.is_empty()) && !merges.iter().any(|m| m.contains(c))
@@ -149,7 +230,9 @@ pub(super) fn draw_text(pg: &mut Page, b: &Block, placement: TextPlacement<'_>) 
         color = rgb_of(st.font.color, wb).unwrap_or(color);
     }
     let is_num = matches!(v, Value::Number(_));
-    let wrap = st.align.wrap;
+    // Justify and Distributed wrap, as on screen.
+    let justify = matches!(st.align.h, HAlign::Justify | HAlign::Distributed);
+    let wrap = st.align.wrap || justify;
     let mut text = if sh.show_formulas {
         crate::display::cell_text(wb, sh, c)
     } else if code == "General"
@@ -185,6 +268,7 @@ pub(super) fn draw_text(pg: &mut Page, b: &Block, placement: TextPlacement<'_>) 
     };
     let rot = st.align.rotation;
     let rotated = rot != 0 && rot != 255;
+    let ends = paragraph_ends(justify, &text, font, size, avail.max(size));
     // Rotated text wraps along its own direction: upright (±90°) text to the row height.
     let lines: Vec<String> = match (wrap, rotated) {
         (true, false) => wrap_lines(&text, font, size, avail.max(size)),
@@ -244,6 +328,13 @@ pub(super) fn draw_text(pg: &mut Page, b: &Block, placement: TextPlacement<'_>) 
                 break;
             }
         }
+        pg.restore();
+        return;
+    }
+    if justify {
+        let lines = Lines { lines: &lines, ends: &ends, first_baseline, line_h };
+        let stretch_all = st.align.h == HAlign::Distributed;
+        justified_lines(pg, &lines, (x + pad + indent, y, h, avail), size, font, color, stretch_all, sh.right_to_left);
         pg.restore();
         return;
     }

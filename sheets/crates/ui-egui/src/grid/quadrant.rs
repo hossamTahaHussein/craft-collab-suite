@@ -1,7 +1,7 @@
 use super::active_row::paint_active_row;
 use super::cell_paint::{
     Look, MergedArea, cell_text_y, center_across_end, col32, display_text, general_halign, look, merged_edges, paint_border, paint_cf_icon,
-    painted_halign, rotated_text_pos, shrink_font, wrapped_cell_text_y,
+    paint_justified, painted_halign, rotated_text_pos, shrink_font, wrapped_cell_text_y,
 };
 use super::geo::Geo;
 use super::tables::{filter_button_rect, paint_filter_button};
@@ -378,7 +378,7 @@ fn paint_cell(q: &QuadrantPaint<'_>, painted: &(CellRef, Rect, Look, Option<CfLo
     let pad = 2.5 * z;
     let rotated = st.align.rotation != 0 && st.align.rotation != 255;
     // Rotated text wraps along its own direction (below), not across the column width.
-    if !rotated && (st.align.wrap || st.align.h == HAlign::Justify) {
+    if !rotated && (st.align.wrap || matches!(st.align.h, HAlign::Justify | HAlign::Distributed)) {
         let wrap_w = (rect.width() - 2.0 * pad - indent).max(4.0);
         let mut job = egui::text::LayoutJob::simple(text.clone(), font.clone(), color, wrap_w);
         job.halign = match halign {
@@ -394,6 +394,11 @@ fn paint_cell(q: &QuadrantPaint<'_>, painted: &(CellRef, Rect, Look, Option<CfLo
         };
         let y = wrapped_cell_text_y(st.align.v, *rect, galley.size().y, z);
         let text_clip = wrapped_text_clip(p, *rect, &galley, y, st.align.v);
+        if matches!(st.align.h, HAlign::Justify | HAlign::Distributed) {
+            let all_rows = st.align.h == HAlign::Distributed;
+            paint_justified(&p.with_clip_rect(text_clip), &galley, pos2(text_left + pad + indent, y), wrap_w, &font, color, all_rows);
+            return;
+        }
         p.with_clip_rect(text_clip).galley(pos2(x, y), galley, color);
         return;
     }

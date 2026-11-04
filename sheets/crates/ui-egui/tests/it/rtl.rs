@@ -78,3 +78,22 @@ fn the_file_page_and_dialogs_read_from_the_right() {
         h.render().unwrap().save(std::path::Path::new(&path).with_file_name("sheets-ar-dialog.png")).unwrap();
     }
 }
+
+/// Justified cells stretch every line but the last of a paragraph: Arabic with kashida, English
+/// by its word gaps (`CRAFT_SHEETS_RTL_SCREENSHOT` saves `sheets-justify.png`).
+#[test]
+fn justified_cells_stretch_arabic_with_kashida_and_english_by_its_gaps() {
+    let mut app = crate::common::app(blank_session());
+    app.ui.language = Language::En;
+    let mut h = app_harness(app, 4);
+    let arabic = "مرحبا بكم في جدول البيانات الجديد هذا نص طويل يمتد على عدة أسطر";
+    let english = "Justified text in a cell spreads its words to both edges of the column";
+    h.state_mut().run("range.setValues", json!({"range": "B2", "values": [[arabic, english]]})).unwrap();
+    h.state_mut().run("home.justify", json!({"range": "B2:C2"})).unwrap();
+    h.state_mut().run("home.columnWidth", json!({"cols": "B:C", "width": 180})).unwrap();
+    h.state_mut().run("home.rowHeight", json!({"rows": "2:2", "height": 110})).unwrap();
+    h.run_steps(4);
+    if let Ok(path) = std::env::var("CRAFT_SHEETS_RTL_SCREENSHOT") {
+        h.render().unwrap().save(std::path::Path::new(&path).with_file_name("sheets-justify.png")).unwrap();
+    }
+}

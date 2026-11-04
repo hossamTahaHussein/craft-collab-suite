@@ -317,6 +317,47 @@ pub(super) fn general_halign(v: &Value, numeric: bool, text: &str, rtl: bool) ->
 /// sheet is mirrored afterwards, so an explicit Left or Right is swapped first to end up on the
 /// side the user chose: Align Right stays on the right in either sheet direction, as in Excel.
 /// General alignment is resolved from the value before this and follows the sheet direction.
+/// Paints `galley` (wrapped text at `origin`, `width` wide) justified, row by row: every row that
+/// doesn't end its paragraph (every row, `all_rows`, for Distributed) is stretched to the width,
+/// Arabic with kashida, other text by its word gaps; the rest start at their reading start.
+pub(super) fn paint_justified(p: &Painter, galley: &egui::Galley, origin: Pos2, width: f32, font: &FontId, color: Color32, all_rows: bool) {
+    use gridcraft_engine::justify::{TATWEEL, takes_kashida, with_kashida, word_positions};
+    let one = |t: String| p.layout_no_wrap(t, font.clone(), color);
+    let tatweel = one(TATWEEL.to_string()).size().x;
+    let rows = &galley.rows;
+    for (k, row) in rows.iter().enumerate() {
+        let text = row.text();
+        let line = text.trim_end();
+        if line.is_empty() {
+            continue;
+        }
+        let y = origin.y + row.pos.y;
+        let rtl = gridcraft_engine::display::reads_rtl(line);
+        let ends_paragraph = row.ends_with_newline || k + 1 == rows.len();
+        let at_start = |g: &std::sync::Arc<egui::Galley>| if rtl { origin.x + width - g.size().x } else { origin.x };
+        if ends_paragraph && !all_rows {
+            let g = one(line.to_string());
+            p.galley(pos2(at_start(&g), y), g, color);
+            continue;
+        }
+        if tatweel > 0.0 && takes_kashida(line) {
+            let plain = one(line.to_string()).size().x;
+            let n = (((width - plain) / tatweel).floor().max(0.0) as usize).min(400);
+            let g = one(with_kashida(line, n));
+            p.galley(pos2(at_start(&g), y), g, color);
+            continue;
+        }
+        let words: Vec<std::sync::Arc<egui::Galley>> = line.split(' ').filter(|w| !w.is_empty()).map(|w| one(w.to_string())).collect();
+        let widths: Vec<f32> = words.iter().map(|g| g.size().x).collect();
+        for (g, x) in words.into_iter().zip(word_positions(&widths, width)) {
+            let w = g.size().x;
+            // Right to left, the first word is at the right.
+            let x = if rtl { origin.x + width - x - w } else { origin.x + x };
+            p.galley(pos2(x, y), g, color);
+        }
+    }
+}
+
 pub(super) fn painted_halign(h: HAlign, rtl: bool) -> HAlign {
     match h {
         HAlign::Left if rtl => HAlign::Right,

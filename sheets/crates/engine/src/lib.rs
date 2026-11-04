@@ -15,6 +15,7 @@ pub mod collab;
 pub mod display;
 pub mod fill;
 pub mod io;
+pub mod justify;
 pub mod links;
 pub mod macros;
 pub mod outline;

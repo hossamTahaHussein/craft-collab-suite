@@ -906,3 +906,39 @@ fn text_reads_right_to_left_by_its_first_strong_letter() {
     assert!(!reads_rtl("123"));
     assert!(!reads_rtl(""));
 }
+
+#[test]
+fn justified_cells_print_their_lines_stretched_but_the_last() {
+    let mut s = s();
+    let text = "alpha beta gamma delta epsilon zeta eta theta iota";
+    s.execute("range.setValues", json!({"range": "A1", "values": [[text], [text]]})).unwrap();
+    s.execute("home.columnWidth", json!({"cols": "A:A", "width": 120})).unwrap();
+    s.execute("home.rowHeight", json!({"rows": "1:2", "height": 80})).unwrap();
+    s.execute("home.wrapText", json!({"range": "A1"})).unwrap();
+    s.execute("home.justify", json!({"range": "A2"})).unwrap();
+    let (pdf, _) = pdf_of(&mut s, json!({}));
+    let xs = |word: &str| {
+        let s = String::from_utf8_lossy(&pdf);
+        let mut out = Vec::new();
+        let mut rest = &s[..];
+        while let Some(at) = rest.find(&format!("({word}) Tj")) {
+            let before = &rest[..at];
+            let tm = before.rfind(" Tm").unwrap();
+            let mut nums = before[..tm].rsplit([' ', '\n']);
+            nums.next();
+            out.push(nums.next().unwrap().parse::<f32>().unwrap());
+            rest = &rest[at + 1..];
+        }
+        out
+    };
+    // Wrapped (A1) draws each line whole; justified (A2) draws word by word, spread out.
+    let s = String::from_utf8_lossy(&pdf).to_string();
+    assert!(s.contains("(alpha beta) Tj"), "A1 draws its lines whole");
+    let (alpha, beta) = (xs("alpha"), xs("beta"));
+    assert_eq!((alpha.len(), beta.len()), (1, 1), "A2 draws its words one by one");
+    let size = text_at(&pdf, "alpha").unwrap().1;
+    let natural = gridcraft_pdf::text_width(gridcraft_pdf::Font::Helvetica, size, "alpha ");
+    assert!(beta[0] - alpha[0] > natural + 1.0, "the words spread out: {alpha:?} {beta:?}");
+    // The last line isn't stretched: one run, as written, in both cells.
+    assert_eq!(s.matches("(theta iota) Tj").count(), 2, "{s}");
+}
