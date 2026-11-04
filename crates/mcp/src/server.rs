@@ -183,9 +183,9 @@ impl Server {
                 Ok(json!({
                     "protocolVersion": version,
                     "capabilities": {"tools": {}, "resources": {}},
-                    "serverInfo": {"name": "wordcraft", "title": "WordCraft", "version": env!("CARGO_PKG_VERSION"), "websiteUrl": "https://github.com/hossamTahaHussein/wordcraft-collab"},
+                    "serverInfo": {"name": "wordcraft", "title": "WordCraft", "version": env!("CARGO_PKG_VERSION"), "websiteUrl": "https://github.com/hossamTahaHussein/craft-collab-suite"},
                     "instructions": format!(
-                        "{INSTRUCTIONS} Backend: {}. Project: https://github.com/hossamTahaHussein/wordcraft-collab (based on https://github.com/storytold/wordcraft)",
+                        "{INSTRUCTIONS} Backend: {}. Project: https://github.com/hossamTahaHussein/craft-collab-suite (based on https://github.com/storytold/wordcraft)",
                         self.backend.describe()
                     ),
                 }))

@@ -184,8 +184,8 @@ fn tree() -> Vec<(&'static str, Vec<Entry>)> {
                 ("Check for Updates…", "app.checkForUpdates", None),
                 ("Agent Control (MCP)…", "dialog:agents", None),
                 ("Contributors…", "dialog:about:Contributors", None),
-                ("Craft Sheets on GitHub", "url:https://github.com/hossamTahaHussein/wordcraft-collab", None),
-                ("Discussions on GitHub…", "url:https://github.com/hossamTahaHussein/wordcraft-collab/discussions", None),
+                ("Craft Sheets on GitHub", "url:https://github.com/hossamTahaHussein/craft-collab-suite", None),
+                ("Discussions on GitHub…", "url:https://github.com/hossamTahaHussein/craft-collab-suite/discussions", None),
             ],
         ),
     ]

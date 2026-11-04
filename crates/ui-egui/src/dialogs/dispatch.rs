@@ -1118,7 +1118,7 @@ fn about_dialog(ui: &mut Ui, d: &mut Dialog) -> bool {
             ui.add_space(6.0);
             ui.label(egui::RichText::new(tl!("WordCraft Collab by Hossam Taha")).strong());
             ui.hyperlink_to(tl!("hossamtaha.me"), "https://hossamtaha.me");
-            ui.hyperlink_to(tl!("github.com/hossamTahaHussein/wordcraft-collab"), "https://github.com/hossamTahaHussein/wordcraft-collab");
+            ui.hyperlink_to(tl!("github.com/hossamTahaHussein/craft-collab-suite"), "https://github.com/hossamTahaHussein/craft-collab-suite");
             ui.hyperlink_to(tl!("Based on github.com/storytold/wordcraft"), "https://github.com/storytold/wordcraft");
             ui.add_space(6.0);
             ui.label(egui::RichText::new(tl!("MIT OR Apache-2.0. Copyright (c) 2026 ArtCraft Team and the WordCraft contributors.")).small().weak());

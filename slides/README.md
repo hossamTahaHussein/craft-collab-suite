@@ -1,6 +1,6 @@
 # Craft Slides
 
-The presentation app of [WordCraft Collab](https://github.com/hossamTahaHussein/wordcraft-collab): an open-source, clean-room presentation app in pure Rust, with
+The presentation app of [WordCraft Collab](https://github.com/hossamTahaHussein/craft-collab-suite): an open-source, clean-room presentation app in pure Rust, with
 real-time co-editing (in progress) alongside Craft Docs. Based on [DeckCraft](https://github.com/storytold/deckcraft) by the
 ArtCraft team; this modified version is independent: it is not made, sponsored or endorsed by the ArtCraft team.
 

@@ -8,7 +8,7 @@ Version 1.0.2, by [Hossam Taha](https://hossamtaha.me).
 Several people can edit the same document at once: each person's typing appears instantly on
 their own screen, everyone else's within a network round trip, and the document saves itself.
 Embed it in any website with the companion package
-[wordcraft-embed](https://github.com/hossamTahaHussein/wordcraft-embed), which includes the
+[wordcraft-embed](https://github.com/hossamTahaHussein/craft-collab-embed), which includes the
 co-editing relay server, the JavaScript SDK and the server-side API.
 
 <img src="docs/images/coediting.png" alt="Three people in one document: Bob Diaz types with his name flag above his caret, Cara Ng has two words selected in green, their avatars and All changes saved sit in the header, and the status bar says 3 people editing" width="100%">
@@ -23,12 +23,12 @@ ArtCraft team. It is independent: not made, sponsored or endorsed by the ArtCraf
 | How it syncs | Every edit is a WordCraft command. Each browser applies its own edits at once; a small relay server puts everyone's edits in one order, and every copy replays them and re-applies its unconfirmed ones on top. |
 | Features | Cursors, names and who is present; "Saving…" and "All changes saved" in the header; Undo and Redo of your own edits for everyone (a run of typing is one step); Suggesting per person; edit, suggest, comment and view roles; version history with preview and restore; read only with "Save my copy" after five minutes offline or 1,000 waiting edits; the relay's HTTP API and signed webhooks; AI agents as participants (`wordcraft-cli collab-mcp`) |
 | Code | `crates/collab` (replicas, rebasing, position mapping, selective undo, protocol), `crates/engine/src/outbox.rs` and `run_ctx.rs` (recording edits, replaying them identically, roles), `apps/wordcraft-web/src/collab_link.rs` (browser bridge), `crates/ui-egui/src/collab_ui.rs` (Version history, offline notice), `apps/wordcraft-cli/src/collab_agent.rs` (agents) |
-| Relay and SDK | [wordcraft-embed](https://github.com/hossamTahaHussein/wordcraft-embed) (`relay/`, `src/wordcraft-embed.js`) |
+| Relay and SDK | [wordcraft-embed](https://github.com/hossamTahaHussein/craft-collab-embed) (`relay/`, `src/wordcraft-embed.js`) |
 | Tested | Randomised multi-user convergence tests (with undo and redo), unit tests, end-to-end tests with three browsers and a relay restart, and an agent against the real relay |
 
 Build the browser app with co-editing: `cd apps/wordcraft-web && trunk build --release`
 (output in `dist/web`), then serve it with wordcraft-embed's demo (`EDITOR_DIR=…/dist/web npm start`).
-The [latest release](https://github.com/hossamTahaHussein/wordcraft-collab/releases/latest)
+The [latest release](https://github.com/hossamTahaHussein/craft-collab-suite/releases/latest)
 has the same build as a zip, which wordcraft-embed's `npm run fetch-editor` downloads.
 
 <img src="docs/images/suggesting.png" alt="Bob Diaz's suggested rewrite shown in magenta with the old sentence struck through, and his comment in a balloon in the margin" width="100%">
@@ -52,7 +52,7 @@ has the same build as a zip, which wordcraft-embed's `npm run fetch-editor` down
 | On your server | The relay's HTTP API (document info, the document as .docx, PDF or text, commands as live edits, remove a person, close a document) and HMAC-signed webhooks (`joined`, `left`, `saved`, `edited`, `commented`, `restored`) |
 | AI agents | `wordcraft-cli collab-mcp` joins a shared document as a named participant over MCP; it suggests by default, and has `who_is_here`, `wait_for_changes`, `comment` and `reply` beside every editor command |
 
-Details, with examples: [wordcraft-embed's README](https://github.com/hossamTahaHussein/wordcraft-embed#api).
+Details, with examples: [wordcraft-embed's README](https://github.com/hossamTahaHussein/craft-collab-embed#api).
 
 ## A tour
 
@@ -101,7 +101,7 @@ The honest picture, area by area, is in [ROADMAP.md](ROADMAP.md), the
 ## Quick start
 
 ```sh
-git clone https://github.com/hossamTahaHussein/wordcraft-collab
+git clone https://github.com/hossamTahaHussein/craft-collab-suite
 cd wordcraft-collab
 cargo run --release -p wordcraft -- --sample        # the desktop app with the sample document
 cargo run --release -p wordcraft -- report.docx     # open a document

@@ -13,9 +13,9 @@
 
     <Icon Id="DeckcraftIcon.ico" SourceFile="$(var.IconPath)" />
     <Property Id="ARPPRODUCTICON" Value="DeckcraftIcon.ico" />
-    <Property Id="ARPURLINFOABOUT" Value="https://github.com/hossamTahaHussein/wordcraft-collab" />
-    <Property Id="ARPURLUPDATEINFO" Value="https://github.com/hossamTahaHussein/wordcraft-collab" />
-    <Property Id="ARPHELPLINK" Value="https://github.com/hossamTahaHussein/wordcraft-collab/discussions" />
+    <Property Id="ARPURLINFOABOUT" Value="https://github.com/hossamTahaHussein/craft-collab-suite" />
+    <Property Id="ARPURLUPDATEINFO" Value="https://github.com/hossamTahaHussein/craft-collab-suite" />
+    <Property Id="ARPHELPLINK" Value="https://github.com/hossamTahaHussein/craft-collab-suite/discussions" />
 
     <StandardDirectory Id="ProgramFiles6432Folder">
       <Directory Id="CraftSuiteFolder" Name="WordCraftCollab">

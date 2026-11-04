@@ -1,6 +1,6 @@
 # Craft Sheets
 
-The spreadsheet of [WordCraft Collab](https://github.com/hossamTahaHussein/wordcraft-collab): an open-source, clean-room spreadsheet in pure Rust, with
+The spreadsheet of [WordCraft Collab](https://github.com/hossamTahaHussein/craft-collab-suite): an open-source, clean-room spreadsheet in pure Rust, with
 real-time co-editing (in progress) alongside Craft Docs. Based on [GridCraft](https://github.com/storytold/gridcraft) by the
 ArtCraft team; this modified version is independent: it is not made, sponsored or endorsed by the ArtCraft team.
 

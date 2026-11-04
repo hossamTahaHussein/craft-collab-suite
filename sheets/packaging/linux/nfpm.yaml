@@ -14,7 +14,7 @@ section: misc
 priority: optional
 maintainer: ${GRIDCRAFT_MAINTAINER}
 vendor: WordCraft Collab contributors
-homepage: https://github.com/hossamTahaHussein/wordcraft-collab
+homepage: https://github.com/hossamTahaHussein/craft-collab-suite
 license: MIT OR Apache-2.0
 description: |-
   Open-source, native spreadsheet that works the way Excel users expect.

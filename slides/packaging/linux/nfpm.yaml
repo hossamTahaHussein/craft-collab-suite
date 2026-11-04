@@ -14,7 +14,7 @@ section: editors
 priority: optional
 maintainer: ${DECKCRAFT_MAINTAINER}
 vendor: WordCraft Collab contributors
-homepage: https://github.com/hossamTahaHussein/wordcraft-collab
+homepage: https://github.com/hossamTahaHussein/craft-collab-suite
 license: MIT OR Apache-2.0
 description: |-
   Open-source, native presentation app that works the way PowerPoint users

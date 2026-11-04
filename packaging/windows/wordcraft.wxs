@@ -13,9 +13,9 @@
 
     <Icon Id="WordcraftIcon.ico" SourceFile="$(var.IconPath)" />
     <Property Id="ARPPRODUCTICON" Value="WordcraftIcon.ico" />
-    <Property Id="ARPURLINFOABOUT" Value="https://github.com/hossamTahaHussein/wordcraft-collab" />
-    <Property Id="ARPURLUPDATEINFO" Value="https://github.com/hossamTahaHussein/wordcraft-collab" />
-    <Property Id="ARPHELPLINK" Value="https://github.com/hossamTahaHussein/wordcraft-collab/discussions" />
+    <Property Id="ARPURLINFOABOUT" Value="https://github.com/hossamTahaHussein/craft-collab-suite" />
+    <Property Id="ARPURLUPDATEINFO" Value="https://github.com/hossamTahaHussein/craft-collab-suite" />
+    <Property Id="ARPHELPLINK" Value="https://github.com/hossamTahaHussein/craft-collab-suite/discussions" />
 
     <!-- Installer UI (#198): WixUI_Minimal is welcome + license, progress, then a finish page so
          people can see the install worked. Its dialogs and bitmaps are WiX's own

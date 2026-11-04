@@ -2194,7 +2194,7 @@
 	A free, open-source word processor written in Rust, with real-time co-editing.\nBased on WordCraft by the ArtCraft team.	Безкоштовний текстовий процесор із відкритим кодом, написаний мовою Rust, зі спільним редагуванням у реальному часі.\nСтворено на основі WordCraft від команди ArtCraft.
 	WordCraft Collab by Hossam Taha	WordCraft Collab, автор — Hossam Taha
 	hossamtaha.me	hossamtaha.me
-	github.com/hossamTahaHussein/wordcraft-collab	github.com/hossamTahaHussein/wordcraft-collab
+	github.com/hossamTahaHussein/craft-collab-suite	github.com/hossamTahaHussein/craft-collab-suite
 	Based on github.com/storytold/wordcraft	На основі github.com/storytold/wordcraft
 	Discard the recovery copy of {name}?	Видалити копію для відновлення «{name}»?
 	This cannot be undone. Your original file stays unchanged.	Цю дію не можна скасувати. Вихідний файл залишається без змін.

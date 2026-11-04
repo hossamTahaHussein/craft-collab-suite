@@ -17,7 +17,7 @@ version = "1.0.2"
 edition = "2024"
 license = "MIT OR Apache-2.0"
 rust-version = "1.95"
-repository = "https://github.com/hossamTahaHussein/wordcraft-collab"
+repository = "https://github.com/hossamTahaHussein/craft-collab-suite"
 
 [workspace.dependencies]
 # internal

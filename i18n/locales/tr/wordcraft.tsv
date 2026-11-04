@@ -2471,7 +2471,7 @@ preview	Title	Örnek
 	A free, open-source word processor written in Rust, with real-time co-editing.\nBased on WordCraft by the ArtCraft team.	Rust ile yazılmış, gerçek zamanlı ortak düzenleme sunan ücretsiz, açık kaynak bir kelime işlemci.\nArtCraft ekibinin WordCraft'ı temel alınmıştır.
 	WordCraft Collab by Hossam Taha	WordCraft Collab, Hossam Taha tarafından
 	hossamtaha.me	hossamtaha.me
-	github.com/hossamTahaHussein/wordcraft-collab	github.com/hossamTahaHussein/wordcraft-collab
+	github.com/hossamTahaHussein/craft-collab-suite	github.com/hossamTahaHussein/craft-collab-suite
 	Based on github.com/storytold/wordcraft	github.com/storytold/wordcraft temel alınmıştır
 	Discard the recovery copy of {name}?	{name} için kurtarma kopyası atılsın mı?
 	This cannot be undone. Your original file stays unchanged.	Bu işlem geri alınamaz. Özgün dosyanız değişmeden kalır.

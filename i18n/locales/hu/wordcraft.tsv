@@ -2500,7 +2500,7 @@
 	A free, open-source word processor written in Rust, with real-time co-editing.\nBased on WordCraft by the ArtCraft team.	Ingyenes, nyílt forráskódú szövegszerkesztő Rustban írva, valós idejű közös szerkesztéssel.\nAz ArtCraft csapat WordCraft programján alapul.
 	WordCraft Collab by Hossam Taha	WordCraft Collab – Hossam Taha
 	hossamtaha.me	hossamtaha.me
-	github.com/hossamTahaHussein/wordcraft-collab	github.com/hossamTahaHussein/wordcraft-collab
+	github.com/hossamTahaHussein/craft-collab-suite	github.com/hossamTahaHussein/craft-collab-suite
 	Based on github.com/storytold/wordcraft	Alapja: github.com/storytold/wordcraft
 	Discard the recovery copy of {name}?	Elveted a(z) {name} helyreállítási másolatát?
 	This cannot be undone. Your original file stays unchanged.	Ez nem vonható vissza. Az eredeti fájl változatlan marad.

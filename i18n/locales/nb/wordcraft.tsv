@@ -2502,7 +2502,7 @@ preview	Title	Tittel
 	A free, open-source word processor written in Rust, with real-time co-editing.\nBased on WordCraft by the ArtCraft team.	Et gratis tekstbehandlingsprogram med åpen kildekode, skrevet i Rust, med samtidig redigering i sanntid.\nBasert på WordCraft fra ArtCraft-teamet.
 	WordCraft Collab by Hossam Taha	WordCraft Collab av Hossam Taha
 	hossamtaha.me	hossamtaha.me
-	github.com/hossamTahaHussein/wordcraft-collab	github.com/hossamTahaHussein/wordcraft-collab
+	github.com/hossamTahaHussein/craft-collab-suite	github.com/hossamTahaHussein/craft-collab-suite
 	Based on github.com/storytold/wordcraft	Basert på github.com/storytold/wordcraft
 	Property names are 1–{max} characters.	Egenskapsnavn har 1–{max} tegn.
 	Property values are at most {max} bytes.	Egenskapsverdier er på høyst {max} byte.
