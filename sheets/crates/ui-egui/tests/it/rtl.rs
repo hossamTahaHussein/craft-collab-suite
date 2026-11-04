@@ -97,3 +97,50 @@ fn justified_cells_stretch_arabic_with_kashida_and_english_by_its_gaps() {
         h.render().unwrap().save(std::path::Path::new(&path).with_file_name("sheets-justify.png")).unwrap();
     }
 }
+
+/// About names the suite and credits its author, in the interface language (Arabic credit read
+/// right to left).
+#[test]
+fn about_credits_hossam_taha_in_the_interface_language() {
+    let mut app = crate::common::app(blank_session());
+    app.ui.language = Language::En;
+    let mut h = app_harness(app, 4);
+    h.state_mut().open_dialog("about", json!({}));
+    h.run_steps(4);
+    assert!(h.query_by_label("Craft Sheets by Hossam Taha").is_some(), "the credit");
+    assert!(h.query_by_label("Part of Craft Collab Suite.").is_some());
+    h.state_mut().dialog = None;
+    h.state_mut().run("app.language.set", json!({"language": "ar"})).unwrap();
+    h.state_mut().open_dialog("about", json!({}));
+    h.run_steps(4);
+    assert!(h.query_by_label("Craft Sheets من تطوير حسام طه").is_some(), "the Arabic credit");
+    assert!(h.query_by_label("حول").is_some(), "the tabs are translated");
+}
+
+/// Review › Suggesting: the person's edits become suggestions, marked in the cell, accepted or
+/// rejected from the ribbon (`CRAFT_SHEETS_RTL_SCREENSHOT` saves `sheets-suggesting.png`).
+#[test]
+fn suggesting_from_the_review_tab_marks_and_reviews_cells() {
+    let mut app = crate::common::app(blank_session());
+    app.ui.language = Language::En;
+    let mut h = app_harness(app, 4);
+    h.state_mut().run("range.setValues", json!({"range": "B2", "values": [[4, 7]]})).unwrap();
+    h.state_mut().run("ui.ribbonTab", json!({"tab": "Review"})).unwrap();
+    h.run_steps(3);
+    h.get_by_label("Suggesting").click();
+    h.run_steps(2);
+    assert!(h.state().session.suggesting, "the button turns Suggesting on");
+    h.state_mut().run("cell.set", json!({"cell": "B2", "input": "40"})).unwrap();
+    h.state_mut().run("edit.goTo", json!({"reference": "B2"})).unwrap();
+    h.state_mut().grid.hover_cell = gridcraft_engine::core::CellRef::parse("B2");
+    h.run_steps(3);
+    if let Ok(path) = std::env::var("CRAFT_SHEETS_RTL_SCREENSHOT") {
+        h.render().unwrap().save(std::path::Path::new(&path).with_file_name("sheets-suggesting.png")).unwrap();
+    }
+    assert!(h.query_by_label_contains("suggested this").is_some(), "the card says who suggested it");
+    h.get_by_label("Reject").click();
+    h.run_steps(2);
+    let d = h.state().session.active().unwrap();
+    assert!(gridcraft_engine::suggest::suggestions(&d.wb).is_empty());
+    assert_eq!(h.state_mut().run("cell.get", json!({"cell": "B2"})).unwrap()["value"], 4.0, "rejected: back to 4");
+}

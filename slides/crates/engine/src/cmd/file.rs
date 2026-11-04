@@ -164,7 +164,7 @@ fn open_other(name: &str, bytes: &[u8]) -> Result<(Presentation, Vec<String>)> {
         return Ok((p, lost_slides));
     }
     if deckcraft_pptx::is_encrypted(bytes) {
-        return Err(EngineError::Other(format!("{name} is password-protected. DeckCraft can't open password-protected presentations yet.")));
+        return Err(EngineError::Other(format!("{name} is password-protected. Craft Slides can't open password-protected presentations yet.")));
     }
     let lower = name.to_ascii_lowercase();
     let rtf = deckcraft_format::rtf::sniff_rtf(bytes);
@@ -182,7 +182,7 @@ fn open_other(name: &str, bytes: &[u8]) -> Result<(Presentation, Vec<String>)> {
         }
         return Ok((p, vec![]));
     }
-    Err(EngineError::Other(format!("{name}: not a presentation DeckCraft can read")))
+    Err(EngineError::Other(format!("{name}: not a presentation Craft Slides can read")))
 }
 
 /// Fill in each audio and video clip's length and picture size from its bytes: a `.pptx` doesn't

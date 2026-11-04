@@ -555,6 +555,13 @@ fn paint_borders(q: &mut QuadrantPaint<'_>, looks: &[(CellRef, Rect, Look, Optio
     let z = geo.z;
     let (r0, r1) = q.rows;
     let (c0, c1) = q.cols;
+    // Suggested cells, with who suggested each.
+    let suggested: Vec<(CellRef, String)> = gridcraft_engine::suggest::suggestions(wb)
+        .into_iter()
+        .filter(|x| x.sheet == sh.name)
+        .filter_map(|x| Some((CellRef::parse(&x.cell)?, x.author)))
+        .collect();
+    let dark = p.ctx().global_style().visuals.dark_mode;
     // Borders (over fills and text).
     for (c, rect, lk, _) in looks {
         let b = &lk.style.borders;
@@ -591,6 +598,17 @@ fn paint_borders(q: &mut QuadrantPaint<'_>, looks: &[(CellRef, Rect, Look, Optio
             p.add(egui::Shape::convex_polygon(
                 vec![rect.right_top(), pos2(rect.right(), rect.top() + s), pos2(rect.right() - s, rect.top())],
                 tri_col,
+                Stroke::NONE,
+            ));
+        }
+        // A suggestion: its author's colour along the bottom, and a corner at the bottom left.
+        if let Some((_, author)) = suggested.iter().find(|(at, _)| at == c) {
+            let col = super::peers::suggestion_color(author, dark);
+            let s = 6.0 * z.max(0.7);
+            p.line_segment([rect.left_bottom() + vec2(0.0, -1.0), rect.right_bottom() + vec2(0.0, -1.0)], Stroke::new(2.0, col));
+            p.add(egui::Shape::convex_polygon(
+                vec![rect.left_bottom(), pos2(rect.left(), rect.bottom() - s), pos2(rect.left() + s, rect.bottom())],
+                col,
                 Stroke::NONE,
             ));
         }

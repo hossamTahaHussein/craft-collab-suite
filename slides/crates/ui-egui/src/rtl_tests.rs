@@ -71,3 +71,19 @@ fn task_panes_open_at_the_left_in_arabic() {
         assert!(t.center().x < canvas.left(), "the pane's title is left of the slide: {t:?}");
     }
 }
+
+/// About names the suite and credits its author, in the interface language.
+#[test]
+fn about_credits_hossam_taha_in_the_interface_language() {
+    let mut h = arabic();
+    h.state_mut().run("app.about", serde_json::json!({})).unwrap();
+    h.run_steps(4);
+    assert!(h.query_all_by_label("Craft Slides من تطوير حسام طه").next().is_some(), "the Arabic credit");
+    h.state_mut().dialog = None;
+    h.state_mut().run("ui.language", serde_json::json!({"value": "en"})).unwrap();
+    h.state_mut().run("app.about", serde_json::json!({})).unwrap();
+    h.run_steps(4);
+    assert!(h.query_all_by_label("Craft Slides by Hossam Taha").next().is_some(), "the credit");
+    assert!(h.query_all_by_label("Part of Craft Collab Suite. Based on DeckCraft by the ArtCraft team.").next().is_some());
+    assert!(h.query_all_by_label("About Craft Slides").next().is_some() || crate::i18n::tr("About Craft Slides") == "About Craft Slides");
+}

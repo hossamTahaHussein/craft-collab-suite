@@ -50,7 +50,7 @@ pub(super) fn restore(
                 return Ok(());
             }
             if z.by_name(&entry).is_ok_and(|f| f.size() > *left) {
-                return Err(FormatError::Damaged("embedded media and chart parts are larger than DeckCraft can open".into()));
+                return Err(FormatError::Damaged("embedded media and chart parts are larger than Craft Slides can open".into()));
             }
             // A CRC/decode error may already have inflated bytes. Stop on that first error
             // rather than letting later corrupt members reuse the unchanged byte budget.
@@ -62,7 +62,7 @@ pub(super) fn restore(
             // bounded manifest parser has read them, so resaving migrates them losslessly.
             let size = part.bytes.len() as u64;
             if size > (*left).min(MAX_ENTRY) {
-                return Err(FormatError::Damaged("inline chart part is larger than DeckCraft can open".into()));
+                return Err(FormatError::Damaged("inline chart part is larger than Craft Slides can open".into()));
             }
             *left -= size;
         }

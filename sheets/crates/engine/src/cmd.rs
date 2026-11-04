@@ -169,6 +169,7 @@ pub fn command_specs() -> &'static [CommandSpec] {
         v.extend(data::specs());
         v.extend(formulas::specs());
         v.extend(review::specs());
+        v.extend(crate::suggest::specs());
         v.extend(view::specs());
         v.extend(inspect::specs());
         v.extend(extra::specs());

@@ -60,7 +60,7 @@ pub struct Recorded {
 pub enum CollabRole {
     #[default]
     Edit,
-    /// Everything, as suggestions others accept or reject (until those come, nothing).
+    /// Changes to cells, as suggestions others accept or reject, and comments.
     Suggest,
     /// Comments and notes only.
     Comment,
@@ -171,7 +171,8 @@ impl Session {
             CollabRole::Edit => Ok(()),
             CollabRole::Comment if COMMENT_COMMANDS.contains(&id) => Ok(()),
             CollabRole::Comment => refuse("You can only comment on this workbook"),
-            CollabRole::Suggest => refuse("Suggesting isn't available in Craft Sheets yet"),
+            CollabRole::Suggest if crate::suggest::SUGGEST_COMMANDS.contains(&id) || COMMENT_COMMANDS.contains(&id) => Ok(()),
+            CollabRole::Suggest => refuse("You can only suggest changes to this workbook"),
             CollabRole::View => refuse("You can only view this workbook"),
         }
     }
@@ -210,7 +211,13 @@ impl Session {
         let time_ms = gridcraft_core::date::unix_now_ms().map_or(0, |ms| ms.max(0.0) as u64);
         match &self.collab.api_author {
             Some(author) => RunCtx { author: author.clone(), initials: initials_of(author), time_ms, track: false, api: true },
-            None => RunCtx { author: self.prefs.user_name.clone(), initials: String::new(), time_ms, track: false, api: false },
+            None => RunCtx {
+                author: self.prefs.user_name.clone(),
+                initials: String::new(),
+                time_ms,
+                track: self.suggesting || self.collab.role == CollabRole::Suggest,
+                api: false,
+            },
         }
     }
 
@@ -264,8 +271,10 @@ impl Session {
             d.calc.reseed(seed(ctx));
         }
         let busy = std::mem::replace(&mut self.collab.busy, true);
+        let track = std::mem::replace(&mut self.track_ctx, ctx.track.then(|| (ctx.author.clone(), ctx.time_ms)));
         let now = gridcraft_core::date::serial_from_unix_ms(ctx.time_ms as f64);
         let result = gridcraft_calc::with_now(now, || self.execute(id, params));
+        self.track_ctx = track;
         self.collab.busy = busy;
         self.prefs.user_name = author;
         result
@@ -332,4 +341,50 @@ impl Session {
 /// initialled.
 fn initials_of(name: &str) -> String {
     name.split_whitespace().filter_map(|w| w.chars().next()).collect()
+}
+
+impl Session {
+    /// Whose suggestion an edit made now is and when: a replayed edit's with `track` on, or this
+    /// person's own in Suggesting mode (not co-editing: there the edit's context says).
+    pub(crate) fn track_now(&self) -> Option<(String, u64)> {
+        if let Some(t) = &self.track_ctx {
+            return Some(t.clone());
+        }
+        (self.suggesting && !self.collab.on).then(|| (self.prefs.user_name.clone(), self.run_ctx().time_ms))
+    }
+
+    /// Runs edit `id` as `author`'s suggestion: what it changes in cells is recorded with what the
+    /// cells held ([`crate::suggest`]). What isn't an edit, and the review commands, run as they
+    /// are; an edit that can't be suggested is refused.
+    pub(crate) fn execute_tracked(&mut self, id: &str, params: Json, author: &str, time_ms: u64) -> Result<Json> {
+        let edits = crate::cmd::find_command(id).is_some_and(|spec| spec.undoable);
+        let run = |s: &mut Session, params: Json| {
+            s.track_busy = true;
+            let r = s.execute(id, params);
+            s.track_busy = false;
+            r
+        };
+        if !edits || crate::suggest::REVIEW_COMMANDS.contains(&id) {
+            return run(self, params);
+        }
+        if !crate::suggest::SUGGEST_COMMANDS.contains(&id) {
+            return Err(EngineError::Disabled(id.to_string(), "This can't be suggested: only changes to cells' contents and formatting can".into()));
+        }
+        let before = self.active().map(|d| (d.uid, d.wb.clone()));
+        let result = run(self, params)?;
+        let Some((uid, before)) = before else { return Ok(result) };
+        let Some(d) = self.active_mut().filter(|d| d.uid == uid && !std::sync::Arc::ptr_eq(&before, &d.wb)) else { return Ok(result) };
+        let mut wb = (*d.wb).clone();
+        match crate::suggest::record(&before, &mut wb, author, time_ms) {
+            Ok(()) => {
+                d.wb = std::sync::Arc::new(wb);
+                Ok(result)
+            }
+            Err(e) => {
+                d.calc.rebuild(&before);
+                d.wb = before;
+                Err(e)
+            }
+        }
+    }
 }

@@ -739,6 +739,38 @@ pub(crate) fn paint_overlays(input: OverlayInput<'_>) {
             },
         );
     }
+    // A suggested cell under the pointer: who suggested it and what it held.
+    if let Some(c) = hover
+        && app.editor.is_none()
+        && app.grid.drag == Drag::None
+        && let Some(x) = gridcraft_engine::suggest::suggestions(wb).into_iter().find(|x| x.sheet == sh.name && x.cell == c.a1())
+    {
+        let r = geo.cell_rect(sh, c);
+        let (at, pivot) = (geo.mirror_pos(pos2(r.left(), r.bottom() + 4.0)), if geo.rtl { Align2::RIGHT_TOP } else { Align2::LEFT_TOP });
+        let lang = crate::i18n::current(ui.ctx());
+        let dark = ui.ctx().global_style().visuals.dark_mode;
+        egui::Area::new(egui::Id::unique("suggestion_card")).fixed_pos(at).pivot(pivot).order(egui::Order::Tooltip).interactable(false).show(
+            ui.ctx(),
+            |ui| {
+                egui::Frame::popup(ui.style()).show(ui, |ui| {
+                    ui.set_max_width(260.0);
+                    crate::rtl::body(ui, |ui| {
+                        ui.label(
+                            egui::RichText::new(lang.tr("{} suggested this").replace("{}", &x.author))
+                                .strong()
+                                .color(super::peers::suggestion_color(&x.author, dark)),
+                        );
+                        let was = x.before.as_ref().map(gridcraft_engine::suggest::input_text).filter(|t| !t.is_empty());
+                        ui.label(match was {
+                            Some(t) => lang.tr("Was: {}").replace("{}", &t),
+                            None => lang.tr("Was empty").to_string(),
+                        });
+                        ui.label(egui::RichText::new(lang.tr("Accept or reject it on the Review tab, or by right-clicking.")).small().weak());
+                    });
+                });
+            },
+        );
+    }
     // Hyperlink tooltip.
     if let Some(h) = hover.and_then(|c| sh.hyperlinks.get(&c))
         && app.editor.is_none()

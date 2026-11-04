@@ -48,6 +48,13 @@ pub const PEER_COLORS_DARK: [[u8; 3]; 12] = [
     [0xB4, 0xA2, 0xFF],
 ];
 
+/// The colour of `author`'s suggestions: one of the people colours, the same for a name wherever
+/// it shows.
+pub fn suggestion_color(author: &str, dark: bool) -> Color32 {
+    let h = author.bytes().fold(0x811c_9dc5u32, |h, b| (h ^ u32::from(b)).wrapping_mul(0x0100_0193));
+    peer_color((h % 8) as u8, dark)
+}
+
 pub fn peer_color(color: u8, dark: bool) -> Color32 {
     let [r, g, b] = if dark { PEER_COLORS_DARK } else { PEER_COLORS }[color as usize % 12];
     Color32::from_rgb(r, g, b)

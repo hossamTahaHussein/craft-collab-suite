@@ -305,7 +305,9 @@ fn arabic(text: &str) -> Option<&'static str> {
         "A photo album holds at most 48 pictures or text boxes" => "يحتوي ألبوم الصور على 48 صورة أو مربع نص كحد أقصى",
         "ALL pictures black and white" => "كل الصور بالأبيض والأسود",
         "About" => "حول",
-        "About DeckCraft" => "حول Craft Slides",
+        "About Craft Slides" => "حول Craft Slides",
+        "Craft Slides by Hossam Taha" => "Craft Slides من تطوير حسام طه",
+        "Part of Craft Collab Suite. Based on DeckCraft by the ArtCraft team." => "جزء من Craft Collab Suite. مبني على DeckCraft من فريق ArtCraft.",
         "Accent 1" => "تمييز 1",
         "Accent 2" => "تمييز 2",
         "Accent 3" => "تمييز 3",
@@ -572,16 +574,15 @@ fn arabic(text: &str) -> Option<&'static str> {
         "Date and time" => "التاريخ والوقت",
         "Decimal" => "عشري",
         "Decimal Tab" => "علامة جدولة عشرية",
-        "DeckCraft" => "Craft Slides",
-        "DeckCraft Presentation (*.deckcraft)" => "عرض Craft Slides (*.deckcraft)",
-        "DeckCraft can't find “{text}”." => "لا يمكن لـ Craft Slides العثور على “{text}”.",
-        "DeckCraft prints through a PDF: it downloads, ready to print from your browser or PDF viewer." => {
+        "Craft Slides Presentation (*.deckcraft)" => "عرض Craft Slides (*.deckcraft)",
+        "Craft Slides can't find “{text}”." => "لا يمكن لـ Craft Slides العثور على “{text}”.",
+        "Craft Slides prints through a PDF: it downloads, ready to print from your browser or PDF viewer." => {
             "يطبع Craft Slides عبر ملف PDF: يتم تنزيله جاهزًا للطباعة من المستعرض أو عارض PDF."
         }
-        "DeckCraft prints through a PDF: it opens in your PDF viewer, where you choose the printer." => {
+        "Craft Slides prints through a PDF: it opens in your PDF viewer, where you choose the printer." => {
             "يطبع Craft Slides عبر ملف PDF: يُفتح في عارض PDF حيث تختار الطابعة."
         }
-        "DeckCraft's own format: everything is kept" => "تنسيق Craft Slides الخاص: يُحتفظ بكل شيء",
+        "Craft Slides' own format: everything is kept" => "تنسيق Craft Slides الخاص: يُحتفظ بكل شيء",
         "Decrease" => "إنقاص",
         "Decrease Font Size" => "تصغير حجم الخط",
         "Decrease List Level" => "إنقاص مستوى القائمة",
@@ -1109,7 +1110,7 @@ fn arabic(text: &str) -> Option<&'static str> {
         "Presentations you open show up here. Use Open to browse for one." => "تظهر هنا العروض التقديمية التي تفتحها. استخدم فتح لاستعراض أحدها.",
         "Presented by a speaker (full screen)" => "يقدّمه متحدث (ملء الشاشة)",
         "Presenter View" => "طريقة عرض المقدم",
-        "Presenter View — DeckCraft" => "طريقة عرض المقدم — Craft Slides",
+        "Presenter View — Craft Slides" => "طريقة عرض المقدم — Craft Slides",
         "Presenter\nView" => "طريقة عرض\nالمقدم",
         "Preserve" => "الاحتفاظ",
         "Preset gradients" => "تدرجات مسبقة الإعداد",
