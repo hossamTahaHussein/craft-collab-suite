@@ -20,6 +20,7 @@ mod border_preview;
 mod cell_pictures;
 pub mod chartview;
 pub mod code_editor;
+pub mod collab_ui;
 pub mod control;
 mod craft_fonts_policy;
 pub mod credits;
@@ -219,6 +220,9 @@ pub struct SheetApp {
     pub session: Session,
     /// Other people in a co-edited workbook, as the host's co-editing link sees them now.
     pub peers: Vec<grid::peers::RemotePeer>,
+    /// Co-editing: the save indicator, Version history and the read-only notice, as the host
+    /// sees them ([`collab_ui`]).
+    pub collab: collab_ui::CollabUi,
     pub ui: UiState,
     /// The window chrome to draw (see [`Chrome`]).
     pub chrome: Chrome,

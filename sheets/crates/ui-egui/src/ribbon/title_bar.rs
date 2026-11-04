@@ -72,8 +72,10 @@ pub fn title_bar(app: &mut SheetApp, ui: &mut Ui) {
             }
             // The commands' own availability: there must be a step, and no undo group may be open on
             // the document (an action that spans several calls is still running).
-            let can_undo = gridcraft_engine::cmd::can_undo(&app.session).is_ok();
-            let can_redo = gridcraft_engine::cmd::can_redo(&app.session).is_ok();
+            // While co-editing, undo is this person's own edits for everyone: the host says which.
+            let (can_undo, can_redo) = app
+                .collab_undo_state()
+                .unwrap_or_else(|| (gridcraft_engine::cmd::can_undo(&app.session).is_ok(), gridcraft_engine::cmd::can_redo(&app.session).is_ok()));
             // Named and marked enabled or not for assistive technology (and the UI tests).
             let undo = icon_button(ui, Icon::Undo, if can_undo { t.text_dim } else { t.text_disabled }, "Undo", vec2(26.0, ch));
             undo.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, can_undo, "Undo"));
@@ -131,6 +133,11 @@ pub fn title_bar(app: &mut SheetApp, ui: &mut Ui) {
                     && let Some(place) = app.peers.get(i).and_then(|p| p.place.clone())
                 {
                     app.session.set_collab_place(&place);
+                }
+                // Whether this person's changes have reached the others, and their role.
+                for words in crate::collab_ui::title_words(app) {
+                    ui.add_space(6.0);
+                    ui.add(egui::Label::new(egui::RichText::new(words).font(crate::theme::ui_font(12.0)).color(t.text_dim)).selectable(false));
                 }
                 let share = small_button(ui, Icon::Share, "Share", "Share: export or save a copy", true);
                 egui::Popup::menu(&share).show(|ui| {

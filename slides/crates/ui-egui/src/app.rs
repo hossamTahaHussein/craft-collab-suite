@@ -45,6 +45,7 @@ impl SlideApp {
             table_pen: serde_json::json!({"width": 1.0}),
             session,
             peers: Vec::new(),
+            collab: Default::default(),
             services,
             ui: UiState::default(),
             textures: textures::Textures::default(),
@@ -350,6 +351,7 @@ impl SlideApp {
         toast::note_missing_fonts(self);
         toast::show(self, &ctx);
         dialogs::show(self, &ctx);
+        crate::collab_ui::show(self, &ctx);
         #[cfg(not(target_arch = "wasm32"))]
         updates_ui::show(self, &ctx);
         menus::palette(self, &ctx);

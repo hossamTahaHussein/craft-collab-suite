@@ -111,6 +111,14 @@ pub fn status_bar(app: &mut SlideApp, ui: &mut Ui) {
         if labeled(&mut right, Icon::NotesSmall, "Notes", n_on).clicked() {
             app.ui.notes = !n_on;
         }
+        // A shared presentation's kept versions (co-editing).
+        if app.collab.active {
+            right.add_space(8.0);
+            let rich = egui::RichText::new("Version history").size(12.0).color(t.text_dim);
+            if right.add(egui::Label::new(rich).selectable(false).sense(Sense::click())).clicked() {
+                app.open_version_history();
+            }
+        }
         let _ = Stroke::NONE;
     });
 }

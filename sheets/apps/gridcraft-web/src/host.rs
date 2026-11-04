@@ -102,7 +102,7 @@ impl Bridge {
         }
     }
 
-    fn post_save(&self, path: &str, bytes: &[u8]) -> Result<(), String> {
+    pub fn post_save(&self, path: &str, bytes: &[u8]) -> Result<(), String> {
         let name = std::path::Path::new(path).file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_else(|| path.to_string());
         let buffer = js_sys::Uint8Array::from(bytes).buffer();
         let message = message(&[("type", "gridcraft:save".into()), ("name", name.as_str().into()), ("bytes", buffer.clone().into())])

@@ -52,6 +52,8 @@ pub const TABLE: &[(&str, Class)] = &[
     ("craft-collab-core", Class::Standalone),
     // The page ↔ replica glue all three apps share: on the core only.
     ("craft-collab-link", Class::Layer(1)),
+    // The co-editing windows Craft Sheets and Craft Slides share (egui only).
+    ("craft-collab-ui", Class::Layer(6)),
     ("zotero", Class::Layer(5)),
     ("ui-egui", Class::Layer(6)),
     ("testkit", Class::Testkit),

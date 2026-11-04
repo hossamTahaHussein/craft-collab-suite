@@ -31,6 +31,7 @@ impl SheetApp {
         SheetApp {
             session,
             peers: Vec::new(),
+            collab: Default::default(),
             ui: UiState::default(),
             chrome: Chrome::default(),
             views: HashMap::new(),
@@ -247,6 +248,7 @@ impl SheetApp {
             });
         }
         dialogs::show(self, &ctx);
+        crate::collab_ui::show(self, &ctx);
         macro_ui::forget_closed_editor(self);
         macro_ui::question_box(self, &ctx);
         widgets::message_box(self, &ctx);

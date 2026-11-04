@@ -200,6 +200,14 @@ impl eframe::App for WebShell {
             if link.presence_pending() {
                 ctx.request_repaint_after(std::time::Duration::from_millis(100));
             }
+            // Autosave: the relay chose this editor to save the shared workbook.
+            if link.take_save_request() {
+                match self.app.run("file.save", serde_json::json!({})) {
+                    Ok(_) => bridge.post_collab(&link.saved()),
+                    Err(e) => log::warn!("co-editing: autosave failed: {e}"),
+                }
+            }
+            co_editing_ui(&mut self.app, link, bridge);
         }
         // Store changed preferences straight away: a reload or closed tab runs no exit code (#1562).
         let changed = self.prefs.changed(&self.app);
@@ -536,4 +544,39 @@ fn trigger_anchor_download(window: &web_sys::Window, name: &str, bytes: &[u8]) -
     });
     window.set_timeout_with_callback_and_timeout_and_arguments_0(revoke.unchecked_ref(), 10_000).map_err(js)?;
     Ok(())
+}
+
+/// The co-editing UI: undo state, the save indicator, the read-only notice and Version history.
+fn co_editing_ui(app: &mut SheetApp, link: &mut gridcraft_collab::link::CollabLink, bridge: &crate::host::Bridge) {
+    use gridcraft_ui_egui::collab_ui::{CollabRequest, SyncState, VersionRow, WorkbookPreview};
+    app.collab.active = link.rev().is_some();
+    app.collab.can_undo = link.can_undo();
+    app.collab.can_redo = link.can_redo();
+    app.collab.offline = link.offline_locked();
+    app.collab.connected = link.online();
+    app.collab.sync = app.collab.active.then(|| SyncState::of(link.online(), link.pending()));
+    if let Some(versions) = link.take_versions() {
+        app.collab.set_versions(versions.into_iter().map(|v| VersionRow { rev: v.rev, at: v.at, users: v.users }).collect());
+    }
+    if let Some((rev, json)) = link.take_version_doc() {
+        let wb = json.and_then(|json| <gridcraft_collab::SheetsDoc as craft_collab_link::LinkHost>::decode(&json));
+        app.collab.set_preview(rev, WorkbookPreview::new(wb));
+    }
+    for request in app.take_collab_requests() {
+        match request {
+            CollabRequest::ListVersions => bridge.post_collab(&link.list_versions()),
+            CollabRequest::Preview(rev) => bridge.post_collab(&link.get_version(rev)),
+            CollabRequest::Restore(rev) => {
+                link.restore(rev);
+            }
+            CollabRequest::SaveMyCopy => {
+                let Some(d) = app.session.active() else { continue };
+                let title = d.display_title();
+                let stem = std::path::Path::new(&title).file_stem().map_or_else(|| title.clone(), |s| s.to_string_lossy().to_string());
+                let name = format!("{stem} (my copy).xlsx");
+                let saved = gridcraft_xlsx::write_xlsx(&d.wb).map_err(|e| e.to_string()).and_then(|bytes| bridge.post_save(&name, &bytes));
+                app.toast = Some((saved.map_or_else(|e| e, |()| format!("Saved {name}")), gridcraft_ui_egui::now_ms()));
+            }
+        }
+    }
 }

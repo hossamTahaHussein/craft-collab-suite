@@ -1130,6 +1130,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "craft-collab-ui"
+version = "1.0.2"
+dependencies = [
+ "chrono",
+ "craft-ui",
+ "egui",
+ "js-sys",
+]
+
+[[package]]
 name = "craft-fonts-build"
 version = "0.1.0"
 source = "git+https://github.com/storytold/craft-libs?rev=c5a1cbfb5f9049f9270955caffb5bee5997aebf7#c5a1cbfb5f9049f9270955caffb5bee5997aebf7"
@@ -1656,6 +1666,7 @@ dependencies = [
 name = "deckcraft-ui-egui"
 version = "1.0.2"
 dependencies = [
+ "craft-collab-ui",
  "craft-ui",
  "craft-update",
  "deckcraft-anim",
@@ -1693,6 +1704,7 @@ dependencies = [
  "craft-collab-link",
  "deckcraft-collab",
  "deckcraft-engine",
+ "deckcraft-pptx",
  "deckcraft-ui-egui",
  "eframe",
  "egui",
@@ -2801,6 +2813,7 @@ version = "1.0.2"
 name = "gridcraft-ui-egui"
 version = "1.0.2"
 dependencies = [
+ "craft-collab-ui",
  "craft-ui",
  "craft-update",
  "craft-window",
@@ -2832,6 +2845,7 @@ dependencies = [
  "gridcraft-collab",
  "gridcraft-engine",
  "gridcraft-ui-egui",
+ "gridcraft-xlsx",
  "js-sys",
  "log",
  "rfd",

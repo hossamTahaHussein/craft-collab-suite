@@ -161,6 +161,14 @@ impl eframe::App for WebShell {
             if link.presence_pending() {
                 ctx.request_repaint_after(std::time::Duration::from_millis(100));
             }
+            // Autosave: the relay chose this editor to save the shared presentation.
+            if link.take_save_request() {
+                match self.app.run("file.save", serde_json::json!({})) {
+                    Ok(_) => bridge.post_collab(&link.saved()),
+                    Err(e) => log::warn!("co-editing: autosave failed: {e}"),
+                }
+            }
+            co_editing_ui(&mut self.app, link, bridge);
         }
         if let Some(bridge) = &self.bridge {
             bridge.sync(&self.app);
@@ -289,5 +297,40 @@ fn mime_for(name: &str) -> &'static str {
         Some("pptx") => "application/vnd.openxmlformats-officedocument.presentationml.presentation",
         Some("deckcraft") => "application/zip",
         _ => "application/octet-stream",
+    }
+}
+
+/// The co-editing UI: undo state, the save indicator, the read-only notice and Version history.
+fn co_editing_ui(app: &mut SlideApp, link: &mut deckcraft_collab::link::CollabLink, bridge: &crate::host::Bridge) {
+    use deckcraft_ui_egui::collab_ui::{CollabRequest, DeckPreview, SyncState, VersionRow};
+    app.collab.active = link.rev().is_some();
+    app.collab.can_undo = link.can_undo();
+    app.collab.can_redo = link.can_redo();
+    app.collab.offline = link.offline_locked();
+    app.collab.connected = link.online();
+    app.collab.sync = app.collab.active.then(|| SyncState::of(link.online(), link.pending()));
+    if let Some(versions) = link.take_versions() {
+        app.collab.set_versions(versions.into_iter().map(|v| VersionRow { rev: v.rev, at: v.at, users: v.users }).collect());
+    }
+    if let Some((rev, json)) = link.take_version_doc() {
+        let deck = json.and_then(|json| <deckcraft_collab::SlidesDoc as craft_collab_link::LinkHost>::decode(&json));
+        app.collab.set_preview(rev, DeckPreview::new(deck));
+    }
+    for request in app.take_collab_requests() {
+        match request {
+            CollabRequest::ListVersions => bridge.post_collab(&link.list_versions()),
+            CollabRequest::Preview(rev) => bridge.post_collab(&link.get_version(rev)),
+            CollabRequest::Restore(rev) => {
+                link.restore(rev);
+            }
+            CollabRequest::SaveMyCopy => {
+                let Some(d) = app.session.active() else { continue };
+                let title = d.title();
+                let stem = std::path::Path::new(&title).file_stem().map_or_else(|| title.clone(), |s| s.to_string_lossy().to_string());
+                let name = format!("{stem} (my copy).pptx");
+                let saved = deckcraft_pptx::export(&d.doc).map_err(|e| e.to_string()).and_then(|bytes| bridge.post_save(&name, &bytes));
+                app.notify(saved.map_or_else(|e| e, |()| format!("Saved {name}")));
+            }
+        }
     }
 }

@@ -106,6 +106,9 @@ pub fn is_enabled(app: &SlideApp, id: &str) -> bool {
     match id {
         "app.home" => true,
         "file.save" | "show.fromStart" | "review.spelling" | "app.find" => app.session.active().is_some(),
+        // While co-editing, undo is this person's own edits for everyone: the host says which.
+        "edit.undo" if app.collab.active => app.collab_undo_state().is_some_and(|(undo, _)| undo),
+        "edit.redo" if app.collab.active => app.collab_undo_state().is_some_and(|(_, redo)| redo),
         id => crate::ribbon::enabled(app, id),
     }
 }

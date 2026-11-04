@@ -1,0 +1,19 @@
+[package]
+name = "craft-collab-ui"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "The co-editing UI Craft Sheets and Craft Slides share: save indicator, offline notice, Version history"
+
+[lints]
+workspace = true
+
+[dependencies]
+egui = { workspace = true }
+craft-ui = { workspace = true }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+chrono = { workspace = true, features = ["clock"] }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+js-sys = "0.3"

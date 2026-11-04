@@ -393,6 +393,14 @@ pub fn status_bar(app: &mut SheetApp, ui: &mut Ui) {
                         );
                     }
                 }
+                // A shared workbook's kept versions (co-editing).
+                if app.collab.active {
+                    ui.add_space(12.0);
+                    let rich = egui::RichText::new(app.ui.language.tr("Version history")).font(theme::ui_font(12.5)).color(t.text_dim);
+                    if ui.add(egui::Label::new(rich).selectable(false).sense(Sense::click())).clicked() {
+                        app.open_version_history();
+                    }
+                }
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     // Zoom percentage and slider.
                     let zoom = app.session.active().and_then(|d| d.wb.active().map(|s| s.zoom)).unwrap_or(100);

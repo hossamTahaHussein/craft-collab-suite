@@ -18,6 +18,7 @@ pub const UPDATE_APP: craft_update::app::App = craft_update::app::App {
 pub mod backstage;
 pub mod canvas;
 pub mod capture;
+pub mod collab_ui;
 pub mod control;
 pub mod dialogs;
 pub mod doc_window;
@@ -217,6 +218,9 @@ struct InputTarget {
 pub struct SlideApp {
     /// Other people in a co-edited presentation, as the host's co-editing link sees them now.
     pub peers: Vec<canvas::peers::RemotePeer>,
+    /// Co-editing: the save indicator, Version history and the read-only notice, as the host
+    /// sees them ([`collab_ui`]).
+    pub collab: collab_ui::CollabUi,
     /// Shape Fill's last colour (a command colour parameter): the button applies it again. Accent 1 until one is picked.
     pub last_fill: serde_json::Value,
     /// Shape Outline's last colour, likewise. Text 1 until one is picked.

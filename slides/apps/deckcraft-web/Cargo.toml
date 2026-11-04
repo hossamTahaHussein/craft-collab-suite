@@ -20,6 +20,7 @@ egui = { workspace = true }
 log = { workspace = true }
 serde_json = { workspace = true }
 deckcraft-collab = { workspace = true }
+deckcraft-pptx = { workspace = true }
 craft-collab-link = { workspace = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
