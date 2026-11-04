@@ -57,7 +57,7 @@ pub(super) fn layout_menu(app: &mut SlideApp, ui: &mut Ui, cmd: &str) {
     egui::Grid::new(("layouts", cmd)).spacing(vec2(6.0, 6.0)).show(ui, |ui| {
         for (k, (name, id)) in layouts.iter().enumerate() {
             let idx = app.session.active().and_then(|d| d.doc.masters.first().and_then(|m| m.layouts.iter().position(|l| l.id == *id)));
-            let resp = ui.vertical(|ui| {
+            let resp = crate::rtl::vertical(ui, |ui| {
                 let (rect, resp) = ui.allocate_exact_size(vec2(96.0, 54.0), Sense::click());
                 if let (Some(d), Some(li)) = (app.session.active(), idx) {
                     let img = deckcraft_render::render_layout(
@@ -165,7 +165,7 @@ fn font_group(app: &mut SlideApp, ui: &mut Ui, st: &Value) {
     let en = enabled(app, "format.bold");
     group(ui, |ui| {
         rows(ui, |ui| {
-            ui.horizontal(|ui| {
+            crate::rtl::fit_row(ui, |ui| {
                 ui.spacing_mut().item_spacing.x = 3.0;
                 let font = st.get("font").and_then(Value::as_str).unwrap_or("").to_string();
                 let size = st.get("size").and_then(Value::as_f64);
@@ -209,7 +209,7 @@ fn font_group(app: &mut SlideApp, ui: &mut Ui, st: &Value) {
                 toggle(app, ui, Icon::ClearFormatting, "Clear All Formatting", "format.clear", false);
             });
             ui.add_space(3.0);
-            ui.horizontal(|ui| {
+            crate::rtl::fit_row(ui, |ui| {
                 ui.spacing_mut().item_spacing.x = 1.0;
                 let b = |k: &str| st.get(k).and_then(Value::as_bool).unwrap_or(false);
                 toggle(app, ui, Icon::Bold, "Bold", "format.bold", b("bold"));
@@ -272,7 +272,7 @@ fn paragraph_group(app: &mut SlideApp, ui: &mut Ui, st: &Value) {
     let en = enabled(app, "format.bullets");
     group(ui, |ui| {
         rows(ui, |ui| {
-            ui.horizontal(|ui| {
+            crate::rtl::fit_row(ui, |ui| {
                 ui.spacing_mut().item_spacing.x = 1.0;
                 let b = |k: &str| st.get(k).and_then(Value::as_bool).unwrap_or(false);
                 let (m, a) = small_button_named(ui, Icon::Bullets, "", "Bullets", en, b("bullets"), true);
@@ -356,7 +356,7 @@ fn paragraph_group(app: &mut SlideApp, ui: &mut Ui, st: &Value) {
                 });
             });
             ui.add_space(3.0);
-            ui.horizontal(|ui| {
+            crate::rtl::fit_row(ui, |ui| {
                 ui.spacing_mut().item_spacing.x = 1.0;
                 let al = st.get("align").and_then(Value::as_str).unwrap_or("");
                 toggle(app, ui, Icon::AlignLeft, "Align Left", "format.alignLeft", al == "l");
@@ -458,7 +458,7 @@ pub(super) fn home(app: &mut SlideApp, ui: &mut Ui) {
     drawing_group(app, ui);
     // Editing, as in PowerPoint: Find, Replace and Replace Fonts, then the Selection Pane.
     group(ui, |ui| {
-        ui.vertical(|ui| {
+        crate::rtl::vertical(ui, |ui| {
             small(app, ui, Icon::Search, "Find", "app.find", json!({}));
             small(app, ui, Icon::Spelling, "Replace", "app.replace", json!({}));
             if small_button(ui, Icon::Fonts, "Replace Fonts…", enabled(app, "font.replace"), false).clicked() {

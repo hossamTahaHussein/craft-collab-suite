@@ -2188,7 +2188,7 @@
 	A free, open-source word processor written in Rust, with real-time co-editing.\nBased on WordCraft by the ArtCraft team.	一款用 Rust 编写的免费开源文字处理软件，支持实时协同编辑。\n基于 ArtCraft 团队的 WordCraft。
 	WordCraft Collab by Hossam Taha	WordCraft Collab，作者 Hossam Taha
 	hossamtaha.me	hossamtaha.me
-	github.com/hossamTahaHussein/wordcraft-collab	github.com/hossamTahaHussein/wordcraft-collab
+	github.com/hossamTahaHussein/craft-collab-suite	github.com/hossamTahaHussein/craft-collab-suite
 	Based on github.com/storytold/wordcraft	基于 github.com/storytold/wordcraft
 	Discard the recovery copy of {name}?	要放弃“{name}”的恢复副本吗？
 	This cannot be undone. Your original file stays unchanged.	此操作无法撤消。原始文件保持不变。

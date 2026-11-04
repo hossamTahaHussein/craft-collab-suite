@@ -859,3 +859,101 @@ fn equations_print_with_the_symbol_font() {
     // A glyph no standard font has is a [?] box.
     assert!(contains(&pdf, "(?) Tj"));
 }
+
+#[test]
+fn a_right_to_left_sheet_prints_mirrored_with_column_a_at_the_right() {
+    let mut s = s();
+    s.execute("range.setValues", json!({"range": "A1", "values": [["First", "Second"]]})).unwrap();
+    let (ltr, _) = pdf_of(&mut s, json!({}));
+    let (a, b) = (text_at(&ltr, "First").unwrap().0, text_at(&ltr, "Second").unwrap().0);
+    assert!(a < b, "left to right: A before B ({a} < {b})");
+    s.execute("view.rightToLeft", json!({"on": true})).unwrap();
+    let (rtl, _) = pdf_of(&mut s, json!({}));
+    let (a, b) = (text_at(&rtl, "First").unwrap().0, text_at(&rtl, "Second").unwrap().0);
+    assert!(a > b, "right to left: A to the right of B ({a} > {b})");
+    // Text still reads left to right: the word isn't flipped, only where it stands.
+    assert!(contains(&rtl, "(First) Tj"));
+}
+
+/// An equation on a right-to-left sheet moves to the mirrored place as a whole: it still reads
+/// x, then +, then 1, left to right (review finding 9).
+#[test]
+fn objects_on_a_right_to_left_sheet_move_whole_and_read_as_written() {
+    let mut s = s();
+    s.execute("insert.equation", json!({"latex": "x+1", "cell": "B2"})).unwrap();
+    let (ltr, _) = pdf_of(&mut s, json!({}));
+    s.execute("view.rightToLeft", json!({"on": true})).unwrap();
+    let (rtl, _) = pdf_of(&mut s, json!({}));
+    let (Some(x), Some(one)) = (text_at(&rtl, "x"), text_at(&rtl, "1")) else { panic!("the equation's glyphs") };
+    assert!(x.0 < one.0, "x before 1, as written ({} < {})", x.0, one.0);
+    let lx = text_at(&ltr, "x").unwrap().0;
+    assert!(x.0 > lx + 100.0, "the equation moved to the mirrored side ({lx} -> {})", x.0);
+}
+
+/// The x of the first glyph drawn in the `n`th (from 0) run of shaped text.
+fn shaped_x(pdf: &[u8], n: usize) -> Option<f32> {
+    let s = String::from_utf8_lossy(pdf);
+    let lines: Vec<&str> = s.lines().collect();
+    let at = lines.iter().enumerate().filter(|(_, l)| l.starts_with("/E") && l.ends_with(" Tf")).nth(n)?.0;
+    lines[at + 1..].iter().find(|l| l.ends_with(" Tm"))?.split(' ').nth(4)?.parse().ok()
+}
+
+#[test]
+fn general_arabic_text_starts_at_the_right_of_its_cell_in_a_left_to_right_sheet() {
+    let mut s = s();
+    s.execute("range.setValues", json!({"range": "A1", "values": [["سلام"], ["سلام"]]})).unwrap();
+    s.execute("home.alignLeft", json!({"range": "A2"})).unwrap();
+    let (pdf, _) = pdf_of(&mut s, json!({}));
+    let (Some(general), Some(left)) = (shaped_x(&pdf, 0), shaped_x(&pdf, 1)) else {
+        eprintln!("skipped: no Arabic face to shape with");
+        return;
+    };
+    assert!(general > left + 10.0, "General Arabic aligns right ({general}), Align Left doesn't ({left})");
+}
+
+#[test]
+fn text_reads_right_to_left_by_its_first_strong_letter() {
+    use crate::display::reads_rtl;
+    assert!(reads_rtl("مرحبا"));
+    assert!(reads_rtl("שלום world"));
+    assert!(reads_rtl("2026 تقرير"), "digits are neutral");
+    assert!(!reads_rtl("Report تقرير"));
+    assert!(!reads_rtl("123"));
+    assert!(!reads_rtl(""));
+}
+
+#[test]
+fn justified_cells_print_their_lines_stretched_but_the_last() {
+    let mut s = s();
+    let text = "alpha beta gamma delta epsilon zeta eta theta iota";
+    s.execute("range.setValues", json!({"range": "A1", "values": [[text], [text]]})).unwrap();
+    s.execute("home.columnWidth", json!({"cols": "A:A", "width": 120})).unwrap();
+    s.execute("home.rowHeight", json!({"rows": "1:2", "height": 80})).unwrap();
+    s.execute("home.wrapText", json!({"range": "A1"})).unwrap();
+    s.execute("home.justify", json!({"range": "A2"})).unwrap();
+    let (pdf, _) = pdf_of(&mut s, json!({}));
+    let xs = |word: &str| {
+        let s = String::from_utf8_lossy(&pdf);
+        let mut out = Vec::new();
+        let mut rest = &s[..];
+        while let Some(at) = rest.find(&format!("({word}) Tj")) {
+            let before = &rest[..at];
+            let tm = before.rfind(" Tm").unwrap();
+            let mut nums = before[..tm].rsplit([' ', '\n']);
+            nums.next();
+            out.push(nums.next().unwrap().parse::<f32>().unwrap());
+            rest = &rest[at + 1..];
+        }
+        out
+    };
+    // Wrapped (A1) draws each line whole; justified (A2) draws word by word, spread out.
+    let s = String::from_utf8_lossy(&pdf).to_string();
+    assert!(s.contains("(alpha beta) Tj"), "A1 draws its lines whole");
+    let (alpha, beta) = (xs("alpha"), xs("beta"));
+    assert_eq!((alpha.len(), beta.len()), (1, 1), "A2 draws its words one by one");
+    let size = text_at(&pdf, "alpha").unwrap().1;
+    let natural = gridcraft_pdf::text_width(gridcraft_pdf::Font::Helvetica, size, "alpha ");
+    assert!(beta[0] - alpha[0] > natural + 1.0, "the words spread out: {alpha:?} {beta:?}");
+    // The last line isn't stretched: one run, as written, in both cells.
+    assert_eq!(s.matches("(theta iota) Tj").count(), 2, "{s}");
+}

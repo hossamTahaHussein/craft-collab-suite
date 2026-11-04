@@ -2439,7 +2439,7 @@ preview	Title	제목
 	A free, open-source word processor written in Rust, with real-time co-editing.\nBased on WordCraft by the ArtCraft team.	Rust로 만든 무료 오픈 소스 워드 프로세서로, 실시간 공동 편집을 지원합니다.\nArtCraft 팀의 WordCraft를 기반으로 합니다.
 	WordCraft Collab by Hossam Taha	WordCraft Collab - 제작: Hossam Taha
 	hossamtaha.me	hossamtaha.me
-	github.com/hossamTahaHussein/wordcraft-collab	github.com/hossamTahaHussein/wordcraft-collab
+	github.com/hossamTahaHussein/craft-collab-suite	github.com/hossamTahaHussein/craft-collab-suite
 	Based on github.com/storytold/wordcraft	github.com/storytold/wordcraft 기반
 	Discard the recovery copy of {name}?	{name}의 복구 사본을 삭제하시겠습니까?
 	This cannot be undone. Your original file stays unchanged.	이 작업은 취소할 수 없습니다. 원본 파일은 변경되지 않습니다.

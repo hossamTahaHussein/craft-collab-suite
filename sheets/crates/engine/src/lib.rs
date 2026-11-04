@@ -15,6 +15,7 @@ pub mod collab;
 pub mod display;
 pub mod fill;
 pub mod io;
+pub mod justify;
 pub mod links;
 pub mod macros;
 pub mod outline;
@@ -25,6 +26,7 @@ pub mod recent;
 pub mod record;
 pub mod sample;
 pub mod selection;
+pub mod suggest;
 pub mod tables;
 pub mod windows;
 
@@ -425,7 +427,7 @@ impl Default for Prefs {
         Prefs {
             enter_direction: "down".into(),
             autocomplete: true,
-            user_name: "GridCraft User".into(),
+            user_name: "Craft Sheets User".into(),
             default_font: gridcraft_model::DEFAULT_FONT.into(),
             default_font_size: gridcraft_model::DEFAULT_FONT_SIZE,
             sheets_in_new_workbook: 1,
@@ -515,6 +517,13 @@ pub struct Session {
     /// Review › Notes › Show All Notes: every note is displayed. An application display setting
     /// (like Excel's comment indicator option), so it's not saved in the file.
     pub show_all_notes: bool,
+    /// Review › Suggesting: this person's edits are suggestions ([`suggest`]).
+    pub suggesting: bool,
+    /// An edit replayed with `track` on: whose suggestion it records and when.
+    track_ctx: Option<(String, u64)>,
+    /// A top-level command is running inside the suggestion wrappers ([`suggest`]): the commands it
+    /// runs aren't wrapped again.
+    track_busy: bool,
     /// Open undo groups, innermost last.
     groups: Vec<OpenGroup>,
     next_group: u64,
@@ -670,6 +679,12 @@ impl Session {
     pub fn execute(&mut self, id: &str, params: Json) -> Result<Json> {
         if self.collab_wraps() {
             return self.execute_collab(id, params);
+        }
+        if self.depth == 0 && !self.track_busy {
+            return match self.track_now() {
+                Some((author, time_ms)) => self.execute_tracked(id, params, &author, time_ms),
+                None => self.execute_followed(id, params),
+            };
         }
         let spec = find_command(id).ok_or_else(|| EngineError::UnknownCommand(id.to_string()))?;
         if let Err(why) = (spec.enabled)(self) {

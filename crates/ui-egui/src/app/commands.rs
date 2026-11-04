@@ -734,7 +734,7 @@ impl WordApp {
                 ));
             }
             "ui.discord" => {
-                self.canvas.open_url = Some("https://github.com/hossamTahaHussein/wordcraft-collab/discussions".into());
+                self.canvas.open_url = Some("https://github.com/hossamTahaHussein/craft-collab-suite/discussions".into());
                 json!({})
             }
             "ui.jumpToPeer" => {

@@ -135,6 +135,17 @@ and prints its answer as JSON. COMMAND [PARAMS] runs a command, as run --cmd doe
   deckcraft-cli app --method ui.screenshot '{\"path\":\"/tmp/shot.png\"}'",
     },
     Subcommand {
+        name: "collab-mcp",
+        usage: "collab-mcp --relay URL --token TOKEN [--name NAME] [--no-suggest]",
+        summary: "join a shared presentation as an agent, over MCP on stdio",
+        details: "Runs a Model Context Protocol server whose presentation is a shared one: it joins the co-editing relay at
+URL (ws:// or wss://) with a join token from the site's backend, as NAME (\"Agent\" by default). Its edits sync
+live under that name as suggestions people accept or reject (--no-suggest: direct edits), the people in the
+presentation see where it is, and who_is_here and wait_for_changes
+tell it who is there and what they changed. It joins a presentation someone has open, never saves it, and
+stays out once removed or the presentation is closed.",
+    },
+    Subcommand {
         name: "mcp",
         usage: "mcp [--connect PORT] [--sample] [--automation-read-root DIR]... [--automation-write-root DIR]...",
         summary: "serve the commands to an agent over MCP on stdio",

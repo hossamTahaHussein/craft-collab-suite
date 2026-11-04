@@ -2222,7 +2222,7 @@
 	A free, open-source word processor written in Rust, with real-time co-editing.\nBased on WordCraft by the ArtCraft team.	Rust で書かれた、リアルタイム共同編集に対応した無料のオープンソース ワープロです。\nArtCraft チームの WordCraft をもとにしています。
 	WordCraft Collab by Hossam Taha	WordCraft Collab（作者: Hossam Taha）
 	hossamtaha.me	hossamtaha.me
-	github.com/hossamTahaHussein/wordcraft-collab	github.com/hossamTahaHussein/wordcraft-collab
+	github.com/hossamTahaHussein/craft-collab-suite	github.com/hossamTahaHussein/craft-collab-suite
 	Based on github.com/storytold/wordcraft	github.com/storytold/wordcraft をもとにしています
 	Discard the recovery copy of {name}?	{name} の回復用のコピーを破棄しますか?
 	This cannot be undone. Your original file stays unchanged.	この操作は元に戻せません。元のファイルは変更されません。

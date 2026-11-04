@@ -11,6 +11,8 @@
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unimplemented, clippy::todo, clippy::unreachable)]
 #![forbid(unsafe_code)]
 
+mod vowels;
+
 use std::collections::HashMap;
 
 use craft_pdf::write::{self, Metadata, Writer, backend as krilla};
@@ -79,6 +81,10 @@ pub struct PdfOptions {
     pub title: Option<String>,
     /// Handout/notes page size in points (default US Letter portrait; see [`paper_size`]).
     pub paper: (f64, f64),
+    /// Arabic and Hebrew vowels in the text readers copy and search (on by default). Off, vowelled
+    /// words copy without their vowels where a vowel is a glyph of its own (as Craft Docs'
+    /// `arabicVowels: false`).
+    pub arabic_vowels: bool,
 }
 
 impl Default for PdfOptions {
@@ -92,6 +98,7 @@ impl Default for PdfOptions {
             frame_slides: true,
             title: None,
             paper: (612.0, 792.0),
+            arabic_vowels: true,
         }
     }
 }
@@ -594,28 +601,50 @@ impl Exporter<'_> {
             let n = run.glyphs.len();
             let ranges = glyph_text_ranges(&text, run.chars, &run.cells, n);
             let (x0, y0) = (run.glyphs[0].1, run.glyphs[0].2);
-            let kg: Vec<KrillaGlyph> = run
-                .glyphs
-                .iter()
-                .enumerate()
-                .map(|(gi, g)| {
-                    let next = run.glyphs.get(gi + 1).map_or(g.1 + run.face.advance(g.0) * run.size / run.face.upem.max(1.0), |nx| nx.1);
-                    let range = ranges.get(gi).cloned().unwrap_or(text.len()..text.len());
-                    KrillaGlyph::new(GlyphId::new(g.0), ((next - g.1) / run.size) as f32, 0.0, ((g.2 - y0) / run.size) as f32, 0.0, range, None)
-                })
-                .collect();
+            let laid: Vec<vowels::Item> =
+                run.glyphs.iter().enumerate().map(|(gi, g)| (g.0, g.1, g.2, ranges.get(gi).cloned().unwrap_or(text.len()..text.len()))).collect();
+            // Vowels shaped as glyphs of their own: the text is written apart from what shows,
+            // each vowel on the baseline after its letter (see `vowels`).
+            // Without vowels in the text (`arabic_vowels` off), the vowels' glyphs are left out of it.
+            let vowelled = vowels::text_items(&text, &run.glyphs, &ranges, run.size, |g| run.face.advance(g)).map(|items| {
+                if self.opts.arabic_vowels {
+                    items
+                } else {
+                    items.into_iter().filter(|i| !text.get(i.3.clone()).is_some_and(|t| !t.is_empty() && t.chars().all(vowels::is_mark))).collect()
+                }
+            });
+            let glyphs_of = |items: &[vowels::Item], with_text: bool| -> Vec<KrillaGlyph> {
+                items
+                    .iter()
+                    .enumerate()
+                    .map(|(gi, g)| {
+                        let next = items.get(gi + 1).map_or(g.1 + run.face.advance(g.0) * run.size / run.face.upem.max(1.0), |nx| nx.1);
+                        let range = if with_text { g.3.clone() } else { 0..0 };
+                        KrillaGlyph::new(GlyphId::new(g.0), ((next - g.1) / run.size) as f32, 0.0, ((g.2 - y0) / run.size) as f32, 0.0, range, None)
+                    })
+                    .collect()
+            };
             s.push_transform(&tf(view * pt.transform * Affine::translate((x0, y0))));
-            s.set_fill(Some(if visible {
+            if visible {
                 let c = run.color;
-                Fill {
+                s.set_fill(Some(Fill {
                     paint: krilla::color::rgb::Color::new(c.r, c.g, c.b).into(),
                     opacity: NormalizedF32::new((f64::from(c.a) / 255.0 * run.alpha) as f32).unwrap_or(NormalizedF32::ONE),
                     ..Default::default()
+                }));
+                match &vowelled {
+                    // What shows carries no text; the text follows, invisible.
+                    Some(_) => s.draw_glyphs(Point::from_xy(0.0, 0.0), &glyphs_of(&laid, false), font.clone(), "", run.size as f32, false),
+                    None => s.draw_glyphs(Point::from_xy(0.0, 0.0), &glyphs_of(&laid, true), font.clone(), &text, run.size as f32, false),
                 }
-            } else {
-                grey(0, 0.0)
-            }));
-            s.draw_glyphs(Point::from_xy(0.0, 0.0), &kg, font, &text, run.size as f32, false);
+            }
+            if !visible || vowelled.is_some() {
+                s.set_fill(Some(grey(0, 0.0)));
+                let items = vowelled.as_deref().unwrap_or(&laid);
+                // Drawn from its first glyph's place (a vowel may now come first).
+                let dx = items.first().map_or(0.0, |i| i.1 - x0);
+                s.draw_glyphs(Point::from_xy(dx as f32, 0.0), &glyphs_of(items, true), font, &text, run.size as f32, false);
+            }
             s.set_fill(None);
             s.pop();
         }

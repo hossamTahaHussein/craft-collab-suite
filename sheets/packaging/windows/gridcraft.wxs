@@ -13,9 +13,9 @@
 
     <Icon Id="GridcraftIcon.ico" SourceFile="$(var.IconPath)" />
     <Property Id="ARPPRODUCTICON" Value="GridcraftIcon.ico" />
-    <Property Id="ARPURLINFOABOUT" Value="https://github.com/hossamTahaHussein/wordcraft-collab" />
-    <Property Id="ARPURLUPDATEINFO" Value="https://github.com/hossamTahaHussein/wordcraft-collab" />
-    <Property Id="ARPHELPLINK" Value="https://github.com/hossamTahaHussein/wordcraft-collab/discussions" />
+    <Property Id="ARPURLINFOABOUT" Value="https://github.com/hossamTahaHussein/craft-collab-suite" />
+    <Property Id="ARPURLUPDATEINFO" Value="https://github.com/hossamTahaHussein/craft-collab-suite" />
+    <Property Id="ARPHELPLINK" Value="https://github.com/hossamTahaHussein/craft-collab-suite/discussions" />
 
     <!-- An explicit command-line value wins. Otherwise retain the previous installation's
          choice, defaulting to off for a fresh install. Run only in the first sequence so the

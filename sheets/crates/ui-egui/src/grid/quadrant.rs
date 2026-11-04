@@ -1,7 +1,7 @@
 use super::active_row::paint_active_row;
 use super::cell_paint::{
-    Look, MergedArea, cell_text_y, center_across_end, col32, display_text, look, merged_edges, paint_border, paint_cf_icon, painted_halign,
-    rotated_text_pos, shrink_font, wrapped_cell_text_y,
+    Look, MergedArea, cell_text_y, center_across_end, col32, display_text, general_halign, look, merged_edges, paint_border, paint_cf_icon,
+    paint_justified, painted_halign, rotated_text_pos, shrink_font, wrapped_cell_text_y,
 };
 use super::geo::Geo;
 use super::tables::{filter_button_rect, paint_filter_button};
@@ -371,19 +371,14 @@ fn paint_cell(q: &QuadrantPaint<'_>, painted: &(CellRef, Rect, Look, Option<CfLo
     }
     let color = ncolor.unwrap_or(lk.text_color);
     let halign = match st.align.h {
-        HAlign::General => match v {
-            Value::Number(_) => HAlign::Right,
-            Value::Bool(_) | Value::Error(_) => HAlign::Center,
-            _ if numeric => HAlign::Right,
-            _ => HAlign::Left,
-        },
+        HAlign::General => general_halign(&v, numeric, &text, geo.rtl),
         h => painted_halign(h, geo.rtl),
     };
     let indent = st.align.indent as f32 * 9.0 * z;
     let pad = 2.5 * z;
     let rotated = st.align.rotation != 0 && st.align.rotation != 255;
     // Rotated text wraps along its own direction (below), not across the column width.
-    if !rotated && (st.align.wrap || st.align.h == HAlign::Justify) {
+    if !rotated && (st.align.wrap || matches!(st.align.h, HAlign::Justify | HAlign::Distributed)) {
         let wrap_w = (rect.width() - 2.0 * pad - indent).max(4.0);
         let mut job = egui::text::LayoutJob::simple(text.clone(), font.clone(), color, wrap_w);
         job.halign = match halign {
@@ -399,6 +394,11 @@ fn paint_cell(q: &QuadrantPaint<'_>, painted: &(CellRef, Rect, Look, Option<CfLo
         };
         let y = wrapped_cell_text_y(st.align.v, *rect, galley.size().y, z);
         let text_clip = wrapped_text_clip(p, *rect, &galley, y, st.align.v);
+        if matches!(st.align.h, HAlign::Justify | HAlign::Distributed) {
+            let all_rows = st.align.h == HAlign::Distributed;
+            paint_justified(&p.with_clip_rect(text_clip), &galley, pos2(text_left + pad + indent, y), wrap_w, &font, color, all_rows, geo.rtl);
+            return;
+        }
         p.with_clip_rect(text_clip).galley(pos2(x, y), galley, color);
         return;
     }
@@ -555,6 +555,14 @@ fn paint_borders(q: &mut QuadrantPaint<'_>, looks: &[(CellRef, Rect, Look, Optio
     let z = geo.z;
     let (r0, r1) = q.rows;
     let (c0, c1) = q.cols;
+    // Suggested cells, with who suggested each.
+    let suggested: std::collections::HashMap<CellRef, String> = gridcraft_engine::suggest::cached(wb)
+        .iter()
+        .filter(|x| x.sheet == sh.name)
+        .filter_map(|x| Some((CellRef::parse(&x.cell)?, x.author.clone())))
+        .filter(|(c, _)| (r0..=r1).contains(&c.row) && (c0..=c1).contains(&c.col))
+        .collect();
+    let dark = p.ctx().global_style().visuals.dark_mode;
     // Borders (over fills and text).
     for (c, rect, lk, _) in looks {
         let b = &lk.style.borders;
@@ -591,6 +599,17 @@ fn paint_borders(q: &mut QuadrantPaint<'_>, looks: &[(CellRef, Rect, Look, Optio
             p.add(egui::Shape::convex_polygon(
                 vec![rect.right_top(), pos2(rect.right(), rect.top() + s), pos2(rect.right() - s, rect.top())],
                 tri_col,
+                Stroke::NONE,
+            ));
+        }
+        // A suggestion: its author's colour along the bottom, and a corner at the bottom left.
+        if let Some(author) = suggested.get(c) {
+            let col = super::peers::suggestion_color(author, dark);
+            let s = 6.0 * z.max(0.7);
+            p.line_segment([rect.left_bottom() + vec2(0.0, -1.0), rect.right_bottom() + vec2(0.0, -1.0)], Stroke::new(2.0, col));
+            p.add(egui::Shape::convex_polygon(
+                vec![rect.left_bottom(), pos2(rect.left(), rect.bottom() - s), pos2(rect.left() + s, rect.bottom())],
+                col,
                 Stroke::NONE,
             ));
         }

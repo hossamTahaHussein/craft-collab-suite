@@ -30,6 +30,8 @@ impl SheetApp {
     pub fn new(session: Session, services: Services) -> SheetApp {
         SheetApp {
             session,
+            peers: Vec::new(),
+            collab: Default::default(),
             ui: UiState::default(),
             chrome: Chrome::default(),
             views: HashMap::new(),
@@ -208,6 +210,13 @@ impl SheetApp {
         }
         // The language the widgets translate with this frame (see `i18n::current`).
         i18n::set_current(&ctx, self.ui.language);
+        // The interface reads from the right in Arabic: menus, panes, dialogs and the ribbon mirror.
+        crate::rtl::set(&ctx, self.ui.language.is_rtl());
+        // The blank workbook the app starts with reads right to left too (never a shared one:
+        // its sheets are everyone's).
+        if self.ui.language.is_rtl() && !self.session.collab() {
+            self.right_to_left_blank();
+        }
         #[cfg(not(target_arch = "wasm32"))]
         updates_ui::show(self, &ctx);
         let t = theme::Tokens::get(&ctx);
@@ -246,6 +255,7 @@ impl SheetApp {
             });
         }
         dialogs::show(self, &ctx);
+        crate::collab_ui::show(self, &ctx);
         macro_ui::forget_closed_editor(self);
         macro_ui::question_box(self, &ctx);
         widgets::message_box(self, &ctx);

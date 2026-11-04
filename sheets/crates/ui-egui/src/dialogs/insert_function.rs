@@ -7,7 +7,7 @@ use super::{Dialog, Json, SheetApp, json, vec2};
 pub(super) fn insert_function(app: &mut SheetApp, ui: &mut egui::Ui, d: &mut Dialog, confirm: &mut bool) {
     use crate::function_library::{self as lib, ALL, MOST_RECENTLY_USED};
     let language = app.ui.language;
-    ui.horizontal(|ui| {
+    crate::rtl::horizontal(ui, |ui| {
         ui.label(language.tr("Search:"));
         let r = ui.add(egui::TextEdit::singleline(&mut d.search).desired_width(300.0).hint_text(language.tr("e.g. lookup, average, date")));
         // Once only, so Tab can move on to the category list.
@@ -32,7 +32,7 @@ pub(super) fn insert_function(app: &mut SheetApp, ui: &mut egui::Ui, d: &mut Dia
     // The category list is the dialog's only menu, so a menu open as the frame starts is its own
     // (Enter on a row picks it and closes the menu in this frame).
     let menu_was_open = egui::Popup::is_any_open(ui.ctx());
-    let picker = ui.horizontal(|ui| {
+    let picker = crate::rtl::horizontal(ui, |ui| {
         let label = ui.label(language.tr("Or select a category:"));
         craft_ui::ComboBox::from_id_salt("insertFunctionCategory")
             .width(220.0)

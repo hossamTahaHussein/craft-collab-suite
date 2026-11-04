@@ -2497,7 +2497,7 @@ preview	Title	כותרת
 	A free, open-source word processor written in Rust, with real-time co-editing.\nBased on WordCraft by the ArtCraft team.	מעבד תמלילים חינמי בקוד פתוח, שנכתב ב-Rust, עם עריכה משותפת בזמן אמת.\nמבוסס על WordCraft של צוות ArtCraft.
 	WordCraft Collab by Hossam Taha	WordCraft Collab מאת Hossam Taha
 	hossamtaha.me	hossamtaha.me
-	github.com/hossamTahaHussein/wordcraft-collab	github.com/hossamTahaHussein/wordcraft-collab
+	github.com/hossamTahaHussein/craft-collab-suite	github.com/hossamTahaHussein/craft-collab-suite
 	Based on github.com/storytold/wordcraft	מבוסס על github.com/storytold/wordcraft
 	Property names are 1–{max} characters.	שמות מאפיינים הם באורך 1–{max} תווים.
 	Property values are at most {max} bytes.	ערכי מאפיינים הם לכל היותר {max} בתים.

@@ -194,6 +194,7 @@ pub fn show(app: &mut SheetApp, ui: &mut egui::Ui) {
     if sh.show_headings {
         let headings = table_headings(&geo, sh, sel.active);
         paint_headers(&painter, &geo, sh, &sel, &t, &quads, &headings);
+        super::peers::paint_row_ticks(&painter, &geo, sh, &app.peers);
         paint_freeze_handles(&painter, &geo, sh, &app.grid.drag, &t);
     }
     crate::outline::paint(&painter, &geo, sh, &t);
@@ -424,6 +425,8 @@ fn paint_panes(input: PanesInput<'_>, cf: &mut CfCache) -> Vec<PaneQuad> {
             active_row,
         });
         paint_selection(SelectionPaintInput { painter: &p, geo, sheet: sh, selection: sel, outline, tokens: t, app, rows: *rows, cols: *cols });
+        // Other people in a co-edited workbook.
+        super::peers::paint_peers(&p, geo, sh, &app.peers);
     }
     // Freeze lines.
     if geo.fr > 0 {
@@ -732,6 +735,38 @@ pub(crate) fn paint_overlays(input: OverlayInput<'_>) {
                         ui.separator();
                         ui.label(egui::RichText::new(format!("{a}: {t}")).color(Color32::BLACK));
                     }
+                });
+            },
+        );
+    }
+    // A suggested cell under the pointer: who suggested it and what it held.
+    if let Some(c) = hover
+        && app.editor.is_none()
+        && app.grid.drag == Drag::None
+        && let Some(x) = gridcraft_engine::suggest::cached(wb).iter().find(|x| x.sheet == sh.name && x.cell == c.a1()).cloned()
+    {
+        let r = geo.cell_rect(sh, c);
+        let (at, pivot) = (geo.mirror_pos(pos2(r.left(), r.bottom() + 4.0)), if geo.rtl { Align2::RIGHT_TOP } else { Align2::LEFT_TOP });
+        let lang = crate::i18n::current(ui.ctx());
+        let dark = ui.ctx().global_style().visuals.dark_mode;
+        egui::Area::new(egui::Id::unique("suggestion_card")).fixed_pos(at).pivot(pivot).order(egui::Order::Tooltip).interactable(false).show(
+            ui.ctx(),
+            |ui| {
+                egui::Frame::popup(ui.style()).show(ui, |ui| {
+                    ui.set_max_width(260.0);
+                    crate::rtl::body(ui, |ui| {
+                        ui.label(
+                            egui::RichText::new(lang.tr("{} suggested this").replace("{}", &x.author))
+                                .strong()
+                                .color(super::peers::suggestion_color(&x.author, dark)),
+                        );
+                        let was = x.before.as_ref().map(gridcraft_engine::suggest::input_text).filter(|t| !t.is_empty());
+                        ui.label(match was {
+                            Some(t) => lang.tr("Was: {}").replace("{}", &t),
+                            None => lang.tr("Was empty").to_string(),
+                        });
+                        ui.label(egui::RichText::new(lang.tr("Accept or reject it on the Review tab, or by right-clicking.")).small().weak());
+                    });
                 });
             },
         );

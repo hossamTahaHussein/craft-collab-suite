@@ -136,7 +136,7 @@ pub fn editor(app: &mut SheetApp, ui: &mut egui::Ui, d: &mut Dialog, confirm: &m
     let t = Tokens::get(ui.ctx());
     let edit_id = ui.scope_id().with("equation-source");
     let mut text = d.values.get("latex").and_then(Json::as_str).unwrap_or("").to_string();
-    ui.horizontal_wrapped(|ui| {
+    crate::rtl::horizontal_wrapped(ui, |ui| {
         ui.spacing_mut().item_spacing = vec2(3.0, 3.0);
         for (label, snippet, tip) in QUICK {
             let b = ui.add(egui::Button::new(*label).min_size(vec2(30.0, 22.0))).on_hover_text(*tip);
@@ -193,7 +193,7 @@ pub fn editor(app: &mut SheetApp, ui: &mut egui::Ui, d: &mut Dialog, confirm: &m
     ui.add_space(8.0);
     let valid = pv.result.as_ref().is_ok_and(|l| !l.items.is_empty());
     let cmd_enter = ui.input_mut(|i| i.consume_key(egui::Modifiers::COMMAND, Key::Enter));
-    ui.allocate_ui_with_layout(vec2(ui.available_width(), 28.0), egui::Layout::right_to_left(egui::Align::Center), |ui| {
+    ui.allocate_ui_with_layout(vec2(ui.available_width(), 28.0), crate::rtl::trailing(), |ui| {
         let ok = ui.add_enabled(valid, egui::Button::new(egui::RichText::new("OK").color(t.on_accent)).fill(t.accent).min_size(vec2(64.0, 0.0)));
         if ok.clicked() || (valid && cmd_enter) {
             *confirm = true;

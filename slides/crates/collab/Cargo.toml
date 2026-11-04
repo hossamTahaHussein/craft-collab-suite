@@ -10,6 +10,7 @@ workspace = true
 
 [dependencies]
 craft-collab-core = { workspace = true }
+craft-collab-link = { workspace = true }
 deckcraft-model = { workspace = true }
 deckcraft-engine = { workspace = true }
 deckcraft-format = { workspace = true }

@@ -19,6 +19,9 @@ gridcraft-ui-egui = { workspace = true }
 egui = { workspace = true }
 log = { workspace = true }
 serde_json = { workspace = true }
+gridcraft-collab = { workspace = true }
+gridcraft-xlsx = { workspace = true }
+craft-collab-link = { workspace = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 eframe = { workspace = true, features = ["default_fonts", "wgpu", "accesskit"] }

@@ -212,7 +212,7 @@ pub(super) fn sort(app: &mut SheetApp, ui: &mut egui::Ui, d: &mut Dialog, confir
         .unwrap_or_default();
     let mut remove = None;
     for (i, lv) in levels.iter_mut().enumerate() {
-        ui.horizontal(|ui| {
+        crate::rtl::horizontal(ui, |ui| {
             let label = ui.label(lang.tr(if i == 0 { "Sort by" } else { "Then by" }));
             let mut col = lv["column"].as_str().unwrap_or("A").to_string();
             if columns.is_empty() {

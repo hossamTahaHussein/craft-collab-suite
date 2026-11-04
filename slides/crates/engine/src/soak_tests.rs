@@ -13,8 +13,19 @@ use crate::{EngineError, Session, command_specs, sample};
 
 /// Commands that touch the file system, other windows or real time; the soak drives the rest.
 fn skipped(id: &str) -> bool {
-    matches!(id, "file.close" | "file.open" | "file.save" | "file.saveAs" | "file.export" | "file.saveTemplate" | "file.openBytes" | "file.new")
-        || id.starts_with("window.")
+    // Suggesting mode refuses most edits: soaked on its own (suggest tests).
+    matches!(
+        id,
+        "file.close"
+            | "file.open"
+            | "file.save"
+            | "file.saveAs"
+            | "file.export"
+            | "file.saveTemplate"
+            | "file.openBytes"
+            | "file.new"
+            | "review.suggesting"
+    ) || id.starts_with("window.")
         || id.starts_with("show.")
         || id.starts_with("media.")
 }

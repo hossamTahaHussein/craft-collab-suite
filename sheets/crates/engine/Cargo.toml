@@ -9,6 +9,8 @@ description = "GridCraft engine: sessions, commands, history, clipboard, fill, s
 workspace = true
 
 [dependencies]
+# Arabic spelling (the bundled Ayaspell dictionary), shared with Craft Docs.
+wordcraft-proof = { workspace = true }
 craft-collab-core = { workspace = true }
 gridcraft-core = { workspace = true }
 gridcraft-numfmt = { workspace = true }

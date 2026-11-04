@@ -121,9 +121,18 @@ fn suggestions(w: &str) -> Vec<String> {
         .collect()
 }
 
+/// A letter of a word, Arabic vowel marks and tatweel included (they never split a word).
+fn in_word(ch: char) -> bool {
+    ch.is_alphabetic()
+        || ch == '\''
+        || matches!(ch, '\u{0610}'..='\u{061A}' | '\u{064B}'..='\u{065F}' | '\u{0670}' | '\u{06D6}'..='\u{06ED}' | '\u{0640}')
+}
+
 fn spelling(s: &mut Session, p: &Json) -> Result<Json> {
-    if dictionary().is_empty() {
-        return Err(EngineError::Other("No dictionary is available on this system (GridCraft uses the system word list).".into()));
+    // English words need the system's word list; Arabic ones the bundled Ayaspell dictionary.
+    let english = !dictionary().is_empty();
+    if !english && !wordcraft_proof::ar::has_dictionary() {
+        return Err(EngineError::Other("No dictionary is available on this system (Craft Sheets uses the system word list).".into()));
     }
     let si = target_sheet(s, p)?;
     let d = s.doc()?;
@@ -138,9 +147,18 @@ fn spelling(s: &mut Session, p: &Json) -> Result<Json> {
             continue;
         }
         let Value::Text(t) = &cell.value else { continue };
-        for w in t.split(|ch: char| !(ch.is_alphabetic() || ch == '\'')) {
+        for w in t.split(|ch: char| !in_word(ch)) {
             let w = w.trim_matches('\'');
-            if w.chars().count() < 2 || w.chars().all(char::is_uppercase) || !w.is_ascii() {
+            if w.chars().count() < 2 || w.chars().all(char::is_uppercase) {
+                continue;
+            }
+            if wordcraft_proof::ar::is_arabic_script(w) {
+                if !wordcraft_proof::ar::is_correct(w) && !s.prefs.user_dictionary.iter().any(|u| u == w) {
+                    issues.push(json!({"cell": c.a1(), "word": w, "suggestions": wordcraft_proof::ar::suggest(w, 5)}));
+                }
+                continue;
+            }
+            if !english || !w.is_ascii() {
                 continue;
             }
             if !known(s, w) {
@@ -195,5 +213,22 @@ mod tests {
         assert_eq!(edits1(&"a".repeat(MAX_SUGGEST_LEN)).len(), 54 * MAX_SUGGEST_LEN + 25);
         assert!(edits1(&"a".repeat(MAX_SUGGEST_LEN + 1)).is_empty());
         assert!(edits1(&"a".repeat(1_000_000)).is_empty());
+    }
+
+    /// Arabic words are checked with the bundled Ayaspell dictionary, as in Craft Docs, whether
+    /// or not the system has a word list: vowel marks and tatweel stay part of the word.
+    #[test]
+    fn arabic_words_are_checked_with_the_arabic_dictionary() {
+        let mut s = Session::new();
+        s.new_workbook();
+        s.execute("cell.set", serde_json::json!({"cell": "A1", "input": "الكتاب والمدرسة"})).unwrap();
+        s.execute("cell.set", serde_json::json!({"cell": "A2", "input": "الكِتَابُ الكـتاب"})).unwrap();
+        s.execute("cell.set", serde_json::json!({"cell": "A3", "input": "الكتبب"})).unwrap();
+        let r = s.execute("review.spelling", serde_json::json!({})).unwrap();
+        let issues = r["issues"].as_array().unwrap();
+        let arabic: Vec<&Json> = issues.iter().filter(|i| i["word"].as_str().is_some_and(|w| !w.is_ascii())).collect();
+        assert_eq!(arabic.len(), 1, "{issues:?}");
+        assert_eq!((arabic[0]["cell"].as_str(), arabic[0]["word"].as_str()), (Some("A3"), Some("الكتبب")));
+        assert!(arabic[0]["suggestions"].as_array().unwrap().iter().any(|w| w == "الكتب"), "{:?}", arabic[0]);
     }
 }

@@ -50,6 +50,9 @@ pub enum ViewMode {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 pub struct UiState {
+    /// The interface language (English unless chosen; the web app takes `?lang=`).
+    #[serde(deserialize_with = "crate::i18n::lenient")]
+    pub language: crate::i18n::Language,
     pub brightness: theme::Brightness,
     pub tab: String,
     pub ribbon_collapsed: bool,
@@ -99,6 +102,7 @@ pub struct UiState {
 impl Default for UiState {
     fn default() -> Self {
         UiState {
+            language: crate::i18n::Language::En,
             brightness: theme::Brightness::Light,
             tab: "Home".into(),
             ribbon_collapsed: false,

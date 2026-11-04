@@ -57,11 +57,13 @@ fn proof_text_walks_the_runs_once() {
     };
     assert_eq!(para::proof_text(&para(5)), "a\u{1}a\u{1}a");
     // The runs are the document model's, whose walk counts no steps, so this one is timed: the
-    // CPU time this thread ran (`cost_ratio`). At 50,000 runs the old walk took 64x as long for
-    // 8x the runs, and the new one about 8x; a limit of 24x stays far from both, and a ratio over
-    // it is measured again, twice, before the test fails, so a busy spell can't fail it alone.
-    let (small, big) = (para(50_000), para(SCALE * 50_000));
-    let proof_8 = |p: &Paragraph| (0..8).for_each(|_| drop(std::hint::black_box(para::proof_text(p))));
+    // CPU time this thread ran (`cost_ratio`). The old walk took 64x as long for 8x the runs, and
+    // the new one about 8x; a limit of 24x stays far from both, and a ratio over it is measured
+    // again, twice, before the test fails, so a busy spell can't fail it alone. 5,000 runs keep
+    // both inputs in the processor's caches: at 50,000 the bigger one spilled out of them and
+    // took 19-25x as long on a linear walk, from memory alone.
+    let (small, big) = (para(5_000), para(SCALE * 5_000));
+    let proof_8 = |p: &Paragraph| (0..64).for_each(|_| drop(std::hint::black_box(para::proof_text(p))));
     let mut ratios = Vec::new();
     for _ in 0..3 {
         let (t1, tk, ratio) = cost_ratio(SCALE, || proof_8(&small), || proof_8(&big));

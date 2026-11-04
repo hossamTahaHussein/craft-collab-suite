@@ -117,7 +117,7 @@ fn decrypt_message(name: &str, e: gridcraft_xlsx::DecryptError) -> String {
     match e {
         gridcraft_xlsx::DecryptError::WrongPassword => format!("{WRONG_PASSWORD} Check that Caps Lock is off and try again."),
         gridcraft_xlsx::DecryptError::Unsupported(scheme) => {
-            format!("'{name}' uses {scheme} encryption, which GridCraft can't open yet. Remove the password in Excel and try again.")
+            format!("'{name}' uses {scheme} encryption, which Craft Sheets can't open yet. Remove the password in Excel and try again.")
         }
         gridcraft_xlsx::DecryptError::Malformed(detail) => format!("We can't open '{name}': the encrypted file is damaged ({detail})."),
     }
@@ -268,7 +268,7 @@ fn read_plain(name: &str, bytes: &[u8], csv_as_text: bool) -> Result<(Workbook, 
     }
     if sniffed == gridcraft_xlsx::Format::LegacyBinary {
         return Err(EngineError::Other(format!(
-            "'{name}' is a legacy binary file but not an Excel workbook (no workbook stream). GridCraft can't open it."
+            "'{name}' is a legacy binary file but not an Excel workbook (no workbook stream). Craft Sheets can't open it."
         )));
     }
     // Content wins over the extension: an ODS or XLSB package is imported as what it is,

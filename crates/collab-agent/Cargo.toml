@@ -1,0 +1,15 @@
+[package]
+name = "craft-collab-agent"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "An agent in a co-edited document of the Craft Collab Suite: a headless replica on the relay, under the agent's name"
+
+[lints]
+workspace = true
+
+[dependencies]
+craft-collab-core = { workspace = true }
+craft-collab-link = { workspace = true }
+serde_json = { workspace = true }
+tungstenite = { version = "0.29", default-features = false, features = ["handshake", "rustls-tls-native-roots"] }

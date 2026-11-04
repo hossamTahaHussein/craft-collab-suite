@@ -79,7 +79,7 @@ pub(super) fn home(app: &mut SheetApp, ui: &mut Ui) {
             ],
         );
     });
-    ui.vertical(|ui| {
+    crate::rtl::vertical(ui, |ui| {
         let __k = icon_button(ui, Icon::Cut, t.text, "Cut", vec2(26.0, 23.0));
         control_keytip(app, ui, &__k, "edit.cut");
         if __k.clicked() {
@@ -106,8 +106,8 @@ pub(super) fn home(app: &mut SheetApp, ui: &mut Ui) {
     });
     sep(ui);
     // Font
-    ui.vertical(|ui| {
-        ui.horizontal(|ui| {
+    crate::rtl::vertical(ui, |ui| {
+        crate::rtl::fit_row(ui, |ui| {
             font_combo(app, ui, &st);
             size_combo(app, ui, &st);
             let __k = icon_button(ui, Icon::Plus, t.text, "Increase Font Size", vec2(22.0, 23.0));
@@ -121,7 +121,7 @@ pub(super) fn home(app: &mut SheetApp, ui: &mut Ui) {
                 act(app, "home.decreaseFontSize", json!({}));
             }
         });
-        ui.horizontal(|ui| {
+        crate::rtl::fit_row(ui, |ui| {
             let __k = toggle_button(ui, Icon::Bold, st.font.bold, "Bold");
             control_keytip(app, ui, &__k, "home.bold");
             if __k.clicked() {
@@ -241,8 +241,8 @@ pub(super) fn home(app: &mut SheetApp, ui: &mut Ui) {
     });
     sep(ui);
     // Alignment
-    ui.vertical(|ui| {
-        ui.horizontal(|ui| {
+    crate::rtl::vertical(ui, |ui| {
+        crate::rtl::fit_row(ui, |ui| {
             for (icon, v, id, tip) in [
                 (Icon::AlignTop, VAlign::Top, "home.alignTop", "Top Align"),
                 (Icon::AlignMiddle, VAlign::Center, "home.alignMiddle", "Middle Align"),
@@ -280,7 +280,7 @@ pub(super) fn home(app: &mut SheetApp, ui: &mut Ui) {
             }
             ui.label(egui::RichText::new(app.ui.language.tr("Wrap Text")).font(theme::ui_font(12.5)));
         });
-        ui.horizontal(|ui| {
+        crate::rtl::fit_row(ui, |ui| {
             for (icon, h, id, tip) in [
                 (Icon::AlignLeft, HAlign::Left, "home.alignLeft", "Align Left"),
                 (Icon::AlignCenter, HAlign::Center, "home.alignCenter", "Center"),
@@ -325,9 +325,9 @@ pub(super) fn home(app: &mut SheetApp, ui: &mut Ui) {
     });
     sep(ui);
     // Number
-    ui.vertical(|ui| {
+    crate::rtl::vertical(ui, |ui| {
         number_combo(app, ui, &st);
-        ui.horizontal(|ui| {
+        crate::rtl::fit_row(ui, |ui| {
             let (c, ca) = split_button(ui, Icon::Currency, None, "Accounting Number Format");
             control_keytip(app, ui, &ca, "home.accounting");
             if c {
@@ -374,7 +374,7 @@ pub(super) fn home(app: &mut SheetApp, ui: &mut Ui) {
     egui::Popup::menu(&cs).show(|ui| cell_style_gallery(app, ui));
     sep(ui);
     // Cells
-    ui.vertical(|ui| {
+    crate::rtl::vertical(ui, |ui| {
         let ins = small_button(ui, Icon::Insert, "Insert", "Insert", true);
         for sequence in keytip_table::group_extension(
             app.keytips.prefix().unwrap_or_default(),
@@ -473,8 +473,8 @@ pub(super) fn home(app: &mut SheetApp, ui: &mut Ui) {
     });
     sep(ui);
     // Editing
-    ui.vertical(|ui| {
-        ui.horizontal(|ui| {
+    crate::rtl::vertical(ui, |ui| {
+        crate::rtl::fit_row(ui, |ui| {
             let (s, sa) = split_button(ui, Icon::Sum, None, "AutoSum");
             control_keytip(app, ui, &sa, "formulas.autoSum");
             if s {
@@ -620,8 +620,7 @@ fn size_combo(app: &mut SheetApp, ui: &mut Ui, st: &Style) {
     let bg = ui.painter().add(egui::Shape::Noop);
     let text_rect = Rect::from_min_max(frame.min, egui::pos2(frame.right() - 16.0, frame.bottom()));
     let arrow_rect = Rect::from_min_max(egui::pos2(frame.right() - 16.0, frame.top() + 1.0), egui::pos2(frame.right() - 1.0, frame.bottom() - 1.0));
-    let mut field_ui =
-        ui.new_child(egui::UiBuilder::new().max_rect(text_rect.shrink2(vec2(6.0, 0.0))).layout(egui::Layout::left_to_right(egui::Align::Center)));
+    let mut field_ui = ui.new_child(egui::UiBuilder::new().max_rect(text_rect.shrink2(vec2(6.0, 0.0))).layout(crate::rtl::row()));
     // The text edit is `interact_size.y` tall and puts its text at the top of that unless told
     // otherwise: center it, on the Font name's baseline (#3155).
     let out = egui::TextEdit::singleline(&mut text)

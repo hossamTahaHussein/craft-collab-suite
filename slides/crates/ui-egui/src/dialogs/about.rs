@@ -16,6 +16,7 @@ pub(super) fn credits_block(ui: &mut Ui, models: bool) -> Rect {
 }
 
 pub fn about(_app: &mut SlideApp, ui: &mut Ui) {
+    use crate::i18n::tr;
     let t = Tokens::get(ui.ctx());
     ui.vertical_centered(|ui| {
         let (r, _) = ui.allocate_exact_size(vec2(64.0, 64.0), Sense::hover());
@@ -26,9 +27,11 @@ pub fn about(_app: &mut SlideApp, ui: &mut Ui) {
         ui.label("Presentations and slide shows, rebuilt from scratch in pure Rust.");
         ui.label("An open-source, clean-room project. Not affiliated with Microsoft.");
         ui.add_space(6.0);
-        ui.hyperlink_to("Discussions on GitHub", deckcraft_engine::links::COMMUNITY);
-        ui.label("Part of WordCraft Collab. Based on DeckCraft by the ArtCraft team.");
-        ui.hyperlink_to("Source on GitHub", deckcraft_engine::links::GITHUB);
+        ui.label(egui::RichText::new(tr("Craft Slides by Hossam Taha")).strong());
+        ui.hyperlink_to("hossamtaha.me", "https://hossamtaha.me");
+        ui.hyperlink_to(tr("Discussions on GitHub"), deckcraft_engine::links::COMMUNITY);
+        ui.label("Part of Craft Collab Suite. Based on DeckCraft by the ArtCraft team.");
+        ui.hyperlink_to(tr("Source on GitHub"), deckcraft_engine::links::GITHUB);
         ui.add_space(6.0);
         ui.label(
             egui::RichText::new("MIT OR Apache-2.0 · Copyright (c) 2026 ArtCraft Team and the DeckCraft contributors").size(11.0).color(t.text_faint),

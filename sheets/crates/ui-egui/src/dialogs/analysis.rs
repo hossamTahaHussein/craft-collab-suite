@@ -229,7 +229,7 @@ pub(super) fn analysis_toolpak(app: &mut SheetApp, ui: &mut egui::Ui, d: &mut Di
     use gridcraft_engine::cmd::analysis::TOOLS;
     if d.values.get("askOverwrite").and_then(Json::as_bool) == Some(true) {
         ui.label("The output range already holds data. Replace it with the report?");
-        ui.horizontal(|ui| {
+        crate::rtl::horizontal(ui, |ui| {
             if ui.button("Replace").clicked() {
                 d.values.remove("askOverwrite");
                 d.values.insert("overwrite".into(), json!(true));
@@ -276,7 +276,7 @@ pub(super) fn analysis_toolpak(app: &mut SheetApp, ui: &mut egui::Ui, d: &mut Di
     ui.label(egui::RichText::new("Output options").strong());
     let to = d.values.get("outputTo").and_then(Json::as_str).unwrap_or("newSheet").to_string();
     for (key, choice, text_label) in [("output", "range", "Output Range:"), ("newSheet", "newSheet", "New Worksheet Ply:")] {
-        ui.horizontal(|ui| {
+        crate::rtl::horizontal(ui, |ui| {
             let r = ui.radio(to == choice, text_label);
             if r.clicked() {
                 d.values.insert("outputTo".into(), json!(choice));
@@ -340,8 +340,8 @@ fn solver_options(ui: &mut egui::Ui, d: &mut Dialog, edit: impl Fn(&mut egui::Ui
     ui.add_space(8.0);
     // A row as tall as the buttons (see `ok_cancel`): a right-to-left layout straight in the
     // window takes all the height it is offered.
-    ui.horizontal(|ui| {
-        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+    crate::rtl::horizontal(ui, |ui| {
+        ui.with_layout(crate::rtl::trailing(), |ui| {
             if ui.button(" Cancel ").clicked() {
                 cancel_solver_options(d);
             }
@@ -452,12 +452,12 @@ pub(super) fn solver(app: &mut SheetApp, ui: &mut egui::Ui, d: &mut Dialog, conf
         solver_options(ui, d, edit);
         return;
     }
-    ui.horizontal(|ui| {
+    crate::rtl::horizontal(ui, |ui| {
         let l = ui.label("Set Objective:");
         ref_edit(app, ui, d, "objective", RefLabel::By(l.id), 230.0);
     });
     let goal = text(d, "goal");
-    ui.horizontal(|ui| {
+    crate::rtl::horizontal(ui, |ui| {
         ui.label("To:");
         for (g, label) in [("max", "Max"), ("min", "Min"), ("value", "Value Of:")] {
             if ui.radio(goal == g, label).clicked() {
@@ -485,7 +485,7 @@ pub(super) fn solver(app: &mut SheetApp, ui: &mut egui::Ui, d: &mut Dialog, conf
             }
         });
     });
-    ui.horizontal(|ui| {
+    crate::rtl::horizontal(ui, |ui| {
         ref_edit(app, ui, d, "newLhs", RefLabel::Named("Constraint Cell Reference"), 130.0);
         let op = text(d, "newOp");
         craft_ui::ComboBox::from_id_salt("solverOp")
@@ -527,7 +527,7 @@ pub(super) fn solver(app: &mut SheetApp, ui: &mut egui::Ui, d: &mut Dialog, conf
         d.values.insert("nonNegative".into(), json!(nonneg));
     }
     let method = text(d, "method");
-    ui.horizontal(|ui| {
+    crate::rtl::horizontal(ui, |ui| {
         ui.label("Select a Solving Method:");
         let label = |m: &str| match m {
             "simplex" => "Simplex LP",
@@ -555,7 +555,7 @@ pub(super) fn solver(app: &mut SheetApp, ui: &mut egui::Ui, d: &mut Dialog, conf
         .small(),
     );
     ui.add_space(4.0);
-    ui.horizontal(|ui| {
+    crate::rtl::horizontal(ui, |ui| {
         if ui.button("Reset All").clicked() && at_home(app, d) {
             match app.run("data.solverReset", json!({})) {
                 Ok(_) => {
@@ -592,7 +592,7 @@ pub(super) fn solver(app: &mut SheetApp, ui: &mut egui::Ui, d: &mut Dialog, conf
         }
     });
     if d.values.get("modelArea").and_then(Json::as_bool) == Some(true) {
-        ui.horizontal(|ui| {
+        crate::rtl::horizontal(ui, |ui| {
             let l = ui.label("Model Range:");
             ref_edit(app, ui, d, "modelRange", RefLabel::By(l.id), 170.0);
             let range = text(d, "modelRange");
@@ -626,7 +626,7 @@ pub(super) fn solver(app: &mut SheetApp, ui: &mut egui::Ui, d: &mut Dialog, conf
             d.values.remove("askModelOverwrite");
             d.values.remove("modelNote");
         } else if let Some(asked) = asked {
-            ui.horizontal_wrapped(|ui| {
+            crate::rtl::horizontal_wrapped(ui, |ui| {
                 ui.label(format!("{asked} already holds data. Replace it with the model?"));
                 if ui.button("Replace").clicked() && at_home(app, d) {
                     save_solver_model(app, d, &asked, true);
@@ -646,8 +646,8 @@ pub(super) fn solver(app: &mut SheetApp, ui: &mut egui::Ui, d: &mut Dialog, conf
     // A row as tall as the buttons (see `ok_cancel`): the Load/Save area and the notes can make
     // the form shorter, and a right-to-left layout straight in the window would fill what is
     // left.
-    ui.horizontal(|ui| {
-        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+    crate::rtl::horizontal(ui, |ui| {
+        ui.with_layout(crate::rtl::trailing(), |ui| {
             let t = crate::theme::Tokens::get(ui.ctx());
             let solve = ui.add(egui::Button::new(egui::RichText::new("  Solve  ").color(t.on_accent)).fill(t.accent));
             if solve.clicked() && !text(d, "objective").trim().is_empty() {

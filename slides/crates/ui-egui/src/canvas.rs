@@ -21,6 +21,7 @@ mod ime;
 mod input;
 mod media;
 mod overlays;
+pub mod peers;
 mod rulers;
 mod scroll;
 

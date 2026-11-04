@@ -3,10 +3,16 @@ name = "gridcraft-pdf"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "GridCraft's tiny self-contained PDF 1.7 writer (standard 14 fonts, vector drawing, RGBA images)"
+description = "Craft Sheets' small PDF 1.7 writer (standard 14 fonts, shaped embedded text for right-to-left and complex scripts, vector drawing, RGBA images)"
 readme = "README.md"
 
 [lints]
 workspace = true
 
 [dependencies]
+# Right-to-left and shaped scripts: display order, shaping and the faces Craft Docs uses.
+wordcraft-fonts = { workspace = true }
+unicode-bidi = { workspace = true }
+skrifa = { workspace = true }
+# Only the glyphs drawn, from the face's own font in a collection (.ttc), are embedded.
+subsetter = { workspace = true }

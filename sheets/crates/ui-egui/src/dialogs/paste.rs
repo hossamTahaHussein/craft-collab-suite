@@ -56,7 +56,7 @@ pub(super) fn paste_special(app: &mut SheetApp, ui: &mut egui::Ui, d: &mut Dialo
     });
     ui.add_space(8.0);
     ui.separator();
-    ui.horizontal(|ui| {
+    crate::rtl::horizontal(ui, |ui| {
         // Excel's Paste Link pastes references to the copied cells straight away.
         if ui.button(lang.tr("Paste Link")).on_hover_text(lang.tr("Paste formulas that refer to the copied cells")).clicked() || link_now {
             d.values.insert("what".into(), json!("all"));
@@ -64,7 +64,7 @@ pub(super) fn paste_special(app: &mut SheetApp, ui: &mut egui::Ui, d: &mut Dialo
             d.values.insert("link".into(), json!(true));
             *confirm = true;
         }
-        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+        ui.with_layout(crate::rtl::trailing(), |ui| {
             let ok = ui.add(egui::Button::new(egui::RichText::new(format!("   {}   ", lang.tr("OK"))).color(t.on_accent)).fill(t.accent));
             if ok.clicked() || ui.input(|i| i.key_pressed(Key::Enter)) {
                 *confirm = true;

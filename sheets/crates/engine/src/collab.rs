@@ -55,18 +55,48 @@ pub struct Recorded {
     pub ctx: RunCtx,
 }
 
+/// What the person may do in a co-edited workbook (their join token's role).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum CollabRole {
+    #[default]
+    Edit,
+    /// Changes to cells, as suggestions others accept or reject, and comments.
+    Suggest,
+    /// Comments and notes only.
+    Comment,
+    /// Read only.
+    View,
+}
+
+/// What a commenter may change.
+pub const COMMENT_COMMANDS: &[&str] =
+    &["review.newComment", "review.replyComment", "review.deleteComment", "review.resolveComment", "review.newNote"];
+
 #[derive(Debug)]
 pub(crate) struct CollabState {
     on: bool,
     recording: bool,
+    role: CollabRole,
+    /// Read only (Viewing, or offline too long) and whether the person may lift it themselves.
+    read_only: (bool, bool),
     /// A recorded command is running: the commands it runs aren't recorded again.
     busy: bool,
     outbox: Vec<Recorded>,
+    /// The relay's HTTP API is running a command through this editor as this author.
+    api_author: Option<String>,
 }
 
 impl Default for CollabState {
     fn default() -> Self {
-        CollabState { on: false, recording: true, busy: false, outbox: Vec::new() }
+        CollabState {
+            on: false,
+            recording: true,
+            role: CollabRole::Edit,
+            read_only: (false, false),
+            busy: false,
+            outbox: Vec::new(),
+            api_author: None,
+        }
     }
 }
 
@@ -112,6 +142,41 @@ impl Session {
         self.collab.recording = on;
     }
 
+    /// What the person may do while co-editing; the relay refuses the rest anyway, this says so
+    /// before the edit shows.
+    pub fn set_collab_role(&mut self, role: CollabRole) {
+        self.collab.role = role;
+    }
+
+    pub fn collab_role(&self) -> CollabRole {
+        self.collab.role
+    }
+
+    /// Read only while co-editing (`locked`: the person can't lift it, as when offline too long).
+    pub fn set_read_only(&mut self, on: bool, locked: bool) {
+        self.collab.read_only = (on, locked);
+    }
+
+    pub fn read_only(&self) -> (bool, bool) {
+        self.collab.read_only
+    }
+
+    /// Whether the person may make edit `id` now, and why not.
+    fn may_change(&self, id: &str) -> Result<()> {
+        let refuse = |why: &str| Err(EngineError::Disabled(id.to_string(), why.into()));
+        if self.collab.read_only.0 {
+            return refuse("This workbook is read only for now");
+        }
+        match self.collab.role {
+            CollabRole::Edit => Ok(()),
+            CollabRole::Comment if COMMENT_COMMANDS.contains(&id) => Ok(()),
+            CollabRole::Comment => refuse("You can only comment on this workbook"),
+            CollabRole::Suggest if crate::suggest::SUGGEST_COMMANDS.contains(&id) || COMMENT_COMMANDS.contains(&id) => Ok(()),
+            CollabRole::Suggest => refuse("You can only suggest changes to this workbook"),
+            CollabRole::View => refuse("You can only view this workbook"),
+        }
+    }
+
     /// Whether edits are recorded now (see [`Session::set_recording`]).
     pub fn recording(&self) -> bool {
         self.collab.recording
@@ -144,7 +209,25 @@ impl Session {
     /// The context an edit made now in this session would have.
     pub fn run_ctx(&self) -> RunCtx {
         let time_ms = gridcraft_core::date::unix_now_ms().map_or(0, |ms| ms.max(0.0) as u64);
-        RunCtx { author: self.prefs.user_name.clone(), initials: String::new(), time_ms, track: false, api: false }
+        match &self.collab.api_author {
+            Some(author) => RunCtx { author: author.clone(), initials: initials_of(author), time_ms, track: false, api: true },
+            None => RunCtx {
+                author: self.prefs.user_name.clone(),
+                initials: String::new(),
+                time_ms,
+                track: self.suggesting || self.collab.role == CollabRole::Suggest,
+                api: false,
+            },
+        }
+    }
+
+    /// Run `f` as the relay's HTTP API's edit by `author` (its name and initials; not this
+    /// person's to undo). This person's own name is theirs again afterwards.
+    pub fn as_api_author<R>(&mut self, author: &str, f: impl FnOnce(&mut Session) -> R) -> R {
+        let before = self.collab.api_author.replace(author.to_string());
+        let r = f(self);
+        self.collab.api_author = before;
+        r
     }
 
     /// Where the active workbook's selection is.
@@ -188,8 +271,10 @@ impl Session {
             d.calc.reseed(seed(ctx));
         }
         let busy = std::mem::replace(&mut self.collab.busy, true);
+        let track = std::mem::replace(&mut self.track_ctx, ctx.track.then(|| (ctx.author.clone(), ctx.time_ms)));
         let now = gridcraft_core::date::serial_from_unix_ms(ctx.time_ms as f64);
         let result = gridcraft_calc::with_now(now, || self.execute(id, params));
+        self.track_ctx = track;
         self.collab.busy = busy;
         self.prefs.user_name = author;
         result
@@ -209,6 +294,7 @@ impl Session {
         }
         let person = self.collab.recording;
         if COLLAB_UNDO.contains(&id) && person {
+            self.may_change(id)?;
             let place = self.collab_place();
             let ctx = self.run_ctx();
             self.collab.outbox.push(Recorded { id: id.to_string(), params, place, ctx });
@@ -237,8 +323,89 @@ impl Session {
             _ => false,
         };
         if result.is_ok() && changed {
+            // What the person may not change is put back: the edit never happened.
+            if let Err(e) = self.may_change(id) {
+                if let (Some((_, wb)), Some(d)) = (before, self.active_mut()) {
+                    d.calc.rebuild(&wb);
+                    d.wb = wb;
+                }
+                return Err(e);
+            }
             self.collab.outbox.push(Recorded { id: id.to_string(), params, place, ctx });
         }
         result
+    }
+}
+
+/// The first letters of a name's words ("Report Bot" → "RB"), as the HTTP API's edits are
+/// initialled.
+fn initials_of(name: &str) -> String {
+    name.split_whitespace().filter_map(|w| w.chars().next()).collect()
+}
+
+impl Session {
+    /// Whose suggestion an edit made now is and when: a replayed edit's with `track` on, or this
+    /// person's own in Suggesting mode (not co-editing: there the edit's context says).
+    pub(crate) fn track_now(&self) -> Option<(String, u64)> {
+        if let Some(t) = &self.track_ctx {
+            return Some(t.clone());
+        }
+        (self.suggesting && !self.collab.on).then(|| (self.prefs.user_name.clone(), self.run_ctx().time_ms))
+    }
+
+    /// Runs edit `id` as `author`'s suggestion: what it changes in cells is recorded with what the
+    /// cells held ([`crate::suggest`]). What isn't an edit, and the review commands, run as they
+    /// are; an edit that can't be suggested is refused.
+    pub(crate) fn execute_tracked(&mut self, id: &str, params: Json, author: &str, time_ms: u64) -> Result<Json> {
+        let edits = crate::cmd::find_command(id).is_some_and(|spec| spec.undoable);
+        // Comments and notes are never suggestions; reviewing settles them.
+        if !edits || crate::suggest::REVIEW_COMMANDS.contains(&id) || COMMENT_COMMANDS.contains(&id) {
+            return self.run_wrapped(id, params);
+        }
+        if !crate::suggest::SUGGEST_COMMANDS.contains(&id) {
+            return Err(EngineError::Disabled(id.to_string(), "This can't be suggested: only changes to cells' contents and formatting can".into()));
+        }
+        let before = self.active().map(|d| (d.uid, d.wb.clone(), d.undo.len(), d.redo.clone()));
+        let result = self.run_wrapped(id, params)?;
+        let Some((uid, before, undo_len, redo)) = before else { return Ok(result) };
+        let Some(d) = self.active_mut().filter(|d| d.uid == uid && !std::sync::Arc::ptr_eq(&before, &d.wb)) else { return Ok(result) };
+        let mut wb = (*d.wb).clone();
+        match crate::suggest::record(&before, &mut wb, author, time_ms) {
+            Ok(()) => {
+                d.wb = std::sync::Arc::new(wb);
+                Ok(result)
+            }
+            Err(e) => {
+                // The edit never happened: its undo step goes too.
+                d.calc.rebuild(&before);
+                d.wb = before;
+                d.undo.truncate(undo_len);
+                d.redo = redo;
+                Err(e)
+            }
+        }
+    }
+
+    /// Runs a top-level command outside the suggestion wrappers.
+    fn run_wrapped(&mut self, id: &str, params: Json) -> Result<Json> {
+        self.track_busy = true;
+        let r = self.execute(id, params);
+        self.track_busy = false;
+        r
+    }
+
+    /// Runs a direct edit (not a suggestion) in a workbook with suggestions: they follow it
+    /// ([`crate::suggest::follow`]). Reviewing, undo and redo leave them as those commands set them.
+    pub(crate) fn execute_followed(&mut self, id: &str, params: Json) -> Result<Json> {
+        let keeps = crate::suggest::REVIEW_COMMANDS.contains(&id) || COLLAB_UNDO.contains(&id) || matches!(id, "edit.undoTo" | "edit.redoTo");
+        let before = self.active().filter(|d| !keeps && crate::suggest::any(&d.wb)).map(|d| (d.uid, d.wb.clone()));
+        let result = self.run_wrapped(id, params)?;
+        let Some((uid, before)) = before else { return Ok(result) };
+        let Some(d) = self.active_mut().filter(|d| d.uid == uid && !std::sync::Arc::ptr_eq(&before, &d.wb)) else { return Ok(result) };
+        let mut wb = (*d.wb).clone();
+        if crate::suggest::follow(&before, &mut wb)? {
+            d.wb = std::sync::Arc::new(wb);
+        }
+        Ok(result)
     }
 }

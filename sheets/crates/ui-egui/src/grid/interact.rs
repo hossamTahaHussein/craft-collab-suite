@@ -532,7 +532,7 @@ fn handle_cell_double_click(app: &mut SheetApp, input: &InteractionInput<'_>, c:
                 Ok(_) => return true,
                 Err(e) if e == not_a_value_cell => {}
                 Err(e) => {
-                    app.message = Some(("GridCraft".into(), crate::clean_error(&e)));
+                    app.message = Some(("Craft Sheets".into(), crate::clean_error(&e)));
                     return true;
                 }
             }
@@ -730,7 +730,7 @@ fn handle_release(app: &mut SheetApp, input: &InteractionInput<'_>) {
                     let mode = if mods.command { "alternate" } else { "series" };
                     match app.run("edit.autoFill", json!({"source": src.a1(), "target": t.a1(), "mode": mode})) {
                         Ok(_) => set_fill_tag(app, src, t),
-                        Err(e) => app.message = Some(("GridCraft".into(), crate::clean_error(&e))),
+                        Err(e) => app.message = Some(("Craft Sheets".into(), crate::clean_error(&e))),
                     }
                 }
             }
@@ -746,12 +746,12 @@ fn handle_release(app: &mut SheetApp, input: &InteractionInput<'_>) {
                 let src = sel.current();
                 // Dropping on cells that hold data asks first, as in Excel.
                 if to != src.start {
-                    crate::macro_ui::call(app, "GridCraft", "range.move", json!({"range": src.a1(), "to": to.a1()}));
+                    crate::macro_ui::call(app, "Craft Sheets", "range.move", json!({"range": src.a1(), "to": to.a1()}));
                 }
             }
             Drag::MoveCols { source, before: Some(before) } => {
                 if let Err(e) = app.run("sheet.moveColumns", json!({"cols": source.a1(), "before": before})) {
-                    app.message = Some(("GridCraft".into(), crate::clean_error(&e)));
+                    app.message = Some(("Craft Sheets".into(), crate::clean_error(&e)));
                 }
             }
             _ => {}
@@ -771,7 +771,7 @@ fn format_painter_apply(app: &mut SheetApp) {
         if let Some(dest) = dest
             && let Err(e) = app.run("edit.formatPainter", json!({"apply": dest}))
         {
-            app.message = Some(("GridCraft".into(), crate::clean_error(&e)));
+            app.message = Some(("Craft Sheets".into(), crate::clean_error(&e)));
         }
     }
 }

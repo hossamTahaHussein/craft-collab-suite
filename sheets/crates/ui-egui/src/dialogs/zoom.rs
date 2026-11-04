@@ -24,7 +24,7 @@ pub(super) fn zoom(ui: &mut egui::Ui, d: &mut Dialog, confirm: &mut bool, open: 
     if ui.radio(cur == "fit", lang.tr("Fit selection")).clicked() {
         d.set_value("preset", json!("fit"));
     }
-    ui.horizontal(|ui| {
+    crate::rtl::horizontal(ui, |ui| {
         if ui.radio(cur == "custom", format!("{}:", lang.tr("Custom"))).clicked() {
             d.set_value("preset", json!("custom"));
         }

@@ -21,9 +21,9 @@ pub fn show(app: &mut SheetApp, ui: &mut Ui) {
     let t = Tokens::get(ui.ctx());
     // Capped at half the window so a pane can never cover the sheet, whatever its content asks for.
     let max = (ui.available_width() / 2.0).max(300.0);
-    let panel = egui::Panel::right("task_pane").default_size(300.0).max_size(max).resizable(true);
+    let panel = craft_ui::direction::end_panel(&crate::rtl::dir(), "task_pane").default_size(300.0).max_size(max).resizable(true);
     panel.frame(egui::Frame::NONE.fill(t.ribbon).inner_margin(10)).show(ui, |ui| {
-        ui.horizontal(|ui| {
+        crate::rtl::horizontal(ui, |ui| {
             let title = match pane.as_str() {
                 "comments" => "Comments",
                 "watch" => "Watch Window",
@@ -32,7 +32,7 @@ pub fn show(app: &mut SheetApp, ui: &mut Ui) {
                 _ => "",
             };
             ui.label(egui::RichText::new(title).font(theme::ui_bold(15.0)));
-            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+            ui.with_layout(crate::rtl::trailing(), |ui| {
                 if crate::widgets::icon_button(ui, crate::icons::Icon::Close, t.text_dim, "Close", vec2(22.0, 22.0)).clicked() {
                     if pane == "comments" {
                         app.run_or_alert("review.showComments", json!({"on": false}));
@@ -69,7 +69,7 @@ fn comments(app: &mut SheetApp, ui: &mut Ui) {
             .stroke(egui::Stroke::new(1.0, t.separator))
             .show(ui, |ui| {
                 ui.set_width(ui.available_width());
-                ui.horizontal_wrapped(|ui| {
+                crate::rtl::horizontal_wrapped(ui, |ui| {
                     if ui.link(egui::RichText::new(&cell).strong()).clicked() {
                         let _ = app.run("selection.set", json!({"cell": cell}));
                         app.grid.ensure_visible = true;
@@ -87,8 +87,8 @@ fn comments(app: &mut SheetApp, ui: &mut Ui) {
                 let mut draft: String = ui.ctx().data_mut(|m| m.get_temp(key)).unwrap_or_default();
                 // Buttons first, right to left, so the reply field gets exactly the width they leave:
                 // a field sized by a guess wider than the row pushes the resizable pane wider every frame.
-                ui.horizontal(|ui| {
-                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                crate::rtl::horizontal(ui, |ui| {
+                    ui.with_layout(crate::rtl::trailing(), |ui| {
                         if ui.small_button("Delete").clicked() {
                             app.run_or_alert("review.deleteComment", json!({"cell": cell}));
                         }
@@ -149,7 +149,7 @@ fn selection(app: &mut SheetApp, ui: &mut Ui) {
         let kind = it["kind"].as_str().unwrap_or("").to_string();
         let id = it["id"].as_u64().unwrap_or(0) as u32;
         let obj = ObjKind::parse(&kind).map(|k| ObjRef::new(k, id));
-        ui.horizontal(|ui| {
+        crate::rtl::horizontal(ui, |ui| {
             let sel = obj.is_some() && app.selected_object == obj;
             if ui.selectable_label(sel, it["name"].as_str().unwrap_or("")).clicked() {
                 app.selected_object = obj;
@@ -185,7 +185,7 @@ fn format_chart(app: &mut SheetApp, ui: &mut Ui) {
         }
     });
     ui.collapsing("Chart Type", |ui| {
-        ui.horizontal_wrapped(|ui| {
+        crate::rtl::horizontal_wrapped(ui, |ui| {
             for (l, k, s) in [
                 ("Column", "column", ""),
                 ("Stacked Column", "column", "stacked"),
@@ -211,7 +211,7 @@ fn format_chart(app: &mut SheetApp, ui: &mut Ui) {
         });
     });
     ui.collapsing("Legend", |ui| {
-        ui.horizontal(|ui| {
+        crate::rtl::horizontal(ui, |ui| {
             for (l, v) in [("None", "none"), ("Bottom", "bottom"), ("Top", "top"), ("Left", "left"), ("Right", "right")] {
                 let cur = format!("{:?}", chart.legend).eq_ignore_ascii_case(v);
                 if ui.selectable_label(cur, l).clicked() {
@@ -229,14 +229,14 @@ fn format_chart(app: &mut SheetApp, ui: &mut Ui) {
         if ui.checkbox(&mut gl, "Gridlines").changed() {
             app.run_or_alert("chart.set", json!({"chart": id, "gridlines": gl}));
         }
-        ui.horizontal(|ui| {
+        crate::rtl::horizontal(ui, |ui| {
             ui.label("Horizontal axis title:");
             let field = egui::Id::unique(("gridcraft.chart_x_title", id));
             if let Some(xt) = crate::widgets::committed_text(ui, field, chart.x_title.as_deref().unwrap_or(""), None) {
                 app.run_or_alert("chart.set", json!({"chart": id, "xTitle": if xt.is_empty() { Json::Null } else { json!(xt) }}));
             }
         });
-        ui.horizontal(|ui| {
+        crate::rtl::horizontal(ui, |ui| {
             ui.label("Vertical axis title:");
             let field = egui::Id::unique(("gridcraft.chart_y_title", id));
             if let Some(yt) = crate::widgets::committed_text(ui, field, chart.y_title.as_deref().unwrap_or(""), None) {
@@ -272,7 +272,7 @@ fn format_chart(app: &mut SheetApp, ui: &mut Ui) {
             let name = data.as_ref().and_then(|d| d.series.get(i)).map(|x| x.name.clone()).unwrap_or_else(|| format!("Series {}", i + 1));
             let col =
                 data.as_ref().and_then(|d| d.series.get(i)).map(|x| Color32::from_rgb(x.color[0], x.color[1], x.color[2])).unwrap_or(Color32::GRAY);
-            ui.horizontal(|ui| {
+            crate::rtl::horizontal(ui, |ui| {
                 let (r, _) = ui.allocate_exact_size(vec2(14.0, 14.0), egui::Sense::hover());
                 ui.painter().rect_filled(r, 2.0, col);
                 ui.label(&name);
@@ -290,14 +290,14 @@ fn format_chart(app: &mut SheetApp, ui: &mut Ui) {
         }
     });
     ui.collapsing("Colors & Layout", |ui| {
-        ui.horizontal_wrapped(|ui| {
+        crate::rtl::horizontal_wrapped(ui, |ui| {
             for p in ["colorful", "monochrome", "accent1", "accent2", "accent3", "accent4", "accent5", "accent6"] {
                 if ui.button(p).clicked() {
                     app.run_or_alert("chart.changeColors", json!({"chart": id, "palette": p}));
                 }
             }
         });
-        ui.horizontal(|ui| {
+        crate::rtl::horizontal(ui, |ui| {
             for n in 1..=6 {
                 if ui.button(format!("Layout {n}")).clicked() {
                     app.run_or_alert("chart.quickLayout", json!({"chart": id, "layout": n}));

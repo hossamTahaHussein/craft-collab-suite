@@ -2576,7 +2576,7 @@ template	Letter	Thư
 	A free, open-source word processor written in Rust, with real-time co-editing.\nBased on WordCraft by the ArtCraft team.	Trình xử lý văn bản miễn phí, mã nguồn mở được viết bằng Rust, hỗ trợ cùng chỉnh sửa theo thời gian thực.\nDựa trên WordCraft của đội ngũ ArtCraft.
 	WordCraft Collab by Hossam Taha	WordCraft Collab của Hossam Taha
 	hossamtaha.me	hossamtaha.me
-	github.com/hossamTahaHussein/wordcraft-collab	github.com/hossamTahaHussein/wordcraft-collab
+	github.com/hossamTahaHussein/craft-collab-suite	github.com/hossamTahaHussein/craft-collab-suite
 	Based on github.com/storytold/wordcraft	Dựa trên github.com/storytold/wordcraft
 	Discard the recovery copy of {name}?	Loại bỏ bản khôi phục của {name}?
 	This cannot be undone. Your original file stays unchanged.	Không thể hoàn tác thao tác này. Tệp gốc của bạn vẫn giữ nguyên.

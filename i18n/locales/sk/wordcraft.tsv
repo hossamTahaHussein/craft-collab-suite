@@ -2916,7 +2916,7 @@ preview	Title	Názov
 	A free, open-source word processor written in Rust, with real-time co-editing.\nBased on WordCraft by the ArtCraft team.	Bezplatný textový procesor s otvoreným zdrojovým kódom napísaný v jazyku Rust, so spoločnými úpravami v reálnom čase.\nZaložený na WordCrafte od tímu ArtCraft.
 	WordCraft Collab by Hossam Taha	WordCraft Collab, autor: Hossam Taha
 	hossamtaha.me	hossamtaha.me
-	github.com/hossamTahaHussein/wordcraft-collab	github.com/hossamTahaHussein/wordcraft-collab
+	github.com/hossamTahaHussein/craft-collab-suite	github.com/hossamTahaHussein/craft-collab-suite
 	Based on github.com/storytold/wordcraft	Založené na github.com/storytold/wordcraft
 	Property names are 1–{max} characters.	Názov vlastnosti musí mať 1 až {max} znakov.
 	Property values are at most {max} bytes.	Hodnota vlastnosti môže mať najviac {max} bajtov.

@@ -70,8 +70,8 @@ pub(super) fn insert(app: &mut SheetApp, ui: &mut Ui) {
         // Menu-style: with no chart type, run_or_alert opens the Insert Chart dialog.
         act(app, "insert.recommendedCharts", json!({}));
     }
-    ui.vertical(|ui| {
-        ui.horizontal(|ui| {
+    crate::rtl::vertical(ui, |ui| {
+        crate::rtl::fit_row(ui, |ui| {
             for (icon, tip, cid, subs) in [
                 (
                     Icon::ChartBar,
@@ -113,7 +113,7 @@ pub(super) fn insert(app: &mut SheetApp, ui: &mut Ui) {
                 });
             }
         });
-        ui.horizontal(|ui| {
+        crate::rtl::fit_row(ui, |ui| {
             for (icon, tip, cid, subs) in [
                 (
                     Icon::ChartScatter,

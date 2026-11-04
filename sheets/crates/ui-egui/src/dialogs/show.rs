@@ -175,6 +175,7 @@ pub fn show(app: &mut SheetApp, ctx: &egui::Context) {
     };
     let (window, collapsed) = place_window(app, ctx, &mut d, window, window_id);
     let shown = window.show(ctx, |ui| {
+        crate::rtl::body(ui, |ui| {
             if let Some(key) = &collapsed {
                 let title = d.title.clone();
                 ref_edit(app, ui, &mut d, key, RefLabel::Named(&title), (width - 40.0).min(380.0));
@@ -204,7 +205,7 @@ pub fn show(app: &mut SheetApp, ctx: &egui::Context) {
                 "solverResults" => solver_results(app, ui, &mut d, &mut open),
                 "spelling" => spelling(app, ui, &mut d, &mut open),
                 "agents" => {
-                    ui.label("GridCraft is fully drivable by agents. Every menu item, button and gesture is a command:");
+                    ui.label("Craft Sheets is fully drivable by agents. Every menu item, button and gesture is a command:");
                     ui.add_space(4.0);
                     ui.monospace("gridcraft --control 7979        # JSON-lines control channel\ngridcraft-cli mcp --connect 7979   # MCP bridged to this window\ngridcraft-cli mcp                   # headless MCP server");
                     ui.add_space(4.0);
@@ -336,7 +337,7 @@ pub fn show(app: &mut SheetApp, ctx: &egui::Context) {
                 "saveChanges" => {
                     ui.label(format!("Do you want to save the changes you made to {}?", d.values.get("title").and_then(Json::as_str).unwrap_or("this workbook")));
                     let quitting = d.values.get("quit").and_then(Json::as_bool) == Some(true);
-                    ui.horizontal(|ui| {
+                    crate::rtl::horizontal(ui, |ui| {
                         for (label, answer) in
                             [("Don't Save", crate::SaveAnswer::DontSave), ("Cancel", crate::SaveAnswer::Cancel), ("Save", crate::SaveAnswer::Save)]
                         {
@@ -348,7 +349,7 @@ pub fn show(app: &mut SheetApp, ctx: &egui::Context) {
                 }
                 "start" => {
                     ui.heading("Start a new workbook");
-                    ui.horizontal_wrapped(|ui| {
+                    crate::rtl::horizontal_wrapped(ui, |ui| {
                         if ui.button("Blank workbook").clicked() {
                             app.run_or_alert("file.new", json!({}));
                             open = false;
@@ -375,7 +376,8 @@ pub fn show(app: &mut SheetApp, ctx: &egui::Context) {
                 }
                 _ => form(app, ui, &mut d, &mut confirm, &mut open),
             }
-        });
+        })
+    });
     window_shown(ctx, &mut d, collapsed.is_some(), shown.map(|r| r.response.rect));
     // Hyperlinks inside dialogs (About ▸ Contributors) open through the host's `open_url`, since
     // the native shell has no browser integration of its own.
@@ -489,8 +491,8 @@ pub(super) fn ok_cancel(ui: &mut egui::Ui, confirm: &mut bool, open: &mut bool) 
     ui.add_space(8.0);
     // A row as tall as the buttons: a right-to-left layout straight in the window takes all the
     // height it is offered, which stretched every form dialog to the screen's height.
-    ui.horizontal(|ui| {
-        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+    crate::rtl::horizontal(ui, |ui| {
+        ui.with_layout(crate::rtl::trailing(), |ui| {
             let lang = crate::i18n::current(ui.ctx());
             let t = crate::theme::Tokens::get(ui.ctx());
             let ok = ui.add(egui::Button::new(egui::RichText::new(format!("   {}   ", lang.tr("OK"))).color(t.on_accent)).fill(t.accent));
@@ -599,7 +601,7 @@ pub(super) fn form_fields(app: &SheetApp, ui: &mut egui::Ui, d: &mut Dialog) {
                     });
                 }
                 Field::Number { key, label } => {
-                    ui.horizontal(|ui| {
+                    crate::rtl::horizontal(ui, |ui| {
                         let label = ui.label(lang.tr(label));
                         let mut n = d.values.get(key).and_then(Json::as_f64).unwrap_or(0.0);
                         // Typed values count straight away: otherwise Enter or OK in the same frame
@@ -639,7 +641,7 @@ pub(super) fn form_fields(app: &SheetApp, ui: &mut egui::Ui, d: &mut Dialog) {
                             };
                             if key == "pageOrder" {
                                 // Page Setup pictures the order beside its choices.
-                                ui.horizontal(|ui| {
+                                crate::rtl::horizontal(ui, |ui| {
                                     ui.vertical(|ui| radios(ui, d));
                                     ui.add_space(24.0);
                                     page_order_preview(ui, PageOrder::parse(&cur).unwrap_or_default());

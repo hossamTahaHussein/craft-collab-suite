@@ -105,7 +105,10 @@ pub fn show(app: &mut SheetApp, ui: &mut egui::Ui) {
         .frame(egui::Frame::NONE.fill(t.window).inner_margin(egui::Margin { left: 8, right: 8, top: 3, bottom: 3 }))
         .show(ui, |ui| {
             // Top-aligned: the Name Box and buttons stay on the first line as the field grows.
-            ui.with_layout(egui::Layout::left_to_right(egui::Align::Min), |ui| {
+            // Right to left the Name Box sits at the right and the field runs to the left.
+            let row =
+                if crate::rtl::is_rtl() { egui::Layout::right_to_left(egui::Align::Min) } else { egui::Layout::left_to_right(egui::Align::Min) };
+            ui.with_layout(row, |ui| {
                 ui.spacing_mut().item_spacing.x = 4.0;
                 layout.name_box = name_box(app, ui, &t);
                 ui.add_space(4.0);
@@ -129,7 +132,12 @@ pub fn show(app: &mut SheetApp, ui: &mut egui::Ui) {
                 ui.add_space(4.0);
                 // The formula field fills the rest, as tall as the bar.
                 let avail = ui.available_width() - 24.0;
-                let field = Rect::from_min_size(ui.cursor().min, vec2(avail, ui.available_height()));
+                let at = ui.cursor();
+                let field = if crate::rtl::is_rtl() {
+                    Rect::from_min_size(egui::pos2(at.max.x - avail, at.min.y), vec2(avail, ui.available_height()))
+                } else {
+                    Rect::from_min_size(at.min, vec2(avail, ui.available_height()))
+                };
                 ui.painter().rect_filled(field, 4.0, t.input_bg);
                 ui.painter().rect_stroke(field, 4.0, Stroke::new(1.0, t.input_border), StrokeKind::Inside);
                 let inner = field.shrink2(vec2(6.0, 3.0));
@@ -356,7 +364,7 @@ fn name_box(app: &mut SheetApp, ui: &mut egui::Ui, t: &Tokens) -> Rect {
     let id = egui::Id::unique("gridcraft.name_box");
     let shown = app.name_box_text();
     let mut text = app.name_box.clone().unwrap_or(shown.clone());
-    let rect = Rect::from_min_size(ui.cursor().min, vec2(118.0, 24.0));
+    let rect = crate::rtl::at_cursor(ui, vec2(118.0, 24.0));
     ui.painter().rect_filled(rect, 4.0, t.input_bg);
     ui.painter().rect_stroke(rect, 4.0, Stroke::new(1.0, t.input_border), StrokeKind::Inside);
     let mut child = ui.new_child(egui::UiBuilder::new().max_rect(Rect::from_min_size(rect.min + vec2(6.0, 3.0), vec2(96.0, 18.0))));
@@ -389,7 +397,7 @@ fn name_box(app: &mut SheetApp, ui: &mut egui::Ui, t: &Tokens) -> Rect {
                     app.run("formulas.defineName", json!({"name": target}))
                 };
                 if let Err(e) = r {
-                    app.message = Some(("GridCraft".into(), crate::clean_error(&e)));
+                    app.message = Some(("Craft Sheets".into(), crate::clean_error(&e)));
                 }
                 app.grid.ensure_visible = true;
             }
@@ -1167,7 +1175,7 @@ fn show_editor_suggestions(ui: &mut egui::Ui, suggestion: EditorSuggestion<'_>) 
                 } else if let Some((name, arg)) = ed.current_function()
                     && let Some(sig) = crate::formula_locale::signature(&name, ed.locale, language)
                 {
-                    ui.horizontal_wrapped(|ui| {
+                    crate::rtl::horizontal_wrapped(ui, |ui| {
                         ui.spacing_mut().item_spacing.x = 0.0;
                         let (head, rest) = sig.split_once('(').unwrap_or((&sig, ""));
                         ui.label(egui::RichText::new(format!("{head}(")).font(theme::ui_font(12.0)));

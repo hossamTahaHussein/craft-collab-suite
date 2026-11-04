@@ -169,7 +169,7 @@ pub fn show(app: &mut SheetApp, ui: &mut Ui) {
     let mut out = Outcome::default();
     let (nav_bg, nav_text, nav_sel) =
         if t.dark { (t.accent_soft, t.text, Color32::from_white_alpha(30)) } else { (t.accent, Color32::WHITE, Color32::from_black_alpha(46)) };
-    egui::Panel::left("backstage_nav")
+    craft_ui::direction::start_panel(&crate::rtl::dir(), "backstage_nav")
         .exact_size(NAV_W)
         .resizable(false)
         .frame(egui::Frame::NONE.fill(nav_bg).inner_margin(egui::Margin { left: 0, right: 0, top: 10, bottom: 10 }))
@@ -216,19 +216,21 @@ pub fn show(app: &mut SheetApp, ui: &mut Ui) {
         egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| {
             egui::Frame::NONE.inner_margin(egui::Margin { left: 44, right: 32, top: 26, bottom: 32 }).show(ui, |ui| {
                 ui.set_max_width(CONTENT_W);
-                ui.label(RichText::new(lang.tr(bs.page.label())).font(theme::ui_font(28.0)).color(t.text));
-                ui.add_space(18.0);
-                match bs.page {
-                    Page::Home => home(app, ui, &mut bs, &mut out),
-                    Page::New => new_page(app, ui, &mut out),
-                    Page::Open => open_page(app, ui, &mut bs, &mut out),
-                    Page::Info => info(app, ui, &mut bs),
-                    Page::SaveAs => save_as(app, ui, &mut bs, &mut out),
-                    Page::Print => print(app, ui, &mut bs, &mut out),
-                    Page::Export => export(app, ui, &mut out),
-                    Page::Options => options(app, ui),
-                    Page::Account => account(app, ui),
-                }
+                crate::rtl::body(ui, |ui| {
+                    ui.label(RichText::new(lang.tr(bs.page.label())).font(theme::ui_font(28.0)).color(t.text));
+                    ui.add_space(18.0);
+                    match bs.page {
+                        Page::Home => home(app, ui, &mut bs, &mut out),
+                        Page::New => new_page(app, ui, &mut out),
+                        Page::Open => open_page(app, ui, &mut bs, &mut out),
+                        Page::Info => info(app, ui, &mut bs),
+                        Page::SaveAs => save_as(app, ui, &mut bs, &mut out),
+                        Page::Print => print(app, ui, &mut bs, &mut out),
+                        Page::Export => export(app, ui, &mut out),
+                        Page::Options => options(app, ui),
+                        Page::Account => account(app, ui),
+                    }
+                });
             });
         });
     });
@@ -345,14 +347,14 @@ fn tile(ui: &mut Ui, label: &str, sample: Option<usize>) -> egui::Response {
 /// Blank workbook and the built-in samples.
 fn new_tiles(app: &mut SheetApp, ui: &mut Ui, out: &mut Outcome) {
     let lang = app.ui.language;
-    ui.horizontal_wrapped(|ui| {
+    crate::rtl::horizontal_wrapped(ui, |ui| {
         ui.spacing_mut().item_spacing = vec2(18.0, 14.0);
         if tile(ui, lang.tr("Blank workbook"), None).clicked() {
             app.run_or_alert("file.new", json!({}));
             out.close = true;
         }
         for (i, (name, title)) in gridcraft_engine::sample::SAMPLES.iter().enumerate() {
-            if tile(ui, title, Some(i)).clicked() {
+            if tile(ui, app.ui.language.tr(title), Some(i)).clicked() {
                 app.run_or_alert("file.new", json!({"sample": name}));
                 out.close = true;
             }
@@ -616,7 +618,7 @@ fn info(app: &mut SheetApp, ui: &mut Ui, bs: &mut Backstage) {
         let pr = &d.wb.props;
         vec![pr.title.clone(), pr.subject.clone(), pr.author.clone(), pr.company.clone(), pr.keywords.clone(), pr.description.clone()]
     };
-    ui.horizontal(|ui| {
+    crate::rtl::horizontal(ui, |ui| {
         icons::paint(ui.painter(), Rect::from_min_size(ui.cursor().min, vec2(28.0, 28.0)), Icon::Book, t.text);
         ui.add_space(38.0);
         ui.vertical(|ui| {
@@ -628,7 +630,7 @@ fn info(app: &mut SheetApp, ui: &mut Ui, bs: &mut Backstage) {
         });
     });
     ui.add_space(18.0);
-    ui.horizontal(|ui| {
+    crate::rtl::horizontal(ui, |ui| {
         if square_button(ui, Icon::Lock, lang.tr("Protect Workbook")).clicked() {
             protect_workbook(app);
         }
@@ -679,7 +681,7 @@ fn save_as(app: &mut SheetApp, ui: &mut Ui, bs: &mut Backstage, out: &mut Outcom
     ui.add_space(14.0);
     let fmt = bs.save_format;
     let current = SAVE_TYPES.iter().find(|(ext, _)| *ext == fmt).map_or("Excel Workbook (*.xlsx)", |(_, label)| *label);
-    ui.horizontal(|ui| {
+    crate::rtl::horizontal(ui, |ui| {
         let label = ui.label(lang.tr("Save as type"));
         craft_ui::ComboBox::from_id_salt("backstage_save_type")
             .width(280.0)
@@ -754,13 +756,13 @@ pub fn export_as(app: &mut SheetApp, fmt: &str) -> bool {
         return match app.run(id, json!({"path": path})) {
             Ok(_) => true,
             Err(e) => {
-                app.message = Some(("GridCraft".into(), crate::clean_error(&e)));
+                app.message = Some(("Craft Sheets".into(), crate::clean_error(&e)));
                 false
             }
         };
     }
     if app.services.download.is_none() {
-        app.message = Some(("GridCraft".into(), "Exporting needs a file picker, which this window doesn't have.".into()));
+        app.message = Some(("Craft Sheets".into(), "Exporting needs a file picker, which this window doesn't have.".into()));
         return false;
     }
     if fmt == "pdf" {
@@ -768,7 +770,7 @@ pub fn export_as(app: &mut SheetApp, fmt: &str) -> bool {
         return match app.run(id, json!({})) {
             Ok(_) => true,
             Err(e) => {
-                app.message = Some(("GridCraft".into(), crate::clean_error(&e)));
+                app.message = Some(("Craft Sheets".into(), crate::clean_error(&e)));
                 false
             }
         };
@@ -787,7 +789,7 @@ pub fn export_as(app: &mut SheetApp, fmt: &str) -> bool {
             }
         }
         Err(e) => {
-            app.message = Some(("GridCraft".into(), crate::clean_error(&e)));
+            app.message = Some(("Craft Sheets".into(), crate::clean_error(&e)));
             false
         }
     }
@@ -798,7 +800,7 @@ fn account(app: &mut SheetApp, ui: &mut Ui) {
     let t = Tokens::get(ui.ctx());
     let lang = app.ui.language;
     section(ui, lang, "Product Information");
-    ui.label(RichText::new("GridCraft").font(theme::ui_bold(16.0)).color(t.text));
+    ui.label(RichText::new("Craft Sheets").font(theme::ui_bold(16.0)).color(t.text));
     ui.add_space(8.0);
     egui::Grid::new("backstage_account").num_columns(2).spacing(vec2(18.0, 8.0)).show(ui, |ui| {
         for (label, value) in
@@ -810,14 +812,14 @@ fn account(app: &mut SheetApp, ui: &mut Ui) {
         }
     });
     ui.add_space(18.0);
-    ui.horizontal(|ui| {
-        if square_button(ui, Icon::Info, lang.tr("About GridCraft")).clicked() {
+    crate::rtl::horizontal(ui, |ui| {
+        if square_button(ui, Icon::Info, lang.tr("About Craft Sheets")).clicked() {
             app.open_dialog("about", json!({}));
         }
         ui.add_space(12.0);
         ui.vertical(|ui| {
             ui.add_space(14.0);
-            ui.label(RichText::new(lang.tr("About GridCraft")).font(theme::ui_bold(13.5)).color(t.text));
+            ui.label(RichText::new(lang.tr("About Craft Sheets")).font(theme::ui_bold(13.5)).color(t.text));
             dim(ui, lang.tr("Version, contributors and the AI models that helped"));
         });
     });

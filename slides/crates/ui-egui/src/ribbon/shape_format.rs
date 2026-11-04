@@ -252,7 +252,7 @@ fn smooth_corners_row(app: &mut SlideApp, ui: &mut egui::Ui) {
         state.0 = r;
     }
     let usable = radius.is_some() || ui.data(|d| d.get_temp::<(f64, f64)>(key)).is_some();
-    ui.horizontal(|ui| {
+    crate::rtl::fit_row(ui, |ui| {
         let label = ui.label("Smooth Corners");
         let mut pct = state.1;
         let resp = ui.add_enabled(usable, egui::Slider::new(&mut pct, 0.0..=100.0).suffix("%").integer()).labelled_by(label.id);

@@ -51,15 +51,37 @@ fn runs(out: &mut String, p: &Paragraph) {
     }
 }
 
-/// The presentation's outline (slide titles and body text) as RTF.
+/// Whether `p` reads right to left: set so, or (no direction of its own) Arabic or Hebrew first.
+fn reads_rtl(p: &Paragraph) -> bool {
+    p.props.rtl.unwrap_or_else(|| deckcraft_model::bidi::first_strong_is_rtl(&p.text()))
+}
+
+/// The controls that make an RTF paragraph right to left: right-to-left runs, aligned as the
+/// paragraph is (at the right unless it says otherwise).
+fn rtl_controls(p: Option<&Paragraph>) -> &'static str {
+    use deckcraft_model::text::Align;
+    match p.and_then(|p| p.props.align) {
+        Some(Align::Center) => "\\rtlpar\\qc\\rtlch ",
+        Some(Align::Justify | Align::JustLow | Align::Distributed | Align::ThaiDistributed) => "\\rtlpar\\qj\\rtlch ",
+        Some(Align::Left) => "\\rtlpar\\ql\\rtlch ",
+        _ => "\\rtlpar\\qr\\rtlch ",
+    }
+}
+
+/// The presentation's outline (slide titles and body text) as RTF. Right-to-left paragraphs
+/// (Arabic, Hebrew) are right-to-left RTF paragraphs.
 pub fn slides_to_rtf(p: &Presentation) -> String {
     let mut out = String::from("{\\rtf1\\ansi\\ansicpg1252\\deff0\\uc1{\\fonttbl{\\f0\\fswiss Liberation Sans;}}\n");
     for s in &p.slides {
         let title = s.shapes.iter().find(|sh| sh.ph_type().is_some_and(|k| k.is_title())).and_then(|sh| sh.text.as_ref());
-        out.push_str("\\pard\\outlinelevel0\\sb240\\b\\fs32 ");
         // The title stays one outline paragraph (a `\par` would start another slide on re-import),
-        // so its paragraphs are joined with line breaks.
+        // so its paragraphs are joined with line breaks; it reads as its first one does.
         let mut tps = title.into_iter().flat_map(|t| &t.paragraphs).filter(|p| !p.is_empty()).peekable();
+        let rtl = tps.peek().map_or_else(|| deckcraft_model::bidi::first_strong_is_rtl(&s.title()), |p| reads_rtl(p));
+        out.push_str("\\pard\\outlinelevel0\\sb240\\b\\fs32 ");
+        if rtl {
+            out.push_str(rtl_controls(tps.peek().copied()));
+        }
         if tps.peek().is_none() {
             escape(&mut out, &s.title());
         }
@@ -78,6 +100,9 @@ pub fn slides_to_rtf(p: &Presentation) -> String {
             for para in t.paragraphs.iter().filter(|p| !p.is_empty()) {
                 let lvl = para.level.min(8) as u32;
                 out.push_str(&format!("\\pard\\outlinelevel{}\\li{}\\fs24 ", lvl + 1, 360 * (lvl + 1)));
+                if reads_rtl(para) {
+                    out.push_str(rtl_controls(Some(para)));
+                }
                 runs(&mut out, para);
                 out.push_str("\\par\n");
             }
@@ -456,6 +481,27 @@ mod tests {
         assert_eq!(rtf_to_outline(&rtf), crate::slides_to_outline(&p));
     }
 
+    /// Right-to-left titles and body paragraphs (their own `rtl`, or Arabic/Hebrew first) are
+    /// right-to-left RTF paragraphs; the others stay as they were.
+    #[test]
+    fn right_to_left_paragraphs_are_written_right_to_left() {
+        let mut p = deckcraft_model::defaults::blank_presentation(deckcraft_model::defaults::WIDE, Default::default(), false);
+        crate::outline_to_slides(&mut p, "خطة العمل\n\tהיום\n\tEnglish\n\t2026 تقرير\n");
+        let rtf = slides_to_rtf(&p);
+        let lines: Vec<&str> = rtf.lines().filter(|l| l.starts_with("\\pard")).collect();
+        assert_eq!(lines.len(), 4, "{rtf}");
+        for (line, rtl) in lines.iter().zip([true, true, false, true]) {
+            assert_eq!(line.contains("\\rtlpar\\qr\\rtlch "), rtl, "{line}");
+            assert!(!line.contains("\\ltrpar"), "{line}");
+        }
+        // A paragraph set right to left reads so whatever its text.
+        let slide = std::sync::Arc::make_mut(&mut p.slides[0]);
+        let body = slide.shapes.iter_mut().filter_map(|sh| sh.text.as_mut()).nth(1).unwrap();
+        body.paragraphs[1].props.rtl = Some(true);
+        assert!(slides_to_rtf(&p).lines().filter(|l| l.starts_with("\\pard")).nth(2).unwrap().contains("\\rtlpar"));
+        assert_eq!(rtf_to_outline(&rtf), crate::slides_to_outline(&p), "still reads back as the same outline");
+    }
+
     #[test]
     fn reads_word_style_rtf_by_indent_and_hex_escapes() {
         let rtf = r"{\rtf1\ansi{\fonttbl{\f0 Arial;}}{\*\generator X;}\pard\b Title one\b0\par\pard\li720 Point \'93a\'94\par\pard\li1440 Sub\par}";
@@ -468,5 +514,15 @@ mod tests {
     fn word_list_bullets_are_not_text_and_keep_the_indent() {
         let rtf = r"{\rtf1\ansi\pard Title\par\pard\fi-360\li720{\listtext\pard\plain\f1\'b7\tab}Point\par\pard\li720{\pntext\f1\'b7\tab}Old\par}";
         assert_eq!(rtf_to_outline(rtf), "Title\n\t\tPoint\n\t\tOld\n");
+    }
+
+    /// A centred right-to-left paragraph stays centred (review finding 20).
+    #[test]
+    fn a_centred_right_to_left_paragraph_stays_centred() {
+        let mut body = deckcraft_model::text::TextBody::from_text("مرحبا");
+        body.paragraphs[0].props.align = Some(deckcraft_model::text::Align::Center);
+        let para = &body.paragraphs[0];
+        assert_eq!(super::rtl_controls(Some(para)), "\\rtlpar\\qc\\rtlch ");
+        assert_eq!(super::rtl_controls(None), "\\rtlpar\\qr\\rtlch ");
     }
 }

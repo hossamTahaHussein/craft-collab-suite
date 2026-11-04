@@ -174,14 +174,15 @@ impl Collab {
                 );
             }
             let Some(msg) = wire.recv(left).map_err(WireError::message)? else { continue };
-            let Ok(Inbound::Welcome { rev, snapshot, ops, you, history, peers, role, .. }) = decode_inbound(&msg) else { continue };
+            let Ok(Inbound::Welcome { rev, snapshot, ops, you, history, peers, role, user, .. }) = decode_inbound(&msg) else { continue };
             let Some(json) = snapshot else {
                 return Err("nobody has opened this document yet: an agent joins a document a person has open".into());
             };
             let doc = wordcraft_engine::io::open_bytes("shared.json", json.as_bytes())?;
             let replica = Replica::join_with_history(you, rev, doc, history, ops).map_err(|e| e.to_string())?;
             let mut session = Session::new(Document::new());
-            session.author = name.to_string();
+            // The relay stamps the agent's edits with its join token's name.
+            session.author = user.as_deref().filter(|n| !n.is_empty()).unwrap_or(name).to_string();
             replica.attach(&mut session);
             session.set_collab_role(CollabRole::parse(role.as_deref().unwrap_or("edit")));
             if session.collab_role() != CollabRole::Suggest {

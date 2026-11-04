@@ -7,7 +7,7 @@ pub(super) fn manage_rules(app: &mut SheetApp, ui: &mut egui::Ui) {
         ui.label("There are no conditional formatting rules on this sheet.");
     }
     for (i, r) in rules.iter().enumerate() {
-        ui.horizontal(|ui| {
+        crate::rtl::horizontal(ui, |ui| {
             let kind = r["rule"].as_object().and_then(|o| o.keys().next().cloned()).unwrap_or_default();
             ui.label(format!(
                 "{}. {kind}  applies to {}",

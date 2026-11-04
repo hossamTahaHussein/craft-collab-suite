@@ -47,25 +47,45 @@ pub fn title_bar(app: &mut SlideApp, ui: &mut Ui) {
         }
         let mut child = ui.new_child(
             egui::UiBuilder::new()
-                .max_rect(Rect::from_min_max(pos2(rect.min.x + left, rect.min.y), pos2(rect.min.x + 420.0, rect.max.y)))
-                .layout(egui::Layout::left_to_right(egui::Align::Center)),
+                .max_rect(crate::rtl::place(rect, Rect::from_min_max(pos2(rect.min.x + left, rect.min.y), pos2(rect.min.x + 420.0, rect.max.y))))
+                .layout(crate::rtl::row()),
         );
         child.spacing_mut().item_spacing.x = 2.0;
         let has_doc = app.session.active().is_some();
         let dirty = app.session.active().is_some_and(|d| d.is_dirty());
         crate::qat::show(app, &mut child);
-        let title =
-            app.session.active().map(|d| format!("{}{}", d.title(), if dirty { " — Edited" } else { "" })).unwrap_or_else(|| "DeckCraft".into());
+        let title = app
+            .session
+            .active()
+            .map(|d| if dirty { format!("{} — {}", d.title(), crate::i18n::tr("Edited")) } else { d.title() })
+            .unwrap_or_else(|| "Craft Slides".into());
         ui.painter().text(rect.center(), Align2::CENTER_CENTER, title, theme::font(13.0), t.text);
         // Right side.
         let mut right = ui.new_child(
             egui::UiBuilder::new()
-                .max_rect(Rect::from_min_max(pos2(rect.max.x - 320.0, rect.min.y), pos2(rect.max.x - 10.0, rect.max.y)))
-                .layout(egui::Layout::right_to_left(egui::Align::Center)),
+                // Wider while co-editing: the people here and the save indicator.
+                .max_rect(crate::rtl::place(
+                    rect,
+                    Rect::from_min_max(
+                        pos2(rect.max.x - if app.collab.active { 560.0 } else { 320.0 }, rect.min.y),
+                        pos2(rect.max.x - 10.0, rect.max.y),
+                    ),
+                ))
+                .layout(crate::rtl::trailing()),
         );
         right.spacing_mut().item_spacing.x = 6.0;
         if icon_toggle(&mut right, Icon::Search, "Search commands (⇧⌘P)", true, false).clicked() {
             app.palette = Some((String::new(), 0));
+        }
+        // Co-editing: the other people here; a click goes to them.
+        if let Some(i) = crate::canvas::peers::avatars(&mut right, &app.peers)
+            && let Some(place) = app.peers.get(i).and_then(|p| p.place.clone())
+        {
+            app.session.set_collab_place(&place);
+        }
+        // Whether this person's changes have reached the others, and their role.
+        for words in crate::collab_ui::title_words(app) {
+            right.add(egui::Label::new(egui::RichText::new(words).font(theme::font(12.0)).color(t.text_dim)).selectable(false));
         }
         let share = right.add(
             egui::Button::new(egui::RichText::new("  Present  ").color(t.accent_text).font(theme::bold(13.0)))

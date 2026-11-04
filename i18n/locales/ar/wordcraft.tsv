@@ -2614,7 +2614,7 @@ preview	Title	العنوان
 	Automatically add words to list (INitial CAps)	إضافة الكلمات إلى القائمة تلقائيًا (الحرفان الأولان كبيران)
 	Bookmarks	الإشارات المرجعية
 	A free, open-source word processor written in Rust, with real-time co-editing.\nBased on WordCraft by the ArtCraft team.	معالج نصوص مجاني مفتوح المصدر مكتوب بلغة Rust، مع تحرير مشترك في الوقت الفعلي.\nمبني على WordCraft من فريق ArtCraft.
-	github.com/hossamTahaHussein/wordcraft-collab	github.com/hossamTahaHussein/wordcraft-collab
+	github.com/hossamTahaHussein/craft-collab-suite	github.com/hossamTahaHussein/craft-collab-suite
 	Based on github.com/storytold/wordcraft	مبني على github.com/storytold/wordcraft
 	Discard the recovery copy of {name}?	هل تريد تجاهل نسخة الاسترداد من {name}؟
 	This cannot be undone. Your original file stays unchanged.	لا يمكن التراجع عن هذا. يبقى ملفك الأصلي دون تغيير.

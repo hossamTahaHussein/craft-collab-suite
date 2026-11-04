@@ -2483,7 +2483,7 @@ preview	Title	Ukázka
 	A free, open-source word processor written in Rust, with real-time co-editing.\nBased on WordCraft by the ArtCraft team.	Bezplatný textový procesor s otevřeným zdrojovým kódem napsaný v jazyce Rust, se společnými úpravami v reálném čase.\nZaložený na WordCraftu od týmu ArtCraft.
 	WordCraft Collab by Hossam Taha	WordCraft Collab od Hossama Tahy
 	hossamtaha.me	hossamtaha.me
-	github.com/hossamTahaHussein/wordcraft-collab	github.com/hossamTahaHussein/wordcraft-collab
+	github.com/hossamTahaHussein/craft-collab-suite	github.com/hossamTahaHussein/craft-collab-suite
 	Based on github.com/storytold/wordcraft	Založeno na github.com/storytold/wordcraft
 	Discard the recovery copy of {name}?	Zahodit kopii pro obnovení dokumentu {name}?
 	This cannot be undone. Your original file stays unchanged.	Tuto akci nelze vrátit zpět. Váš původní soubor zůstane beze změny.

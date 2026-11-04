@@ -17,14 +17,17 @@ pub fn status_bar(app: &mut SlideApp, ui: &mut Ui) {
         let Some(st) = app.session.active() else { return };
         let n = st.doc.slides.len();
         let left = match st.selection.target {
-            deckcraft_engine::Target::Slides => format!("Slide {} of {}", (st.selection.slide + 1).min(n.max(1)), n),
-            _ => "Slide Master".to_string(),
+            deckcraft_engine::Target::Slides => crate::i18n::tr("Slide {} of {}")
+                .replacen("{}", &(st.selection.slide + 1).min(n.max(1)).to_string(), 1)
+                .replacen("{}", &n.to_string(), 1),
+            _ => crate::i18n::tr("Slide Master").to_string(),
         };
         let p = ui.painter();
         // Left to right: slide counter, language, status message. Each starts at its usual column, or
         // after the one before it when that runs long ("Slide 100 of 120", "… (not checked)").
-        let sr = p.text(pos2(rect.min.x + 14.0, rect.center().y), Align2::LEFT_CENTER, &left, theme::font(12.0), t.text_dim);
-        shown_text(ui, sr, "status_slide", &left);
+        // Laid out left to right; right to left each is drawn mirrored (`rtl::text_in`).
+        let (sr, sr_shown) = crate::rtl::text_in(p, rect, rect, pos2(rect.min.x + 14.0, rect.center().y), &left, theme::font(12.0), t.text_dim);
+        shown_text(ui, sr_shown, "status_slide", &left);
         // Where the controls on the right begin; nothing on the left paints or clicks past it.
         let right_x = rect.max.x - 560.0;
         // The selection's proofing language; a click opens Review › Language.
@@ -32,8 +35,8 @@ pub fn status_bar(app: &mut SlideApp, ui: &mut Ui) {
         let name = crate::squiggles::display_lang_name(ui.ctx(), &lang) + if no_proof { " (not checked)" } else { "" };
         let lx = (rect.min.x + 120.0).max(sr.max.x + 16.0);
         let lclip = Rect::from_min_max(pos2(lx - 3.0, rect.min.y), pos2(right_x.max(lx - 3.0), rect.max.y));
-        let lr = p.with_clip_rect(lclip).text(pos2(lx, rect.center().y), Align2::LEFT_CENTER, &name, theme::font(12.0), t.text_dim);
-        let hit = lr.expand(3.0).intersect(lclip);
+        let (lr, lr_shown) = crate::rtl::text_in(p, rect, lclip, pos2(lx, rect.center().y), &name, theme::font(12.0), t.text_dim);
+        let hit = lr_shown.expand(3.0).intersect(crate::rtl::place(rect, lclip));
         if hit.is_positive() {
             let resp = ui.interact(hit, ui.scope_id().with("status_lang"), Sense::click()).on_hover_text("Language");
             resp.widget_info(|| named_with_value("Language", &name));
@@ -45,14 +48,14 @@ pub fn status_bar(app: &mut SlideApp, ui: &mut Ui) {
         if let Some(msg) = app.fresh_status() {
             let mx = (rect.min.x + 290.0).max(lr.max.x + 16.0);
             let clip = Rect::from_min_max(pos2(mx, rect.min.y), pos2(right_x.max(mx), rect.max.y));
-            let mr = p.with_clip_rect(clip).text(pos2(mx, rect.center().y), Align2::LEFT_CENTER, &msg, theme::font(12.0), t.accent);
-            shown_text(ui, mr.intersect(clip), "status_message", &msg);
+            let (_, mr_shown) = crate::rtl::text_in(p, rect, clip, pos2(mx, rect.center().y), &msg, theme::font(12.0), t.accent);
+            shown_text(ui, mr_shown, "status_message", &msg);
             ui.ctx().request_repaint_after(std::time::Duration::from_millis(500));
         }
         let mut right = ui.new_child(
             egui::UiBuilder::new()
-                .max_rect(Rect::from_min_max(pos2(right_x, rect.min.y), pos2(rect.max.x - 8.0, rect.max.y)))
-                .layout(egui::Layout::right_to_left(egui::Align::Center)),
+                .max_rect(crate::rtl::place(rect, Rect::from_min_max(pos2(right_x, rect.min.y), pos2(rect.max.x - 8.0, rect.max.y))))
+                .layout(crate::rtl::trailing()),
         );
         right.spacing_mut().item_spacing.x = 4.0;
         if small_icon(&mut right, Icon::FitSmall, "Fit slide to current window", false).clicked() {
@@ -111,6 +114,14 @@ pub fn status_bar(app: &mut SlideApp, ui: &mut Ui) {
         if labeled(&mut right, Icon::NotesSmall, "Notes", n_on).clicked() {
             app.ui.notes = !n_on;
         }
+        // A shared presentation's kept versions (co-editing).
+        if app.collab.active {
+            right.add_space(8.0);
+            let rich = egui::RichText::new("Version history").size(12.0).color(t.text_dim);
+            if right.add(egui::Label::new(rich).selectable(false).sense(Sense::click())).clicked() {
+                app.open_version_history();
+            }
+        }
         let _ = Stroke::NONE;
     });
 }
@@ -156,13 +167,14 @@ fn shown_text(ui: &Ui, rect: Rect, id: &str, text: &str) {
 /// accessible selected state.
 fn labeled(ui: &mut Ui, icon: Icon, label: &str, on: bool) -> egui::Response {
     let t = Tokens::get(ui.ctx());
-    let w = 22.0 + ui.fonts_mut(|f| f.layout_no_wrap(label.into(), theme::font(12.0), t.text).size().x) + 8.0;
+    let shown = crate::i18n::tr(label);
+    let w = 22.0 + ui.fonts_mut(|f| f.layout_no_wrap(shown.into(), theme::font(12.0), t.text).size().x) + 8.0;
     let (r, resp) = ui.allocate_exact_size(vec2(w, 20.0), Sense::click());
     if on || resp.hovered() {
         ui.painter().rect_filled(r, CornerRadius::same(4), if on { t.selected } else { t.hover });
     }
     icons::paint(ui.painter(), Rect::from_center_size(pos2(r.min.x + 11.0, r.center().y), vec2(15.0, 15.0)), icon, t.text_dim, false);
-    ui.painter().text(pos2(r.min.x + 22.0, r.center().y), Align2::LEFT_CENTER, label, theme::font(12.0), t.text_dim);
+    ui.painter().text(pos2(r.min.x + 22.0, r.center().y), Align2::LEFT_CENTER, shown, theme::font(12.0), t.text_dim);
     // The visible label is painted directly, so name the interactive control explicitly and
     // expose the toggle state as selected: a screen reader hears "Notes, pressed" not "Notes".
     resp.widget_info(|| egui::WidgetInfo::selected(egui::Role::Button, ui.is_enabled(), on, label));

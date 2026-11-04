@@ -16,6 +16,9 @@ path = "src/main.rs"
 [dependencies]
 deckcraft-engine = { workspace = true }
 deckcraft-mcp = { workspace = true }
+deckcraft-collab = { workspace = true }
+craft-collab-agent = { workspace = true }
+craft-collab-core = { workspace = true }
 serde_json = { workspace = true }
 
 [dev-dependencies]

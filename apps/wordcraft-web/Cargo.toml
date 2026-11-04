@@ -23,6 +23,7 @@ serde_json = { workspace = true }
 wordcraft-doc = { workspace = true }
 wordcraft-fonts = { workspace = true }
 wordcraft-collab = { workspace = true }
+craft-collab-link = { workspace = true }
 base64 = { workspace = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]

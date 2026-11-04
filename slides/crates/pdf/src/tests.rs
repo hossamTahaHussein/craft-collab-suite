@@ -677,3 +677,44 @@ fn raster_scale_caps_total_pixels_not_each_side() {
     let s = raster_scale(720.0, (960.0, 540.0), 200.0);
     assert!((s - 720.0 / 72.0 * 200.0 / 960.0).abs() < 1e-12);
 }
+
+/// The ToUnicode maps of a PDF's fonts, as text.
+fn to_unicode_maps(bytes: &[u8]) -> String {
+    use hayro_syntax::object::{Dict, Stream};
+    let pdf = hayro_syntax::Pdf::new(bytes.to_vec()).unwrap();
+    let mut out = String::new();
+    for page in pdf.pages().iter() {
+        let Some(fonts) = page.raw().get::<Dict<'_>>(b"Resources").and_then(|r| r.get::<Dict<'_>>(b"Font")) else { continue };
+        for key in fonts.keys() {
+            if let Some(cmap) = fonts.get::<Dict<'_>>(key).and_then(|f| f.get::<Stream<'_>>(b"ToUnicode")).and_then(|s| s.decoded().ok()) {
+                out.push_str(&String::from_utf8_lossy(&cmap));
+            }
+        }
+    }
+    out
+}
+
+#[test]
+fn arabic_vowels_are_in_the_text_layer_unless_turned_off() {
+    use deckcraft_model::{Shape, ShapeId, Xfrm};
+    let text = "الكِتَابُ";
+    if FontDb::global().fallback_for('ك', u32::MAX).is_none() {
+        eprintln!("skipped: no Arabic face");
+        return;
+    }
+    let mut p = deck(1);
+    Arc::make_mut(&mut p.slides[0]).shapes = vec![Shape {
+        id: ShapeId(9001),
+        xfrm: Some(Xfrm::new(20.0, 20.0, 920.0, 100.0)),
+        text: Some(TextBody::from_text(text)),
+        ..Default::default()
+    }];
+    let on = to_unicode_maps(&export(&p, &opts(PageLayout::Slides)).unwrap());
+    let off = to_unicode_maps(&export(&p, &PdfOptions { arabic_vowels: false, ..opts(PageLayout::Slides) }).unwrap());
+    // Kasra and damma are in the copied text, each a character of its own glyph.
+    for vowel in ["<0650>", "<064F>"] {
+        assert!(on.contains(vowel), "{vowel} in {on}");
+        assert!(!off.contains(vowel), "{vowel} left out: {off}");
+    }
+    assert!(on.contains("<0643>") && off.contains("<0643>"), "the letters are there either way");
+}

@@ -16,7 +16,7 @@ const MAX_RUNS: usize = 10_000;
 pub fn body_to_html(body: &TextBody) -> String {
     let mut out = String::new();
     for (i, p) in body.paragraphs.iter().enumerate() {
-        let prefix = if i > 0 { "<br><p>" } else { "<p>" };
+        let prefix = p_open(i, p);
         if !push_if_fits(&mut out, prefix, 4) {
             return plain_html(body);
         }
@@ -44,12 +44,47 @@ pub fn body_to_html(body: &TextBody) -> String {
     out
 }
 
+/// A paragraph's opening (after a `<br>` from the second on, so plain-text readers keep the
+/// breaks): `dir="rtl"` for a right-to-left one.
+fn p_open(i: usize, p: &Paragraph) -> &'static str {
+    match (i > 0, p.props.rtl == Some(true)) {
+        (false, false) => "<p>",
+        (true, false) => "<br><p>",
+        (false, true) => "<p dir=\"rtl\">",
+        (true, true) => "<br><p dir=\"rtl\">",
+    }
+}
+
+/// The `dir` a block's tag source gives (`rtl` → `Some(true)`, `ltr` → `Some(false)`).
+fn block_dir(src: &str) -> Option<bool> {
+    let lower = src.to_ascii_lowercase();
+    let b = lower.as_bytes();
+    // The `dir` attribute itself (not `data-dir`), its `=` with or without spaces around it.
+    let mut from = 0;
+    while let Some(i) = lower[from..].find("dir").map(|k| from + k) {
+        from = i + 3;
+        if i > 0 && !b[i - 1].is_ascii_whitespace() {
+            continue;
+        }
+        let rest = lower[from..].trim_start();
+        let Some(value) = rest.strip_prefix('=') else { continue };
+        let value = value.trim_start().trim_start_matches(['"', '\'']);
+        if value.starts_with("rtl") {
+            return Some(true);
+        } else if value.starts_with("ltr") {
+            return Some(false);
+        }
+        return None;
+    }
+    None
+}
+
 /// The text without formatting, or "" (no HTML on the clipboard) when even that is too big: a
 /// cut-off prefix would paste as if it were the whole text.
 fn plain_html(body: &TextBody) -> String {
     let mut out = String::new();
     for (i, p) in body.paragraphs.iter().enumerate() {
-        let prefix = if i > 0 { "<br><p>" } else { "<p>" };
+        let prefix = p_open(i, p);
         if !push_if_fits(&mut out, prefix, 4) {
             return String::new();
         }
@@ -185,6 +220,9 @@ pub fn html_to_body(html: &str) -> Option<TextBody> {
             }
             if is_block(&name) {
                 new_para(&mut paragraphs);
+                if let (Some(rtl), Some(p)) = (block_dir(name_src), paragraphs.last_mut()) {
+                    p.props.rtl = Some(rtl);
+                }
             }
             if is_break(&name) {
                 new_para(&mut paragraphs);
@@ -531,6 +569,23 @@ mod tests {
         assert!(last.props.underline.is_some());
     }
 
+    /// A right-to-left paragraph is copied as `dir="rtl"` and pastes back right to left, as the
+    /// HTML of other apps does.
+    #[test]
+    fn right_to_left_paragraphs_round_trip_as_dir_rtl() {
+        let mut body = TextBody::from_text("مرحبا");
+        body.paragraphs[0].props.rtl = Some(true);
+        body.paragraphs.push(Paragraph::new("Hello"));
+        let html = body_to_html(&body);
+        assert!(html.starts_with("<p dir=\"rtl\">مرحبا</p>"), "{html}");
+        assert!(html.ends_with("<p>Hello</p>"), "{html}");
+        let back = html_to_body(&html).unwrap();
+        assert_eq!(back.paragraphs[0].props.rtl, Some(true));
+        assert_eq!(back.paragraphs[1].props.rtl, None);
+        let word = html_to_body("<div DIR='RTL' style='x'>שלום</div><p dir=\"ltr\">a</p>").unwrap();
+        assert_eq!((word.paragraphs[0].props.rtl, word.paragraphs[1].props.rtl), (Some(true), Some(false)));
+    }
+
     #[test]
     fn oversized_escaped_rich_text_puts_no_html_on_the_clipboard() {
         let mut body = TextBody::from_text(&"&<🦀".repeat(100_000));
@@ -580,5 +635,18 @@ mod tests {
     fn a_huge_fragment_is_refused() {
         let html = "x".repeat(MAX_HTML + 1);
         assert!(html_to_body(&html).is_none());
+    }
+}
+
+#[cfg(test)]
+mod block_dir_tests {
+    /// The `dir` attribute is read with spaces around its `=`, and `data-dir` isn't it (review
+    /// finding 20).
+    #[test]
+    fn reads_the_dir_attribute_only() {
+        assert_eq!(super::block_dir(r#"<p dir = "rtl">"#), Some(true));
+        assert_eq!(super::block_dir(r#"<p data-dir="rtl" dir='ltr'>"#), Some(false));
+        assert_eq!(super::block_dir(r#"<p data-dir="rtl">"#), None);
+        assert_eq!(super::block_dir("<p>"), None);
     }
 }

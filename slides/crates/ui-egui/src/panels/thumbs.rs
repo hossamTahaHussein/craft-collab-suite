@@ -87,7 +87,7 @@ pub fn show(app: &mut SlideApp, ui: &mut Ui) {
     if app.session.active().is_some_and(|d| d.selection.target.is_page_master()) {
         return;
     }
-    let panel = egui::Panel::left("thumbs")
+    let panel = craft_ui::direction::start_panel(ui, "thumbs")
         .resizable(true)
         .default_size(app.ui.thumbs_width)
         .size_range(150.0..=420.0)
@@ -220,6 +220,16 @@ fn list(app: &mut SlideApp, ui: &mut Ui) {
                 need_more |= near;
             }
         }
+        // Co-editing: who is on this slide.
+        if let Some(id) = id {
+            let colors = crate::canvas::peers::colors_on(&app.peers, id);
+            crate::canvas::peers::paint_thumb_dots(p, img, &colors, craft_ui::direction::is_rtl(ui));
+            // Suggestions on this slide: a bar along its bottom in the first suggester's colour.
+            if let Some(x) = app.session.active().and_then(|d| deckcraft_engine::suggest::cached(&d.doc).iter().find(|x| x.slide() == id).cloned()) {
+                let bar = Rect::from_min_max(egui::pos2(img.left(), img.bottom() - 4.0), img.right_bottom());
+                p.rect_filled(bar, CornerRadius::ZERO, crate::canvas::peers::suggestion_color(&x.author));
+            }
+        }
         if selected {
             p.rect_stroke(img.expand(2.0), CornerRadius::same(4), Stroke::new(3.0, t.accent), egui::StrokeKind::Outside);
         } else {
@@ -281,7 +291,7 @@ fn list(app: &mut SlideApp, ui: &mut Ui) {
     // Click on empty space below: new slide prompt.
     let (r, resp) = ui.allocate_exact_size(vec2(width, 40.0), Sense::click());
     if resp.hovered() {
-        ui.painter().text(r.center(), Align2::CENTER_CENTER, "+ New Slide", theme::font(12.0), t.text_faint);
+        ui.painter().text(r.center(), Align2::CENTER_CENTER, format!("+ {}", crate::i18n::tr("New Slide")), theme::font(12.0), t.text_faint);
     }
     if resp.clicked() {
         let _ = app.run("slide.new", json!({}));

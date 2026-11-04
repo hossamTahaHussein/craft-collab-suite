@@ -60,7 +60,7 @@ pub fn show(app: &mut SheetApp, ui: &mut Ui) {
             // Tabs row.
             let tabs_rect = Rect::from_min_size(ui.cursor().min, vec2(ui.available_width(), 32.0));
             ui.scope_builder(egui::UiBuilder::new().max_rect(tabs_rect), |ui| {
-                ui.horizontal(|ui| {
+                crate::rtl::horizontal(ui, |ui| {
                     ui.spacing_mut().item_spacing.x = 2.0;
                     ui.add_space(8.0);
                     if app.chrome.file_tab {
@@ -139,7 +139,16 @@ pub fn show(app: &mut SheetApp, ui: &mut Ui) {
                     area = area.horizontal_scroll_offset(x);
                 }
                 let scroll = area.show(ui, |ui| {
-                    ui.horizontal(|ui| {
+                    // Right to left the groups start at the card's right edge: the row is as wide
+                    // as they were last frame (or the card), so the first group sits at the
+                    // reading start and the rest scroll in from the left.
+                    let width_id = egui::Id::unique(("ribbon_groups_width", tab.as_str()));
+                    let width = if crate::rtl::is_rtl() {
+                        ui.ctx().data(|d| d.get_temp::<f32>(width_id)).unwrap_or(0.0).max(ui.available_width().min(inner.width()))
+                    } else {
+                        ui.available_size_before_wrap().x
+                    };
+                    ui.allocate_ui_with_layout(vec2(width, ui.spacing().interact_size.y), crate::rtl::row(), |ui| {
                         ui.spacing_mut().item_spacing = vec2(2.0, 2.0);
                         match app.ui.ribbon_tab.as_str() {
                             "Home" => home(app, ui),
@@ -156,6 +165,8 @@ pub fn show(app: &mut SheetApp, ui: &mut Ui) {
                             crate::paper_view::TAB => crate::paper_view::ribbon_tab(app, ui),
                             _ => home(app, ui),
                         }
+                        let used = ui.min_rect().width();
+                        ui.ctx().data_mut(|d| d.insert_temp(width_id, used));
                     });
                 });
                 scroll_arrows(ui, &t, tab.as_str(), scroll);
@@ -215,6 +226,17 @@ fn scroll_arrows(ui: &mut Ui, t: &Tokens, tab: &str, scroll: egui::scroll_area::
     ui.ctx().data_mut(|d| d.insert_temp(RibbonOverflow::id(), overflow));
     if !overflow.overflows() {
         return;
+    }
+    // Right to left a tab's groups start at the right: the first time an overflowing tab shows,
+    // it is scrolled to its end, where its first group is.
+    let started = egui::Id::unique(("ribbon_rtl_started", tab));
+    if crate::rtl::is_rtl() && !ui.ctx().data(|d| d.get_temp::<bool>(started).unwrap_or(false)) {
+        let frame = ui.ctx().cumulative_frame_nr();
+        ui.ctx().data_mut(|d| {
+            d.insert_temp(started, true);
+            d.insert_temp(RibbonOverflow::scroll_target_id(tab), (frame, max));
+        });
+        ui.ctx().request_repaint();
     }
     let step = (inner.width() * 0.6).max(60.0);
     let mut target = None;

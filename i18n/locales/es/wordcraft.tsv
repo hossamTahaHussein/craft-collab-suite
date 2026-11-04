@@ -2437,7 +2437,7 @@ preview	Title	Título
 	A free, open-source word processor written in Rust, with real-time co-editing.\nBased on WordCraft by the ArtCraft team.	Un procesador de textos gratuito y de código abierto, escrito en Rust, con coedición en tiempo real.\nBasado en WordCraft del equipo de ArtCraft.
 	WordCraft Collab by Hossam Taha	WordCraft Collab, de Hossam Taha
 	hossamtaha.me	hossamtaha.me
-	github.com/hossamTahaHussein/wordcraft-collab	github.com/hossamTahaHussein/wordcraft-collab
+	github.com/hossamTahaHussein/craft-collab-suite	github.com/hossamTahaHussein/craft-collab-suite
 	Based on github.com/storytold/wordcraft	Basado en github.com/storytold/wordcraft
 	Discard the recovery copy of {name}?	¿Descartar la copia de recuperación de {name}?
 	This cannot be undone. Your original file stays unchanged.	Esto no se puede deshacer. Tu archivo original no cambia.

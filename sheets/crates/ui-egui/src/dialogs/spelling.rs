@@ -32,7 +32,7 @@ pub(super) fn spelling(app: &mut SheetApp, ui: &mut egui::Ui, d: &mut Dialog, op
     }
     d.values.insert("pick".into(), json!(pick.clone()));
     let _ = app.session.run("selection.set", json!({"cell": cell}));
-    ui.horizontal(|ui| {
+    crate::rtl::horizontal(ui, |ui| {
         if ui.button("Ignore Once").clicked() {
             d.list_index += 1;
         }

@@ -165,6 +165,17 @@ pub(super) fn context_menu(app: &mut SheetApp, ui: &mut egui::Ui) {
                     [("Edit Hyperlink…", "ui:insertLink"), ("Open Hyperlink", "ui:openLink"), ("Remove Hyperlink", "edit.clearHyperlinks")],
                 );
             }
+            // On a suggested cell, its suggestion is accepted or rejected from here too.
+            let reviews = app.session.collab_role() != gridcraft_engine::collab::CollabRole::Suggest;
+            let suggested = reviews
+                && app.session.active().is_some_and(|d| {
+                    let sheet = d.wb.active().map(|sh| sh.name.clone()).unwrap_or_default();
+                    let cell = d.selection.active.a1();
+                    gridcraft_engine::suggest::cached(&d.wb).iter().any(|x| x.sheet == sheet && x.cell == cell)
+                });
+            if suggested {
+                items.splice(0..0, [("Accept Suggestion", "review.acceptSuggestion"), ("Reject Suggestion", "review.rejectSuggestion"), ("-", "")]);
+            }
             if show_details_offered(app)
                 && let Some(i) = items.iter().position(|(_, id)| *id == "data.sortDescending")
             {
@@ -339,14 +350,14 @@ pub(super) fn fill_options_tag(app: &mut SheetApp, ui: &mut egui::Ui, geo: &Geo,
     if let Some(mode) = chosen {
         if let Err(e) = app.run("edit.undo", json!({})) {
             app.grid.fill_tag = None;
-            app.message = Some(("GridCraft".into(), crate::clean_error(&e)));
+            app.message = Some(("Craft Sheets".into(), crate::clean_error(&e)));
             return;
         }
         match app.run("edit.autoFill", json!({"source": tag.src.a1(), "target": tag.target.a1(), "mode": mode})) {
             Ok(_) => set_fill_tag(app, tag.src, tag.target),
             Err(e) => {
                 app.grid.fill_tag = None;
-                app.message = Some(("GridCraft".into(), crate::clean_error(&e)));
+                app.message = Some(("Craft Sheets".into(), crate::clean_error(&e)));
             }
         }
     }
@@ -374,7 +385,7 @@ pub(super) fn fill_menu(app: &mut SheetApp, ui: &mut egui::Ui, was_open: bool) {
                         let direction = if target.width() != src.width() { "rows" } else { "columns" };
                         app.open_dialog("series", json!({"direction": direction}));
                     } else if let Err(e) = app.run("edit.autoFill", json!({"source": src.a1(), "target": target.a1(), "mode": mode})) {
-                        app.message = Some(("GridCraft".into(), crate::clean_error(&e)));
+                        app.message = Some(("Craft Sheets".into(), crate::clean_error(&e)));
                     }
                 }
             }

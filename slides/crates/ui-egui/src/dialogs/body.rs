@@ -1341,6 +1341,20 @@ fn dlg_preferences(app: &mut SlideApp, ui: &mut Ui, d: &mut Dialog) -> bool {
         d.params = json!({ "before": preferences_snapshot(app) });
     }
     ui.label(egui::RichText::new("General").font(theme::bold(13.0)));
+    // The interface language (right to left in Arabic); it applies at once.
+    ui.horizontal(|ui| {
+        ui.label("Interface language");
+        ui.menu_button(app.ui.language.name(), |ui| {
+            egui::ScrollArea::vertical().max_height(360.0).show(ui, |ui| {
+                for lang in crate::i18n::Language::ALL {
+                    if ui.selectable_label(app.ui.language == lang, lang.name()).clicked() {
+                        let _ = app.run("ui.language", json!({"value": lang.code()}));
+                        ui.close();
+                    }
+                }
+            });
+        });
+    });
     let mut dark = app.ui.brightness == theme::Brightness::Dark;
     if ui.checkbox(&mut dark, "Dark appearance").changed() {
         let _ = app.run("view.dark", json!({"on": dark}));

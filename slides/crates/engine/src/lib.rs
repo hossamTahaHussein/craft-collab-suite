@@ -25,6 +25,7 @@ pub mod recovery;
 pub mod sample;
 pub mod sounds;
 pub mod spell;
+pub mod suggest;
 pub mod templates;
 pub mod thesaurus;
 pub mod tools;
@@ -487,6 +488,13 @@ pub struct Session {
     /// Nesting of commands run by commands: only the outermost one is an undo step and a journal
     /// entry.
     depth: u32,
+    /// Review › Suggesting: this person's edits are suggestions ([`suggest`]).
+    pub suggesting: bool,
+    /// An edit replayed with `track` on: whose suggestion it records and when.
+    track_ctx: Option<(String, u64)>,
+    /// A top-level command is running inside the suggestion wrappers ([`suggest`]): the commands it
+    /// runs aren't wrapped again.
+    track_busy: bool,
     /// Crash-recovery folder (the app sets it; saving or closing a presentation removes its entry).
     pub recovery_dir: Option<std::path::PathBuf>,
     /// Media playback state, written by the UI host every frame (empty without a host).
@@ -541,6 +549,9 @@ impl Session {
             next_loaded: 0,
             composition_settles: 0,
             collab: collab::CollabState::default(),
+            suggesting: false,
+            track_ctx: None,
+            track_busy: false,
         }
     }
     /// Hand over a presentation read on another thread ([`cmd::file::read_presentation_file`]);
@@ -626,6 +637,12 @@ impl Session {
     pub fn execute(&mut self, id: &str, params: &Value) -> Result<Value> {
         if self.collab_wraps() {
             return self.execute_collab(id, params);
+        }
+        if self.depth == 0 && !self.track_busy {
+            return match self.track_now() {
+                Some((author, time)) => self.execute_tracked(id, params, &author, time),
+                None => self.execute_followed(id, params),
+            };
         }
         self.guarded(id, |s| s.execute_unguarded(id, params))
     }

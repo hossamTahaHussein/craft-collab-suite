@@ -9,6 +9,14 @@
 //!   as PDF. The parent stores it and reports failures itself.
 //! - `gridcraft:dirty` (to the parent): `{ dirty }` whenever unsaved changes appear or go away.
 //! - `gridcraft:failed` (to the parent): `{ error }` when the app couldn't start.
+//! - `gridcraft:collab` (both ways, with `?collab=1`): `{ msg }`, one co-editing relay message
+//!   as a JSON string (`craft_collab_core::proto`); the parent carries them to and from the relay.
+//! - `gridcraft:collab.status` (to the parent): `{ pending, rev, people }` when any changes.
+//! - `gridcraft:call` (from the parent): `{ id, method, params }`, a JavaScript API call
+//!   (`crate::api::call`); answered with `gridcraft:result` `{ id, ok: true, result }` (and
+//!   `name`, `bytes` for a file) or `{ id, ok: false, error }`.
+//! - `gridcraft:event` (to the parent): `{ event, detail }`, what changed this frame
+//!   (`crate::api::Watcher`).
 //!
 //! Only the parent window on the page's own origin is heard or answered. In host mode the page
 //! starts with an empty workbook instead of a sample, and the parent guards leaving the page.
@@ -37,6 +45,10 @@ pub struct Bridge {
     saved: Rc<RefCell<Vec<String>>>,
     /// The unsaved-changes state last reported to the parent.
     reported: Rc<Cell<Option<bool>>>,
+    /// Co-editing relay messages from the parent, for the next frame.
+    /// API calls from the parent (id, method, params), waiting for the next frame.
+    calls: Rc<RefCell<std::collections::VecDeque<(f64, String, serde_json::Value)>>>,
+    collab: Rc<RefCell<std::collections::VecDeque<String>>>,
 }
 
 impl Bridge {
@@ -48,7 +60,7 @@ impl Bridge {
             return None;
         }
         let origin = window.location().origin().ok()?;
-        Some(Self { window, parent, origin, saved: Rc::default(), reported: Rc::default() })
+        Some(Self { window, parent, origin, saved: Rc::default(), reported: Rc::default(), collab: Rc::default(), calls: Rc::default() })
     }
 
     /// Send saved and exported files to the parent instead of downloading them, and hear files
@@ -97,7 +109,7 @@ impl Bridge {
         }
     }
 
-    fn post_save(&self, path: &str, bytes: &[u8]) -> Result<(), String> {
+    pub fn post_save(&self, path: &str, bytes: &[u8]) -> Result<(), String> {
         let name = std::path::Path::new(path).file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_else(|| path.to_string());
         let buffer = js_sys::Uint8Array::from(bytes).buffer();
         let message = message(&[("type", "gridcraft:save".into()), ("name", name.as_str().into()), ("bytes", buffer.clone().into())])
@@ -109,16 +121,106 @@ impl Bridge {
         Ok(())
     }
 
+    /// The co-editing messages the parent sent since the last call.
+    pub fn take_collab(&self) -> Vec<String> {
+        self.collab.borrow_mut().drain(..).collect()
+    }
+
+    /// Send a co-editing message to the relay, through the parent.
+    pub fn post_collab(&self, msg: &str) {
+        self.send(&[("type", "gridcraft:collab".into()), ("msg", msg.into())]);
+    }
+
+    /// The API calls the parent sent since the last frame.
+    pub fn take_calls(&self) -> Vec<(f64, String, serde_json::Value)> {
+        self.calls.borrow_mut().drain(..).collect()
+    }
+
+    /// Answer API call `id`; a file goes as a transferred `ArrayBuffer`.
+    pub fn post_result(&self, id: f64, reply: Result<crate::api::Reply, String>) {
+        let id = JsValue::from_f64(id);
+        let sent = match reply {
+            Ok(crate::api::Reply { result, file }) => {
+                let result = js_sys::JSON::parse(&result.to_string()).unwrap_or(JsValue::NULL);
+                let mut fields = vec![("type", "gridcraft:result".into()), ("id", id.clone()), ("ok", true.into()), ("result", result)];
+                match file {
+                    Some((name, bytes)) => {
+                        let buffer = js_sys::Uint8Array::from(bytes.as_slice()).buffer();
+                        fields.push(("name", name.as_str().into()));
+                        fields.push(("bytes", buffer.clone().into()));
+                        message(&fields)
+                            .is_some_and(|m| self.parent.post_message_with_transfer(&m, &self.origin, &js_sys::Array::of1(&buffer)).is_ok())
+                    }
+                    None => self.send(&fields),
+                }
+            }
+            Err(error) => {
+                self.send(&[("type", "gridcraft:result".into()), ("id", id.clone()), ("ok", false.into()), ("error", error.as_str().into())])
+            }
+        };
+        if !sent {
+            // The page still hears that the call failed, instead of waiting for its timeout.
+            log::warn!("api: couldn't answer a call");
+            let _ = self.send(&[("type", "gridcraft:result".into()), ("id", id), ("ok", false.into()), ("error", "couldn't send the result".into())]);
+        }
+    }
+
+    /// Tell the parent what changed (`gridcraft:event`).
+    pub fn post_event(&self, event: &str, detail: &serde_json::Value) {
+        let detail = js_sys::JSON::parse(&detail.to_string()).unwrap_or(JsValue::NULL);
+        self.send(&[("type", "gridcraft:event".into()), ("event", event.into()), ("detail", detail)]);
+    }
+
+    /// Tell the parent how co-editing stands.
+    pub fn post_collab_status(&self, pending: usize, rev: Option<u64>, people: usize) {
+        self.send(&[
+            ("type", "gridcraft:collab.status".into()),
+            ("pending", (pending as f64).into()),
+            ("rev", rev.map_or(JsValue::NULL, |r| (r as f64).into())),
+            ("people", (people as f64).into()),
+        ]);
+    }
+
     fn listen(&self, inbox: Inbox, ctx: egui::Context) {
         let parent = self.parent.clone();
         let origin = self.origin.clone();
+        let collab = self.collab.clone();
+        let calls = self.calls.clone();
         let on_message = Closure::<dyn FnMut(web_sys::MessageEvent)>::new(move |event: web_sys::MessageEvent| {
             if event.origin() != origin || !event.source().is_some_and(|s| js_sys::Object::is(&s, &parent)) {
                 return;
             }
             let data = event.data();
-            if string(&data, "type").as_deref() != Some("gridcraft:open") {
-                return;
+            match string(&data, "type").as_deref() {
+                Some("gridcraft:open") => {}
+                Some("gridcraft:call") => {
+                    let id = js_sys::Reflect::get(&data, &JsValue::from_str("id")).ok().and_then(|v| v.as_f64());
+                    let method = string(&data, "method");
+                    // No params is `{}`; anything but an object (or something that can't be read as
+                    // JSON) is passed on as null, which the call refuses.
+                    let params = match js_sys::Reflect::get(&data, &JsValue::from_str("params")) {
+                        Ok(p) if p.is_undefined() || p.is_null() => serde_json::json!({}),
+                        Ok(p) if p.is_object() && !js_sys::Array::is_array(&p) => js_sys::JSON::stringify(&p)
+                            .ok()
+                            .and_then(|p| p.as_string())
+                            .and_then(|p| serde_json::from_str(&p).ok())
+                            .unwrap_or(serde_json::Value::Null),
+                        _ => serde_json::Value::Null,
+                    };
+                    if let (Some(id), Some(method)) = (id, method) {
+                        calls.borrow_mut().push_back((id, method, params));
+                        ctx.request_repaint();
+                    }
+                    return;
+                }
+                Some("gridcraft:collab") => {
+                    if let Some(msg) = string(&data, "msg") {
+                        collab.borrow_mut().push_back(msg);
+                        ctx.request_repaint();
+                    }
+                    return;
+                }
+                _ => return,
             }
             let name = string(&data, "name").filter(|n| !n.trim().is_empty()).unwrap_or_else(|| "Book.xlsx".to_string());
             let Some(bytes) = bytes(&data) else { return };

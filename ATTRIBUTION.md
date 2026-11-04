@@ -1,5 +1,9 @@
 # Asset attribution
 
+Craft Docs' assets are listed below. Craft Sheets' are in [sheets/ATTRIBUTION.md](sheets/ATTRIBUTION.md)
+and Craft Slides' in [slides/ATTRIBUTION.md](slides/ATTRIBUTION.md); the Arabic and Hebrew fonts all
+three apps use come from the pinned craft-fonts input listed here.
+
 Every non-code asset in this repository (fonts, icons, images, example documents) is listed here with its author, source and licence. `cargo xtask assets` (part of `cargo xtask ci`) fails if an asset file is missing from this table.
 
 **Policy (mandatory):** WordCraft contains **no Microsoft, Adobe, Avid or Autodesk iconography, images, templates, themes, clip art, fonts or other assets**. Every asset is original work by WordCraft contributors or third-party material under an open licence (OSI open source, public domain / CC0, or a Creative Commons licence that allows redistribution). Screenshots of other vendors' software are never committed. New font files go to [storytold/craft-fonts](https://github.com/storytold/craft-fonts), not this repo.
@@ -64,6 +68,10 @@ Generated-in-code art is original and has no file to list: the UI icon set (`cra
 | `docs/images/references.png` | WordCraft contributors | screenshot of WordCraft itself (sample document written for WordCraft, rendered by `ui_shot`) | MIT OR Apache-2.0 | Original; no Microsoft UI or assets |
 | `docs/images/hero.png` | WordCraft contributors | screenshot of WordCraft itself (sample document written for WordCraft, rendered by `ui_shot`) | MIT OR Apache-2.0 | Original; no Microsoft UI or assets |
 | `docs/images/design.png` | WordCraft contributors | screenshot of WordCraft itself (sample document written for WordCraft, rendered by `ui_shot`) | MIT OR Apache-2.0 | Original; no Microsoft UI or assets |
+| `docs/images/sheets.png` | Hossam Taha | screenshot of Craft Sheets itself (data written for it, rendered by sheets/crates/ui-egui/tests/it/rtl.rs `readme_pictures` with CRAFT_README_SHOTS) | MIT OR Apache-2.0 | Original; no Microsoft UI or assets |
+| `docs/images/sheets-arabic.png` | Hossam Taha | screenshot of Craft Sheets itself (data written for it, rendered by sheets/crates/ui-egui/tests/it/rtl.rs `readme_pictures` with CRAFT_README_SHOTS) | MIT OR Apache-2.0 | Original; no Microsoft UI or assets |
+| `docs/images/slides.png` | Hossam Taha | screenshot of Craft Slides itself (data written for it, rendered by slides/crates/ui-egui/src/rtl_tests.rs `readme_pictures` with CRAFT_README_SHOTS) | MIT OR Apache-2.0 | Original; no Microsoft UI or assets |
+| `docs/images/slides-arabic.png` | Hossam Taha | screenshot of Craft Slides itself (data written for it, rendered by slides/crates/ui-egui/src/rtl_tests.rs `readme_pictures` with CRAFT_README_SHOTS) | MIT OR Apache-2.0 | Original; no Microsoft UI or assets |
 | `docs/images/dark.png` | WordCraft contributors | screenshot of WordCraft itself (sample document written for WordCraft, rendered by `ui_shot`) | MIT OR Apache-2.0 | Original; no Microsoft UI or assets |
 | `docs/images/backstage.png` | WordCraft contributors | screenshot of WordCraft itself (sample document written for WordCraft, rendered by `ui_shot`) | MIT OR Apache-2.0 | Original; no Microsoft UI or assets |
 | `docs/images/layout.png` | WordCraft contributors | screenshot of WordCraft itself (sample document written for WordCraft, rendered by `ui_shot`) | MIT OR Apache-2.0 | Original; no Microsoft UI or assets |

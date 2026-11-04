@@ -88,6 +88,10 @@ pub fn start() {
                     let (stored_ui, stored_prefs) = (stored(crate::prefs::UI_KEY), stored(crate::prefs::PREFS_KEY));
                     crate::prefs::restore(&mut app, stored_ui.as_deref(), stored_prefs.as_deref());
                     let mut prefs = crate::prefs::PrefsSync::new(stored_ui, stored_prefs);
+                    // `?lang=ar`: the host page picks the interface language (over the saved one).
+                    if let Some(lang) = query_param("lang").and_then(|l| gridcraft_ui_egui::i18n::Language::parse(&l)) {
+                        app.ui.language = lang;
+                    }
                     SheetApp::setup_context_for_language(&cc.egui_ctx, false, app.ui.language);
                     if let Some(bridge) = &app_bridge {
                         prefs.keep_user_name(app.session.prefs.user_name.clone());
@@ -96,7 +100,22 @@ pub fn start() {
                         }
                         bridge.post_ready();
                     }
-                    Ok(Box::new(WebShell { app, inbox, bridge: app_bridge, prefs }))
+                    // `?collab=1` (with a host bridge): co-edit the workbook the page's relay shares.
+                    let collab = (app_bridge.is_some() && query_param("collab").as_deref() == Some("1")).then(|| {
+                        let link = gridcraft_collab::link::CollabLink::new(query_param("docName"));
+                        // `?collabNew=1`: the page opens no file; the first person shares what is open.
+                        if query_param("collabNew").as_deref() == Some("1") { link.sharing_what_is_open() } else { link }
+                    });
+                    Ok(Box::new(WebShell {
+                        app,
+                        inbox,
+                        bridge: app_bridge,
+                        prefs,
+                        collab,
+                        batch: Default::default(),
+                        status: (0, None, 0),
+                        watcher: Default::default(),
+                    }))
                 }),
             )
             .await;
@@ -125,6 +144,56 @@ struct WebShell {
     inbox: Inbox,
     bridge: Option<crate::host::Bridge>,
     prefs: crate::prefs::PrefsSync,
+    /// Co-editing (`?collab=1`): the link between the replica and the page's relay.
+    collab: Option<gridcraft_collab::link::CollabLink>,
+    /// Other people's edits wait here to be applied together.
+    batch: craft_collab_link::batch::RemoteBatch,
+    /// The co-editing status last posted to the parent (pending edits, revision, people).
+    status: (usize, Option<u64>, usize),
+    /// What the page's JavaScript API has been told (`gridcraft:event`).
+    watcher: crate::api::Watcher,
+}
+
+impl WebShell {
+    /// The page's JavaScript API calls, and the relay's HTTP API requests (exports and commands)
+    /// this editor answers.
+    fn page_api(&mut self) {
+        // The page's JavaScript API: its calls run before the co-editing tick, so their edits
+        // go to the relay this frame.
+        if let Some(bridge) = self.bridge.as_ref() {
+            for (id, method, params) in bridge.take_calls() {
+                bridge.post_result(id, crate::api::call(&mut self.app, &method, &params));
+            }
+        }
+        // The relay's HTTP API: exports and commands it asked this editor for.
+        if let (Some(link), Some(bridge)) = (self.collab.as_mut(), self.bridge.as_ref()) {
+            for request in link.take_host_requests() {
+                use gridcraft_collab::link::{CollabLink, HostRequest};
+                let answer = match request {
+                    HostRequest::Export { id, format } if format == "txt" => {
+                        CollabLink::exported(id, crate::api::workbook_text(&self.app).map(String::into_bytes))
+                    }
+                    HostRequest::Export { id, format } => CollabLink::exported(id, crate::api::document_file(&mut self.app, &format).map(|(_, b)| b)),
+                    HostRequest::Run { id, cmd, params, author } => CollabLink::ran(id, crate::api::run_as(&mut self.app, &cmd, params, &author)),
+                };
+                bridge.post_collab(&answer);
+            }
+        }
+    }
+
+    /// Tell the page what changed this frame.
+    fn page_events(&mut self) {
+        if let Some(bridge) = self.bridge.as_ref() {
+            let (rev, edited_by) = match self.collab.as_mut() {
+                Some(link) => (link.rev().unwrap_or(0), link.take_edited_by()),
+                None => (crate::api::local_rev(&self.app), Vec::new()),
+            };
+            let people: Vec<(String, u8)> = self.app.peers.iter().map(|p| (p.name.clone(), p.color)).collect();
+            for (event, detail) in self.watcher.events(&self.app, rev, &edited_by, &people) {
+                bridge.post_event(event, &detail);
+            }
+        }
+    }
 }
 
 fn local_storage() -> Option<web_sys::Storage> {
@@ -153,7 +222,55 @@ impl eframe::App for WebShell {
                 }
             });
         }
+        let now = ctx.input(|i| i.time) * 1000.0;
+        if let (Some(link), Some(bridge)) = (self.collab.as_mut(), self.bridge.as_ref()) {
+            for msg in bridge.take_collab() {
+                self.batch.push(msg);
+            }
+            for msg in self.batch.release(now) {
+                for out in link.on_message(&msg, &mut self.app.session) {
+                    bridge.post_collab(&out);
+                }
+            }
+            if let Some(wait) = self.batch.wait(now) {
+                ctx.request_repaint_after(std::time::Duration::from_secs_f64(wait / 1000.0));
+            }
+            if link.take_document_ready() {
+                self.app.backstage = None;
+            }
+        }
         self.app.logic(ctx);
+        self.page_api();
+        if let (Some(link), Some(bridge)) = (self.collab.as_mut(), self.bridge.as_ref()) {
+            for out in link.tick(&mut self.app.session, now) {
+                bridge.post_collab(&out);
+            }
+            if let Some(note) = link.take_note() {
+                self.app.toast = Some((note, gridcraft_ui_egui::now_ms()));
+            }
+            let peers = link.peers(&self.app.session);
+            let status = (link.pending(), link.rev(), peers.len() + 1);
+            self.app.peers = peers
+                .into_iter()
+                .map(|p| gridcraft_ui_egui::grid::peers::RemotePeer { typing: p.typing(now), name: p.name, color: p.color, place: p.sel })
+                .collect();
+            if status != self.status {
+                self.status = status;
+                bridge.post_collab_status(status.0, status.1, status.2);
+            }
+            if link.presence_pending() {
+                ctx.request_repaint_after(std::time::Duration::from_millis(100));
+            }
+            // Autosave: the relay chose this editor to save the shared workbook.
+            if link.take_save_request() {
+                match self.app.run("file.save", serde_json::json!({})) {
+                    Ok(_) => bridge.post_collab(&link.saved()),
+                    Err(e) => log::warn!("co-editing: autosave failed: {e}"),
+                }
+            }
+            co_editing_ui(&mut self.app, link, bridge);
+        }
+        self.page_events();
         // Store changed preferences straight away: a reload or closed tab runs no exit code (#1562).
         let changed = self.prefs.changed(&self.app);
         if !changed.is_empty() {
@@ -489,4 +606,39 @@ fn trigger_anchor_download(window: &web_sys::Window, name: &str, bytes: &[u8]) -
     });
     window.set_timeout_with_callback_and_timeout_and_arguments_0(revoke.unchecked_ref(), 10_000).map_err(js)?;
     Ok(())
+}
+
+/// The co-editing UI: undo state, the save indicator, the read-only notice and Version history.
+fn co_editing_ui(app: &mut SheetApp, link: &mut gridcraft_collab::link::CollabLink, bridge: &crate::host::Bridge) {
+    use gridcraft_ui_egui::collab_ui::{CollabRequest, SyncState, VersionRow, WorkbookPreview};
+    app.collab.active = link.rev().is_some();
+    app.collab.can_undo = link.can_undo();
+    app.collab.can_redo = link.can_redo();
+    app.collab.offline = link.offline_locked();
+    app.collab.connected = link.online();
+    app.collab.sync = app.collab.active.then(|| SyncState::of(link.online(), link.pending()));
+    if let Some(versions) = link.take_versions() {
+        app.collab.set_versions(versions.into_iter().map(|v| VersionRow { rev: v.rev, at: v.at, users: v.users }).collect());
+    }
+    if let Some((rev, json)) = link.take_version_doc() {
+        let wb = json.and_then(|json| <gridcraft_collab::SheetsDoc as craft_collab_link::LinkHost>::decode(&json));
+        app.collab.set_preview(rev, WorkbookPreview::new(wb));
+    }
+    for request in app.take_collab_requests() {
+        match request {
+            CollabRequest::ListVersions => bridge.post_collab(&link.list_versions()),
+            CollabRequest::Preview(rev) => bridge.post_collab(&link.get_version(rev)),
+            CollabRequest::Restore(rev) => {
+                link.restore(rev);
+            }
+            CollabRequest::SaveMyCopy => {
+                let Some(d) = app.session.active() else { continue };
+                let title = d.display_title();
+                let stem = std::path::Path::new(&title).file_stem().map_or_else(|| title.clone(), |s| s.to_string_lossy().to_string());
+                let name = format!("{stem} (my copy).xlsx");
+                let saved = gridcraft_xlsx::write_xlsx(&d.wb).map_err(|e| e.to_string()).and_then(|bytes| bridge.post_save(&name, &bytes));
+                app.toast = Some((saved.map_or_else(|e| e, |()| format!("Saved {name}")), gridcraft_ui_egui::now_ms()));
+            }
+        }
+    }
 }

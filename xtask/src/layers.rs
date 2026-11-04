@@ -50,11 +50,19 @@ pub const TABLE: &[(&str, Class)] = &[
     ("collab", Class::Layer(5)),
     // The suite's co-editing core, shared by Docs, Sheets and Slides: no workspace crate below it.
     ("craft-collab-core", Class::Standalone),
+    // The page ↔ replica glue all three apps share: on the core only.
+    ("craft-collab-link", Class::Layer(1)),
+    // The co-editing windows Craft Sheets and Craft Slides share (egui only).
+    ("craft-collab-ui", Class::Layer(6)),
+    // Agents in shared documents (a WebSocket client): native only, for the CLIs.
+    ("craft-collab-agent", Class::Exempt),
     ("zotero", Class::Layer(5)),
     ("ui-egui", Class::Layer(6)),
     ("testkit", Class::Testkit),
     // apps and tooling
     ("wordcraft", Class::Exempt),
+    // The suite's start window and command line: they start the three apps, using none of their crates.
+    ("craft-suite", Class::Exempt),
     ("cli", Class::Exempt),
     ("web", Class::Exempt),
     ("xtask", Class::Exempt),

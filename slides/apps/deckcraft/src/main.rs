@@ -243,7 +243,7 @@ fn main() -> eframe::Result {
         display::Choice::None => {
             // winit's own error says little to someone who started DeckCraft from a console.
             log::error!("no display: DISPLAY and WAYLAND_DISPLAY are not set");
-            eprintln!("DeckCraft needs a graphical session: neither DISPLAY nor WAYLAND_DISPLAY is set.");
+            eprintln!("Craft Slides needs a graphical session: neither DISPLAY nor WAYLAND_DISPLAY is set.");
             false
         }
     };

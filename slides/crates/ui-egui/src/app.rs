@@ -44,6 +44,8 @@ impl SlideApp {
             last_outline: serde_json::json!("tx1"),
             table_pen: serde_json::json!({"width": 1.0}),
             session,
+            peers: Vec::new(),
+            collab: Default::default(),
             services,
             ui: UiState::default(),
             textures: textures::Textures::default(),
@@ -268,6 +270,7 @@ impl SlideApp {
             log::debug!("ignoring SlideApp::ui for render-only viewport {:?}", ctx.viewport_id());
             return;
         }
+        crate::i18n::install(&ctx, self.ui.language);
         self.ui_inner(ui);
         // The last writer (all panels, dialogs, the custom producer and deferred child windows)
         // has run. Observe the actual custom descriptor for this pass, then reconcile the reset
@@ -349,6 +352,7 @@ impl SlideApp {
         toast::note_missing_fonts(self);
         toast::show(self, &ctx);
         dialogs::show(self, &ctx);
+        crate::collab_ui::show(self, &ctx);
         #[cfg(not(target_arch = "wasm32"))]
         updates_ui::show(self, &ctx);
         menus::palette(self, &ctx);

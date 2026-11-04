@@ -119,6 +119,8 @@ pub fn render_pdf(wb: &Workbook, layouts: &[SheetLayout], file: &str, path: &str
             let oy = lay.margins[2] + if lay.settings.center_v { ((ah - content_h) / 2.0).max(0.0) } else { 0.0 };
             let page_index = doc.page_count();
             let pg = doc.add_page(lay.page_w, lay.page_h);
+            // A right-to-left sheet prints mirrored, column A at the right, as it shows.
+            pg.set_mirrored(sh.right_to_left);
             let mut y = oy + lay.heading_h * k;
             let mut body: Option<Block> = None;
             for (rsi, rs) in rsegs.iter().enumerate() {

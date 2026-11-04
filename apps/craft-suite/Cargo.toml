@@ -1,0 +1,24 @@
+[package]
+name = "craft-suite"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+default-run = "craft-suite"
+description = "Craft Collab Suite: the start window and command line that open Craft Docs, Craft Sheets and Craft Slides"
+
+[lints]
+workspace = true
+
+[dependencies]
+eframe = { workspace = true, features = ["default_fonts", "wgpu", "accesskit", "clipboard", "wayland", "x11"] }
+egui = { workspace = true }
+rfd = { workspace = true }
+
+[[bin]]
+name = "craft-suite"
+path = "src/main.rs"
+
+[[bin]]
+name = "craft-suite-cli"
+path = "src/bin/craft-suite-cli.rs"

@@ -99,18 +99,47 @@ pub struct Recorded {
     pub before: Option<Arc<Presentation>>,
 }
 
+/// What the person may do in a co-edited presentation (their join token's role).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum CollabRole {
+    #[default]
+    Edit,
+    /// Changes to slides and shapes, as suggestions others accept or reject, and comments.
+    Suggest,
+    /// Comments only.
+    Comment,
+    /// Read only.
+    View,
+}
+
+/// What a commenter may change.
+pub const COMMENT_COMMANDS: &[&str] = &["comment.add", "comment.reply", "comment.delete", "comment.resolve"];
+
 #[derive(Debug)]
 pub(crate) struct CollabState {
     on: bool,
     recording: bool,
+    role: CollabRole,
+    /// Read only (Viewing, or offline too long) and whether the person may lift it themselves.
+    read_only: (bool, bool),
     /// A recorded command is running: the commands it runs aren't recorded again.
     busy: bool,
     outbox: Vec<Recorded>,
+    /// The relay's HTTP API is running a command through this editor as this author.
+    api_author: Option<String>,
 }
 
 impl Default for CollabState {
     fn default() -> Self {
-        CollabState { on: false, recording: true, busy: false, outbox: Vec::new() }
+        CollabState {
+            on: false,
+            recording: true,
+            role: CollabRole::Edit,
+            read_only: (false, false),
+            busy: false,
+            outbox: Vec::new(),
+            api_author: None,
+        }
     }
 }
 
@@ -144,6 +173,41 @@ impl Session {
         self.collab.recording
     }
 
+    /// What the person may do while co-editing; the relay refuses the rest anyway, this says so
+    /// before the edit shows.
+    pub fn set_collab_role(&mut self, role: CollabRole) {
+        self.collab.role = role;
+    }
+
+    pub fn collab_role(&self) -> CollabRole {
+        self.collab.role
+    }
+
+    /// Read only while co-editing (`locked`: the person can't lift it, as when offline too long).
+    pub fn set_read_only(&mut self, on: bool, locked: bool) {
+        self.collab.read_only = (on, locked);
+    }
+
+    pub fn read_only(&self) -> (bool, bool) {
+        self.collab.read_only
+    }
+
+    /// Whether the person may make edit `id` now, and why not.
+    fn may_change(&self, id: &str) -> Result<()> {
+        let refuse = |why: &str| Err(EngineError::Disabled(id.into(), why.into()));
+        if self.collab.read_only.0 {
+            return refuse("This presentation is read only for now");
+        }
+        match self.collab.role {
+            CollabRole::Edit => Ok(()),
+            CollabRole::Comment if COMMENT_COMMANDS.contains(&id) => Ok(()),
+            CollabRole::Comment => refuse("You can only comment on this presentation"),
+            CollabRole::Suggest if crate::suggest::SUGGEST_COMMANDS.contains(&id) || COMMENT_COMMANDS.contains(&id) => Ok(()),
+            CollabRole::Suggest => refuse("You can only suggest changes to this presentation"),
+            CollabRole::View => refuse("You can only view this presentation"),
+        }
+    }
+
     /// The edits recorded since the last call.
     pub fn take_outbox(&mut self) -> Vec<Recorded> {
         std::mem::take(&mut self.collab.outbox)
@@ -159,7 +223,27 @@ impl Session {
             minute: d.minute,
             second: d.second,
         });
-        RunCtx { author: self.prefs.author.clone(), initials: String::new(), time: crate::cmd::review::now_secs(), local, track: false, api: false }
+        let time = crate::cmd::review::now_secs();
+        match &self.collab.api_author {
+            Some(author) => RunCtx { author: author.clone(), initials: initials_of(author), time, local, track: false, api: true },
+            None => RunCtx {
+                author: self.prefs.author.clone(),
+                initials: String::new(),
+                time,
+                local,
+                track: self.suggesting || self.collab.role == CollabRole::Suggest,
+                api: false,
+            },
+        }
+    }
+
+    /// Run `f` as the relay's HTTP API's edit by `author` (its name and initials; not this
+    /// person's to undo). This person's own name is theirs again afterwards.
+    pub fn as_api_author<R>(&mut self, author: &str, f: impl FnOnce(&mut Session) -> R) -> R {
+        let before = self.collab.api_author.replace(author.to_string());
+        let r = f(self);
+        self.collab.api_author = before;
+        r
     }
 
     /// Where the active presentation's selection is.
@@ -221,10 +305,12 @@ impl Session {
             minute: l.minute,
             second: l.second,
         });
+        let track = std::mem::replace(&mut self.track_ctx, ctx.track.then(|| (ctx.author.clone(), ctx.time)));
         let result = with_clock(ctx.time, || match local {
             Some(l) => deckcraft_text::datetime::with_local_now(l, || self.execute(id, params)),
             None => self.execute(id, params),
         });
+        self.track_ctx = track;
         self.collab.busy = busy;
         self.prefs.author = author;
         result
@@ -244,6 +330,7 @@ impl Session {
         }
         let person = self.collab.recording;
         if COLLAB_UNDO.contains(&id) && person {
+            self.may_change(id)?;
             let place = self.collab_place();
             let ctx = self.run_ctx();
             let before = self.active().map(|d| d.doc.clone());
@@ -274,9 +361,96 @@ impl Session {
             _ => false,
         };
         if result.is_ok() && changed {
+            // What the person may not change is put back: the edit never happened.
+            if let Err(e) = self.may_change(id) {
+                if let (Some((_, doc)), Some(d)) = (before, self.active_mut()) {
+                    d.doc = doc;
+                    d.revision += 1;
+                    crate::clamp_selection(d);
+                }
+                return Err(e);
+            }
             let before = before.map(|(_, doc)| doc);
             self.collab.outbox.push(Recorded { id: id.into(), params: params.clone(), place, ctx, before });
         }
         result
+    }
+}
+
+/// The first letters of a name's words ("Report Bot" → "RB"), as the HTTP API's edits are
+/// initialled.
+fn initials_of(name: &str) -> String {
+    name.split_whitespace().filter_map(|w| w.chars().next()).collect()
+}
+
+impl Session {
+    /// Whose suggestion an edit made now is and when: a replayed edit's with `track` on, or this
+    /// person's own in Suggesting mode (not co-editing: there the edit's context says).
+    pub(crate) fn track_now(&self) -> Option<(String, u64)> {
+        if let Some(t) = &self.track_ctx {
+            return Some(t.clone());
+        }
+        (self.suggesting && !self.collab.on).then(|| (self.prefs.author.clone(), self.run_ctx().time))
+    }
+
+    /// Runs edit `id` as `author`'s suggestion: what it changes in slides and shapes is recorded
+    /// with how it was ([`crate::suggest`]). What isn't an edit, and the review commands, run as
+    /// they are; an edit that can't be suggested is refused.
+    pub(crate) fn execute_tracked(&mut self, id: &str, params: &Value, author: &str, time: u64) -> Result<Value> {
+        // Input-method typing changes text without an undo step of its own; it is suggested too.
+        let ime = matches!(id, "text.compose" | "text.commit" | "text.deleteSurrounding");
+        let edits = ime || crate::cmd::find_command(id).is_some_and(|spec| spec.undoable);
+        // Starting and leaving text editing change no content; comments are never suggestions;
+        // reviewing settles them.
+        if !edits || crate::suggest::REVIEW_COMMANDS.contains(&id) || COMMENT_COMMANDS.contains(&id) || matches!(id, "text.edit" | "text.exit") {
+            return self.run_wrapped(id, params);
+        }
+        if !crate::suggest::SUGGEST_COMMANDS.contains(&id) {
+            return Err(EngineError::Disabled(id.into(), "This can't be suggested: only changes to slides, shapes and their text can".into()));
+        }
+        let before = self.active().map(|d| (d.uid, d.doc.clone(), d.history.undo.len(), d.history.redo.clone()));
+        let result = self.run_wrapped(id, params)?;
+        let Some((uid, before, undo_len, redo)) = before else { return Ok(result) };
+        let Some(d) = self.active_mut().filter(|d| d.uid == uid && !Arc::ptr_eq(&before, &d.doc)) else { return Ok(result) };
+        let mut doc = (*d.doc).clone();
+        match crate::suggest::record(&before, &mut doc, author, time) {
+            Ok(()) => {
+                d.doc = Arc::new(doc);
+                Ok(result)
+            }
+            Err(e) => {
+                // The edit never happened: its undo step goes too.
+                d.doc = before;
+                d.history.undo.truncate(undo_len);
+                d.history.redo = redo;
+                d.revision += 1;
+                crate::clamp_selection(d);
+                Err(e)
+            }
+        }
+    }
+
+    /// Runs a top-level command outside the suggestion wrappers.
+    fn run_wrapped(&mut self, id: &str, params: &Value) -> Result<Value> {
+        self.track_busy = true;
+        let r = self.execute(id, params);
+        self.track_busy = false;
+        r
+    }
+
+    /// Runs a direct edit (not a suggestion) in a presentation with suggestions: what it changes
+    /// settles them ([`crate::suggest::follow`]). Reviewing, undo and redo leave them as those
+    /// commands set them.
+    pub(crate) fn execute_followed(&mut self, id: &str, params: &Value) -> Result<Value> {
+        let keeps = crate::suggest::REVIEW_COMMANDS.contains(&id) || COLLAB_UNDO.contains(&id);
+        let before = self.active().filter(|d| !keeps && d.doc.tags.iter().any(|(k, _)| k == crate::suggest::TAG)).map(|d| (d.uid, d.doc.clone()));
+        let result = self.run_wrapped(id, params)?;
+        let Some((uid, before)) = before else { return Ok(result) };
+        let Some(d) = self.active_mut().filter(|d| d.uid == uid && !Arc::ptr_eq(&before, &d.doc)) else { return Ok(result) };
+        let mut doc = (*d.doc).clone();
+        if crate::suggest::follow(&before, &mut doc) {
+            d.doc = Arc::new(doc);
+        }
+        Ok(result)
     }
 }

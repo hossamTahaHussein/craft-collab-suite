@@ -119,7 +119,7 @@ fn calc_options(app: &mut SheetApp, ui: &mut Ui, lang: Language, calc: &gridcraf
 /// Maximum Iterations and Maximum Change, live only while iterative calculation is on.
 fn iteration_options(app: &mut SheetApp, ui: &mut Ui, lang: Language, calc: &gridcraft_engine::model::CalcSettings, iterative: bool) {
     ui.add_enabled_ui(iterative, |ui| {
-        ui.horizontal(|ui| {
+        crate::rtl::horizontal(ui, |ui| {
             ui.add_space(24.0);
             egui::Grid::new("backstage_options_iteration").num_columns(2).spacing(vec2(12.0, 6.0)).show(ui, |ui| {
                 let label = ui.label(lang.tr("Maximum Iterations:"));
@@ -164,7 +164,7 @@ fn iteration_options(app: &mut SheetApp, ui: &mut Ui, lang: Language, calc: &gri
 /// committed the field is consumed so it doesn't also dismiss the message box in this frame.
 fn refuse(app: &mut SheetApp, ui: &mut Ui, text: &str) {
     ui.input_mut(|i| i.consume_key(Modifiers::NONE, Key::Enter));
-    app.message = Some(("GridCraft".into(), app.ui.language.tr(text).into()));
+    app.message = Some(("Craft Sheets".into(), app.ui.language.tr(text).into()));
 }
 
 /// Maximum Iterations as typed: a whole number from 1 to 32767, or `None` (Excel refuses others).

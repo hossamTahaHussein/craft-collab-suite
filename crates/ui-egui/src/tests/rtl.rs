@@ -224,7 +224,13 @@ fn dialog_buttons_sit_at_the_left_and_rows_start_at_the_right() {
         ok.center().x < choice.center().x && cancel.center().x < choice.center().x,
         "buttons at the dialog's left, choices at its right: {ok:?} {cancel:?} {choice:?}"
     );
-    assert!(cancel.center().x < ok.center().x, "mirrored order: Cancel left of OK");
+    // The platform's order, mirrored (`ok_cancel_responses`): Windows and Linux put OK left of
+    // Cancel, so Cancel comes first from the left here; macOS puts Cancel left of OK, so OK does.
+    if cfg!(target_os = "macos") {
+        assert!(ok.center().x < cancel.center().x, "mirrored order: OK left of Cancel");
+    } else {
+        assert!(cancel.center().x < ok.center().x, "mirrored order: Cancel left of OK");
+    }
 }
 
 #[test]

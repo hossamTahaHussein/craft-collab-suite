@@ -140,13 +140,13 @@ pub(super) fn size_group(app: &mut SlideApp, ui: &mut Ui) {
             let (ppu, suffix) = (len.points_per_unit(), len.suffix());
             // " cm" needs more room than the inch mark.
             let width = if len == deckcraft_geom::Unit::Inches { 54.0 } else { 66.0 };
-            ui.horizontal(|ui| {
+            crate::rtl::fit_row(ui, |ui| {
                 ui.label("Height:");
                 if let Some(v) = widgets::spinner(ui, "sh", "Height", x.h / ppu, 0.1, suffix, width) {
                     run(app, "shape.resize", json!({"h": v.max(0.0) * ppu}));
                 }
             });
-            ui.horizontal(|ui| {
+            crate::rtl::fit_row(ui, |ui| {
                 ui.label("Width: ");
                 if let Some(v) = widgets::spinner(ui, "sw", "Width", x.w / ppu, 0.1, suffix, width) {
                     run(app, "shape.resize", json!({"w": v.max(0.0) * ppu}));
