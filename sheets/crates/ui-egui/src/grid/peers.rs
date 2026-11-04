@@ -102,6 +102,27 @@ pub(crate) fn paint_peers(p: &Painter, geo: &Geo, sh: &Sheet, peers: &[RemotePee
     }
 }
 
+/// The rows each person's active cell covers on sheet `sheet`, with their colour: `(first row,
+/// last row, colour)`, for the ticks on the row header.
+pub(crate) fn row_ticks(sh: &Sheet, peers: &[RemotePeer]) -> Vec<(u32, u32, u8)> {
+    marks(sh, peers).into_iter().map(|m| (m.active.start.row, m.active.end.row, m.color)).collect()
+}
+
+/// A tick in each person's colour on the row header beside the rows they are on, at the header's
+/// edge against the cells.
+pub(crate) fn paint_row_ticks(p: &Painter, geo: &Geo, sh: &Sheet, peers: &[RemotePeer]) {
+    let dark = p.ctx().global_style().visuals.dark_mode;
+    let edge = geo.cells.left();
+    let clip = p.with_clip_rect(Rect::from_min_max(egui::pos2(geo.head_left(), geo.cells.top()), egui::pos2(edge, geo.rect.bottom())));
+    for (first, last, color) in row_ticks(sh, peers) {
+        let (top, bottom) = (geo.y(sh, first), geo.y(sh, last) + sh.row_height(last) * geo.z);
+        if bottom <= top {
+            continue;
+        }
+        clip.rect_filled(Rect::from_min_max(egui::pos2(edge - 4.0, top), egui::pos2(edge - 1.0, bottom)), 0.0, peer_color(color, dark));
+    }
+}
+
 /// The first letter of the first and last words of a name ("Ann Lee" → "AL").
 pub fn initials(name: &str) -> String {
     let words: Vec<&str> = name.split_whitespace().collect();
@@ -169,6 +190,16 @@ mod tests {
         }
         let m = marks(&sh, &[p]);
         assert_eq!(m[0].ranges, vec![RangeRef::parse("A1:C3").unwrap()]);
+    }
+
+    /// The row header shows a tick in each person's colour on the rows of their active cell (a
+    /// merged one's rows too), as Docs' margin bar marks the lines people are on.
+    #[test]
+    fn row_headers_tick_the_rows_people_are_on() {
+        let mut sh = Sheet::new("Sheet1");
+        sh.merges.push(RangeRef::parse("D4:E6").unwrap());
+        let ticks = row_ticks(&sh, &[peer("Sheet1", "B2", false), peer("Sheet2", "C9", false), peer("Sheet1", "D4", true)]);
+        assert_eq!(ticks, vec![(1, 1, 3), (3, 5, 3)]);
     }
 
     #[test]

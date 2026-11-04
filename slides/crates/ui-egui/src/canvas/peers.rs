@@ -64,6 +64,18 @@ pub(crate) fn marks(st: &DocState, peers: &[RemotePeer]) -> Vec<Mark> {
 }
 
 pub(super) fn paint_peers(st: &DocState, painter: &egui::Painter, xf: Xf, peers: &[RemotePeer]) {
+    // Their text selections and carets, in their colours.
+    for (color, ts) in text_carets(st, peers) {
+        let c = peer_color(color);
+        for quad in super::overlays::text_marks(st, &ts).iter().flat_map(|m| &m.selection) {
+            painter.add(egui::Shape::convex_polygon(quad.iter().map(|q| xf.to_screen(*q)).collect(), c.gamma_multiply(0.25), Stroke::NONE));
+        }
+        if !ts.is_range()
+            && let Some((top, bottom)) = deckcraft_engine::cmd::text::caret_line(st, &ts)
+        {
+            painter.line_segment([xf.to_screen(top), xf.to_screen(bottom)], Stroke::new(2.0, c));
+        }
+    }
     for m in marks(st, peers) {
         let c = peer_color(m.color);
         let mut top: Option<Pos2> = None;
@@ -87,6 +99,35 @@ pub(super) fn paint_peers(st: &DocState, painter: &egui::Painter, xf: Xf, peers:
             painter.galley(origin + pad, galley, Color32::WHITE);
         }
     }
+}
+
+/// The colours of the people on slide `slide`, for the dots on its thumbnail.
+pub(crate) fn colors_on(peers: &[RemotePeer], slide: deckcraft_model::SlideId) -> Vec<u8> {
+    peers.iter().filter(|p| p.place.as_ref().is_some_and(|pl| pl.slide == slide)).map(|p| p.color).collect()
+}
+
+/// Dots in the colours of the people on a slide, along the top of its thumbnail `img` from its
+/// reading-end corner.
+pub(crate) fn paint_thumb_dots(painter: &egui::Painter, img: Rect, colors: &[u8], rtl: bool) {
+    const R: f32 = 4.0;
+    for (i, c) in colors.iter().take(6).enumerate() {
+        let dx = R + 3.0 + i as f32 * (2.0 * R + 2.0);
+        let x = if rtl { img.left() + dx } else { img.right() - dx };
+        painter.circle(Pos2::new(x, img.top() + R + 3.0), R, peer_color(*c), Stroke::new(1.0, Color32::WHITE));
+    }
+}
+
+/// The text people are typing in on the slide shown (not the notes), with their colours.
+pub(crate) fn text_carets(st: &DocState, peers: &[RemotePeer]) -> Vec<(u8, deckcraft_engine::TextSel)> {
+    let Some(shown) = st.doc.slides.get(st.selection.slide).map(|s| s.id) else { return Vec::new() };
+    peers
+        .iter()
+        .filter_map(|p| {
+            let place = p.place.as_ref().filter(|pl| pl.slide == shown)?;
+            let ts = place.selection.text.as_ref().filter(|t| !t.notes && st.shape(t.shape).is_some())?;
+            Some((p.color, ts.clone()))
+        })
+        .collect()
 }
 
 /// The first letter of the first and last words of a name ("Ann Lee" → "AL").
@@ -145,5 +186,48 @@ mod tests {
         ];
         let m = marks(st, &peers);
         assert_eq!(m, vec![Mark { color: 1, shapes: vec![title], flag: Some("Ann".into()) }], "Bob is on another slide");
+    }
+
+    /// The thumbnails pane puts a dot in each person's colour on the slide they are on.
+    #[test]
+    fn each_slide_knows_who_is_on_it() {
+        let mut s = Session::with_new();
+        s.execute("slide.new", &serde_json::json!({})).unwrap();
+        let st = s.active().unwrap();
+        let (first, second) = (st.doc.slides[0].id, st.doc.slides[1].id);
+        let on =
+            |slide, color| RemotePeer { name: "P".into(), color, place: Some(SlidePlace { slide, selection: Default::default() }), typing: false };
+        let peers = [on(second, 1), on(first, 4), on(second, 7), RemotePeer { name: "Nowhere".into(), color: 9, place: None, typing: false }];
+        assert_eq!(colors_on(&peers, second), vec![1, 7]);
+        assert_eq!(colors_on(&peers, first), vec![4]);
+    }
+
+    /// Someone typing in a text box on the slide shown has a caret there (in their colour); in
+    /// the speaker notes or on another slide, not.
+    #[test]
+    fn carets_of_people_typing_on_the_slide_shown() {
+        let mut s = Session::with_new();
+        s.execute("slide.new", &serde_json::json!({})).unwrap();
+        let st = s.active().unwrap();
+        let (first, second) = (st.doc.slides[0].id, st.doc.slides[1].id);
+        assert_eq!(st.selection.slide, 1, "the new slide is shown");
+        let title = st.doc.slides[1].shapes[0].id;
+        let typing = |slide, notes| {
+            let mut place = SlidePlace { slide, selection: Default::default() };
+            place.selection.text = Some(deckcraft_engine::TextSel { shape: title, anchor: (0, 0), caret: (0, 0), notes, ..Default::default() });
+            RemotePeer { name: "Ann".into(), color: 5, place: Some(place), typing: true }
+        };
+        let c = text_carets(st, &[typing(second, false), typing(second, true), typing(first, false)]);
+        assert_eq!(c.len(), 1);
+        assert_eq!((c[0].0, c[0].1.shape), (5, title));
+    }
+
+    #[test]
+    fn initials_are_the_first_and_last_words() {
+        assert_eq!(initials("Ann Lee"), "AL");
+        assert_eq!(initials("bob"), "B");
+        assert_eq!(initials("Mary Ann van Dyke"), "MD");
+        assert_eq!(initials("حسام طه"), "حط");
+        assert_eq!(initials("  "), "");
     }
 }

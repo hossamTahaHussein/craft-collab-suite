@@ -220,6 +220,11 @@ fn list(app: &mut SlideApp, ui: &mut Ui) {
                 need_more |= near;
             }
         }
+        // Co-editing: who is on this slide.
+        if let Some(id) = id {
+            let colors = crate::canvas::peers::colors_on(&app.peers, id);
+            crate::canvas::peers::paint_thumb_dots(p, img, &colors, craft_ui::direction::is_rtl(ui));
+        }
         if selected {
             p.rect_stroke(img.expand(2.0), CornerRadius::same(4), Stroke::new(3.0, t.accent), egui::StrokeKind::Outside);
         } else {

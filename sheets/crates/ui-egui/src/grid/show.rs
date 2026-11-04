@@ -194,6 +194,7 @@ pub fn show(app: &mut SheetApp, ui: &mut egui::Ui) {
     if sh.show_headings {
         let headings = table_headings(&geo, sh, sel.active);
         paint_headers(&painter, &geo, sh, &sel, &t, &quads, &headings);
+        super::peers::paint_row_ticks(&painter, &geo, sh, &app.peers);
         paint_freeze_handles(&painter, &geo, sh, &app.grid.drag, &t);
     }
     crate::outline::paint(&painter, &geo, sh, &t);
