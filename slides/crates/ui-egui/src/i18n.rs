@@ -942,6 +942,7 @@ fn arabic(text: &str) -> Option<&'static str> {
         "New Photo Album…" => "ألبوم صور جديد…",
         "New Presentation" => "عرض تقديمي جديد",
         "New Slide" => "شريحة جديدة",
+        "Add" => "إضافة",
         "New Slide (⇧⌘N)" => "شريحة جديدة (⇧⌘N)",
         "New Text Box" => "مربع نص جديد",
         "New Window" => "نافذة جديدة",

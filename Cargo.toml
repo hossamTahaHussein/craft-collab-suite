@@ -199,18 +199,18 @@ debug = 0
 # Required by craft-pdf: the backend rejects writers that failed during unwinding.
 [patch.crates-io]
 krilla = { git = "https://github.com/storytold/craft-libs", rev = "c5a1cbfb5f9049f9270955caffb5bee5997aebf7", version = "=0.8.2" }
-ecolor = { git = "https://github.com/hossamTahaHussein/egui.git", rev = "7214d36840d562e1fae69c7030368372e10ccefb" }
-emath = { git = "https://github.com/hossamTahaHussein/egui.git", rev = "7214d36840d562e1fae69c7030368372e10ccefb" }
-epaint = { git = "https://github.com/hossamTahaHussein/egui.git", rev = "7214d36840d562e1fae69c7030368372e10ccefb" }
-epaint_default_fonts = { git = "https://github.com/hossamTahaHussein/egui.git", rev = "7214d36840d562e1fae69c7030368372e10ccefb" }
-egui = { git = "https://github.com/hossamTahaHussein/egui.git", rev = "7214d36840d562e1fae69c7030368372e10ccefb" }
-egui-winit = { git = "https://github.com/hossamTahaHussein/egui.git", rev = "7214d36840d562e1fae69c7030368372e10ccefb" }
-egui-wgpu = { git = "https://github.com/hossamTahaHussein/egui.git", rev = "7214d36840d562e1fae69c7030368372e10ccefb" }
-egui_glow = { git = "https://github.com/hossamTahaHussein/egui.git", rev = "7214d36840d562e1fae69c7030368372e10ccefb" }
-egui_extras = { git = "https://github.com/hossamTahaHussein/egui.git", rev = "7214d36840d562e1fae69c7030368372e10ccefb" }
-egui_kittest = { git = "https://github.com/hossamTahaHussein/egui.git", rev = "7214d36840d562e1fae69c7030368372e10ccefb" }
-egui_system_font_provider = { git = "https://github.com/hossamTahaHussein/egui.git", rev = "7214d36840d562e1fae69c7030368372e10ccefb" }
-eframe = { git = "https://github.com/hossamTahaHussein/egui.git", rev = "7214d36840d562e1fae69c7030368372e10ccefb" }
-egui_demo_lib = { git = "https://github.com/hossamTahaHussein/egui.git", rev = "7214d36840d562e1fae69c7030368372e10ccefb" }
-egui_inspection = { git = "https://github.com/hossamTahaHussein/egui.git", rev = "7214d36840d562e1fae69c7030368372e10ccefb" }
+ecolor = { git = "https://github.com/hossamTahaHussein/egui.git", rev = "590c5e785ea190c5e2c60abd4c0cd5a473e069d3" }
+emath = { git = "https://github.com/hossamTahaHussein/egui.git", rev = "590c5e785ea190c5e2c60abd4c0cd5a473e069d3" }
+epaint = { git = "https://github.com/hossamTahaHussein/egui.git", rev = "590c5e785ea190c5e2c60abd4c0cd5a473e069d3" }
+epaint_default_fonts = { git = "https://github.com/hossamTahaHussein/egui.git", rev = "590c5e785ea190c5e2c60abd4c0cd5a473e069d3" }
+egui = { git = "https://github.com/hossamTahaHussein/egui.git", rev = "590c5e785ea190c5e2c60abd4c0cd5a473e069d3" }
+egui-winit = { git = "https://github.com/hossamTahaHussein/egui.git", rev = "590c5e785ea190c5e2c60abd4c0cd5a473e069d3" }
+egui-wgpu = { git = "https://github.com/hossamTahaHussein/egui.git", rev = "590c5e785ea190c5e2c60abd4c0cd5a473e069d3" }
+egui_glow = { git = "https://github.com/hossamTahaHussein/egui.git", rev = "590c5e785ea190c5e2c60abd4c0cd5a473e069d3" }
+egui_extras = { git = "https://github.com/hossamTahaHussein/egui.git", rev = "590c5e785ea190c5e2c60abd4c0cd5a473e069d3" }
+egui_kittest = { git = "https://github.com/hossamTahaHussein/egui.git", rev = "590c5e785ea190c5e2c60abd4c0cd5a473e069d3" }
+egui_system_font_provider = { git = "https://github.com/hossamTahaHussein/egui.git", rev = "590c5e785ea190c5e2c60abd4c0cd5a473e069d3" }
+eframe = { git = "https://github.com/hossamTahaHussein/egui.git", rev = "590c5e785ea190c5e2c60abd4c0cd5a473e069d3" }
+egui_demo_lib = { git = "https://github.com/hossamTahaHussein/egui.git", rev = "590c5e785ea190c5e2c60abd4c0cd5a473e069d3" }
+egui_inspection = { git = "https://github.com/hossamTahaHussein/egui.git", rev = "590c5e785ea190c5e2c60abd4c0cd5a473e069d3" }
 winit = { git = "https://github.com/storytold/winit.git", rev = "a517b3846ee8457d84ee4975110bfda6797c44dc" }

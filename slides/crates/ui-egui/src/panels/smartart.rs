@@ -55,7 +55,7 @@ pub(super) fn smartart(app: &mut SlideApp, ui: &mut Ui) {
     }
     ui.add_space(6.0);
     ui.horizontal(|ui| {
-        if ui.button("+ Add").clicked() {
+        if ui.button(format!("+ {}", crate::i18n::tr("Add"))).clicked() {
             action = Some(("smartArt.addNode", json!({"index": app.ui.smartart_row.min(d.nodes.len().saturating_sub(1)), "position": "after"})));
         }
         if ui.button("Remove").clicked() && !d.nodes.is_empty() {

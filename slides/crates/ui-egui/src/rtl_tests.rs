@@ -55,3 +55,19 @@ fn the_interface_language_is_a_command_and_survives_a_saved_settings_file() {
     let back: crate::UiState = serde_json::from_value(saved).unwrap();
     assert_eq!(back.language, Language::Ar);
 }
+
+/// Task panes (Comments, Format Shape, Animation…) open at the reading end: the left in Arabic,
+/// so comment cards are at the left as in Craft Docs.
+#[test]
+fn task_panes_open_at_the_left_in_arabic() {
+    let mut h = arabic();
+    h.state_mut().ui.pane = Some("comments".into());
+    h.run_steps(4);
+    shot(&mut h, "slides-ar-comments.png");
+    let canvas = h.state().canvas_rect.expect("canvas");
+    assert!(canvas.left() > 200.0, "the Comments pane is at the left of the slide: {canvas:?}");
+    let title = h.query_all_by_label("التعليقات").next().map(|n| n.rect()).or_else(|| h.query_all_by_label("Comments").next().map(|n| n.rect()));
+    if let Some(t) = title {
+        assert!(t.center().x < canvas.left(), "the pane's title is left of the slide: {t:?}");
+    }
+}

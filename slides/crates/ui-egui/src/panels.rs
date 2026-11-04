@@ -1,4 +1,4 @@
-//! Task panes on the right: Format Shape, Format Background, Animation, Selection, Comments and
+//! Task panes at the reading end (the right, the left in a right-to-left interface): Format Shape, Format Background, Animation, Selection, Comments and
 //! Design Ideas.
 
 use deckcraft_model::{AnimClass, AnimStart, Fill, ShapeKind};
@@ -33,7 +33,7 @@ use thesaurus::thesaurus;
 pub fn show(app: &mut SlideApp, ui: &mut Ui) {
     let t = Tokens::get(ui.ctx());
     let Some(pane) = app.ui.pane.clone() else { return };
-    egui::Panel::right("task_pane")
+    craft_ui::direction::end_panel(ui, "task_pane")
         .resizable(true)
         .default_size(app.ui.pane_width)
         .size_range(240.0..=520.0)
@@ -52,9 +52,9 @@ pub fn show(app: &mut SlideApp, ui: &mut Ui) {
                 "revisions" => "Revisions",
                 _ => "Pane",
             };
-            ui.horizontal(|ui| {
+            crate::rtl::horizontal(ui, |ui| {
                 ui.label(egui::RichText::new(title).font(theme::bold(16.0)));
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                ui.with_layout(crate::rtl::trailing(), |ui| {
                     let (r, resp) = ui.allocate_exact_size(vec2(20.0, 20.0), Sense::click());
                     if resp.hovered() {
                         ui.painter().rect_filled(r, CornerRadius::same(4), t.hover);
@@ -66,17 +66,19 @@ pub fn show(app: &mut SlideApp, ui: &mut Ui) {
                 });
             });
             ui.add_space(6.0);
-            egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| match pane.as_str() {
-                "format" => format_shape(app, ui),
-                "background" => background(app, ui),
-                "animation" => animation(app, ui),
-                "selection" => crate::selpane::show(app, ui),
-                "comments" => comments(app, ui),
-                "designer" => designer(app, ui),
-                "smartart" => smartart(app, ui),
-                "thesaurus" => thesaurus(app, ui),
-                "revisions" => revisions(app, ui),
-                _ => {}
+            egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| {
+                crate::rtl::body(ui, |ui| match pane.as_str() {
+                    "format" => format_shape(app, ui),
+                    "background" => background(app, ui),
+                    "animation" => animation(app, ui),
+                    "selection" => crate::selpane::show(app, ui),
+                    "comments" => comments(app, ui),
+                    "designer" => designer(app, ui),
+                    "smartart" => smartart(app, ui),
+                    "thesaurus" => thesaurus(app, ui),
+                    "revisions" => revisions(app, ui),
+                    _ => {}
+                })
             });
         });
 }
