@@ -299,6 +299,20 @@ pub(super) fn ink_on(fill: Color32) -> Color32 {
     if l < 150.0 { Color32::WHITE } else { Color32::BLACK }
 }
 
+/// Where General alignment puts a value: numbers (and text that is a number) at the end, booleans
+/// and errors centred, text at its start: the right for text that reads right to left (Arabic,
+/// Hebrew) on a left-to-right sheet. On a right-to-left sheet `Left` is painted mirrored, so text
+/// already starts at the right.
+pub(super) fn general_halign(v: &Value, numeric: bool, text: &str, rtl: bool) -> HAlign {
+    match v {
+        Value::Number(_) => HAlign::Right,
+        Value::Bool(_) | Value::Error(_) => HAlign::Center,
+        _ if numeric => HAlign::Right,
+        _ if !rtl && gridcraft_engine::display::reads_rtl(text) => HAlign::Right,
+        _ => HAlign::Left,
+    }
+}
+
 /// The horizontal alignment to paint with. Cells are painted left to right and a right-to-left
 /// sheet is mirrored afterwards, so an explicit Left or Right is swapped first to end up on the
 /// side the user chose: Align Right stays on the right in either sheet direction, as in Excel.

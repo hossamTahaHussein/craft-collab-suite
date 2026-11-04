@@ -304,3 +304,18 @@ fn upward_text_with_middle_align_is_centred_in_a_merged_block() {
     assert!((bb.center().y - rect.center().y).abs() < 0.01, "{bb:?} not centred in {rect:?}");
     assert!((bb.center().x - rect.center().x).abs() < 0.01, "{bb:?} not centred in {rect:?}");
 }
+
+#[test]
+fn general_text_that_reads_right_to_left_starts_at_the_right_of_a_left_to_right_sheet() {
+    use super::{HAlign, Value, general_halign};
+    let text = |s: &str| Value::Text(s.into());
+    assert_eq!(general_halign(&text("مرحبا"), false, "مرحبا", false), HAlign::Right);
+    assert_eq!(general_halign(&text("שלום"), false, "שלום", false), HAlign::Right);
+    assert_eq!(general_halign(&text("Hello"), false, "Hello", false), HAlign::Left);
+    // On a right-to-left sheet text already starts at the right (Left, painted mirrored).
+    assert_eq!(general_halign(&text("مرحبا"), false, "مرحبا", true), HAlign::Left);
+    // Numbers, booleans and errors keep their places.
+    assert_eq!(general_halign(&Value::Number(1.0), false, "1", false), HAlign::Right);
+    assert_eq!(general_halign(&Value::Bool(true), false, "TRUE", false), HAlign::Center);
+    assert_eq!(general_halign(&text("12"), true, "12", false), HAlign::Right);
+}
