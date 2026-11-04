@@ -1,0 +1,61 @@
+//! The Arabic interface reads from the right: the direction follows the interface language,
+//! and the chrome mirrors (as in Craft Docs). `CRAFT_SHEETS_RTL_SCREENSHOT=path.png` saves the window.
+
+use egui_kittest::kittest::Queryable;
+use gridcraft_ui_egui::i18n::Language;
+use serde_json::json;
+
+use crate::support::{app_harness, blank_session};
+
+fn arabic() -> crate::common::Harness {
+    let mut app = crate::common::app(blank_session());
+    app.ui.language = Language::Ar;
+    app_harness(app, 6)
+}
+
+/// The rect of the first node labelled `label`.
+fn at(h: &crate::common::Harness, label: &str) -> egui::Rect {
+    h.query_by_label(label).unwrap_or_else(|| panic!("{label} is drawn")).rect()
+}
+
+#[test]
+fn arabic_is_a_language_and_reads_right_to_left() {
+    assert_eq!(Language::parse("ar-EG"), Some(Language::Ar));
+    assert!(Language::Ar.is_rtl() && !Language::En.is_rtl());
+    assert_eq!(Language::Ar.tr("Paste"), "لصق");
+    assert_eq!(Language::Ar.tr("Version history"), "سجل الإصدارات");
+    assert!(Language::for_picker().contains(&Language::Ar));
+}
+
+#[test]
+fn the_ribbon_tabs_start_at_the_right_in_arabic() {
+    let mut h = arabic();
+    assert!(craft_ui::direction::is_rtl(&h.ctx), "the direction follows the language");
+    if let Ok(path) = std::env::var("CRAFT_SHEETS_RTL_SCREENSHOT") {
+        h.render().unwrap().save(path).unwrap();
+    }
+    let home = at(&h, "الصفحة الرئيسية");
+    let insert = at(&h, "إدراج");
+    assert!(home.center().x > insert.center().x, "Home before Insert, reading from the right: {home:?} {insert:?}");
+    // Back to English: left to right again.
+    h.state_mut().run("app.language.set", json!({"language": "en"})).unwrap();
+    h.run_steps(4);
+    assert!(!craft_ui::direction::is_rtl(&h.ctx));
+    assert!(at(&h, "Home").center().x < at(&h, "Insert").center().x);
+}
+
+/// As Excel's Default direction: a new blank workbook's sheets read right to left in Arabic (and
+/// the workbook still counts as unchanged), and a sheet inserted is right to left too.
+#[test]
+fn new_sheets_read_right_to_left_in_arabic() {
+    let mut h = arabic();
+    let rtl = |h: &crate::common::Harness| h.state().session.active().unwrap().wb.sheets.iter().map(|s| s.right_to_left).collect::<Vec<_>>();
+    assert_eq!(rtl(&h), [true]);
+    assert!(!h.state().session.active().unwrap().is_dirty(), "a blank workbook stays unchanged");
+    h.state_mut().run("home.insertSheet", json!({})).unwrap();
+    assert_eq!(rtl(&h), [true, true]);
+    h.state_mut().run("app.language.set", json!({"language": "en"})).unwrap();
+    h.state_mut().run("file.new", json!({})).unwrap();
+    h.run_steps(2);
+    assert_eq!(rtl(&h), [false], "an English interface's new workbook reads left to right");
+}

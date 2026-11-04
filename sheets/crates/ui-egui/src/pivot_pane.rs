@@ -162,7 +162,7 @@ pub fn show(app: &mut SheetApp, ui: &mut Ui) {
             }
         });
         ui.separator();
-        ui.horizontal(|ui| {
+        crate::rtl::horizontal(ui, |ui| {
             if ui.button(lang.tr("Refresh")).clicked() {
                 app.run_or_alert("pivot.refresh", json!({"pivot": name}));
             }

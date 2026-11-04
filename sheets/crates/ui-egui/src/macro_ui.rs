@@ -208,7 +208,7 @@ pub fn question_box(app: &mut SheetApp, ctx: &egui::Context) {
         ui.label(egui::RichText::new(&q.title).strong());
         ui.add(egui::Label::new(&q.text).wrap());
         ui.add_space(8.0);
-        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+        ui.with_layout(crate::rtl::trailing(), |ui| {
             if ui.button("Cancel").clicked() || ui.input(|i| i.key_pressed(egui::Key::Escape)) {
                 answer = Some(None);
             }
@@ -395,7 +395,7 @@ pub fn macros_dialog(app: &mut SheetApp, ui: &mut Ui, d: &mut Dialog, open: &mut
         .and_then(Json::as_array)
         .is_some_and(|items| items.iter().any(|it| it.get("trusted").and_then(Json::as_bool) == Some(false)));
     if untrusted {
-        ui.horizontal(|ui| {
+        crate::rtl::horizontal(ui, |ui| {
             ui.weak("Scripts in this workbook came from a file and are disabled.");
             if ui.button("Trust Scripts").on_hover_text("Let this workbook's scripts run for the rest of this session").clicked() {
                 let _ = app.run("automate.trustScripts", json!({"trusted": true}));
@@ -548,7 +548,7 @@ fn options(app: &mut SheetApp, ui: &mut Ui, d: &mut Dialog) {
     ui.add(egui::TextEdit::multiline(&mut desc).desired_rows(3).desired_width(f32::INFINITY).id_salt("macro_description")).labelled_by(label.id);
     ui.add_space(6.0);
     let mut done = false;
-    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+    ui.with_layout(crate::rtl::trailing(), |ui| {
         if ui.button("Cancel").clicked() {
             done = true;
         }
@@ -565,7 +565,7 @@ fn options(app: &mut SheetApp, ui: &mut Ui, d: &mut Dialog) {
 
 /// The shortcut letter box, after "Ctrl+Shift+" (or "⌘⇧" on a Mac). Keeps one capital letter.
 fn shortcut_field(ui: &mut Ui, key: &mut String, id: &str) {
-    ui.horizontal(|ui| {
+    crate::rtl::horizontal(ui, |ui| {
         let label = ui.label(if ui.ctx().os() == egui::os::OperatingSystem::Mac { "⌘ ⇧ +" } else { "Ctrl+Shift+" });
         ui.add(egui::TextEdit::singleline(key).char_limit(1).desired_width(24.0).id_salt(id)).labelled_by(label.id);
     });
@@ -649,7 +649,7 @@ pub fn record_dialog(app: &mut SheetApp, ui: &mut Ui, d: &mut Dialog, open: &mut
         ui.label(egui::RichText::new(p).color(Tokens::get(ui.ctx()).danger));
     }
     ui.add_space(6.0);
-    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+    ui.with_layout(crate::rtl::trailing(), |ui| {
         if ui.button("Cancel").clicked() {
             *open = false;
         }

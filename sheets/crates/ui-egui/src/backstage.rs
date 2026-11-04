@@ -345,7 +345,7 @@ fn tile(ui: &mut Ui, label: &str, sample: Option<usize>) -> egui::Response {
 /// Blank workbook and the built-in samples.
 fn new_tiles(app: &mut SheetApp, ui: &mut Ui, out: &mut Outcome) {
     let lang = app.ui.language;
-    ui.horizontal_wrapped(|ui| {
+    crate::rtl::horizontal_wrapped(ui, |ui| {
         ui.spacing_mut().item_spacing = vec2(18.0, 14.0);
         if tile(ui, lang.tr("Blank workbook"), None).clicked() {
             app.run_or_alert("file.new", json!({}));
@@ -616,7 +616,7 @@ fn info(app: &mut SheetApp, ui: &mut Ui, bs: &mut Backstage) {
         let pr = &d.wb.props;
         vec![pr.title.clone(), pr.subject.clone(), pr.author.clone(), pr.company.clone(), pr.keywords.clone(), pr.description.clone()]
     };
-    ui.horizontal(|ui| {
+    crate::rtl::horizontal(ui, |ui| {
         icons::paint(ui.painter(), Rect::from_min_size(ui.cursor().min, vec2(28.0, 28.0)), Icon::Book, t.text);
         ui.add_space(38.0);
         ui.vertical(|ui| {
@@ -628,7 +628,7 @@ fn info(app: &mut SheetApp, ui: &mut Ui, bs: &mut Backstage) {
         });
     });
     ui.add_space(18.0);
-    ui.horizontal(|ui| {
+    crate::rtl::horizontal(ui, |ui| {
         if square_button(ui, Icon::Lock, lang.tr("Protect Workbook")).clicked() {
             protect_workbook(app);
         }
@@ -679,7 +679,7 @@ fn save_as(app: &mut SheetApp, ui: &mut Ui, bs: &mut Backstage, out: &mut Outcom
     ui.add_space(14.0);
     let fmt = bs.save_format;
     let current = SAVE_TYPES.iter().find(|(ext, _)| *ext == fmt).map_or("Excel Workbook (*.xlsx)", |(_, label)| *label);
-    ui.horizontal(|ui| {
+    crate::rtl::horizontal(ui, |ui| {
         let label = ui.label(lang.tr("Save as type"));
         craft_ui::ComboBox::from_id_salt("backstage_save_type")
             .width(280.0)
@@ -810,7 +810,7 @@ fn account(app: &mut SheetApp, ui: &mut Ui) {
         }
     });
     ui.add_space(18.0);
-    ui.horizontal(|ui| {
+    crate::rtl::horizontal(ui, |ui| {
         if square_button(ui, Icon::Info, lang.tr("About GridCraft")).clicked() {
             app.open_dialog("about", json!({}));
         }

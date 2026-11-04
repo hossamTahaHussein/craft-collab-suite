@@ -7,7 +7,7 @@ pub(super) fn format_cells(app: &mut SheetApp, ui: &mut egui::Ui, d: &mut Dialog
     // labels are translated. The Fill tab is keyed by context: the Alignment tab's "Fill" is a
     // different word in some languages.
     let lang = app.ui.language;
-    ui.horizontal(|ui| {
+    crate::rtl::horizontal(ui, |ui| {
         for (tab, key) in [
             ("Number", "Number"),
             ("Alignment", "Alignment"),
@@ -71,7 +71,7 @@ pub(super) fn format_cells(app: &mut SheetApp, ui: &mut egui::Ui, d: &mut Dialog
         "Alignment" => {
             use gridcraft_engine::model::{HAlign, VAlign};
             ui.label(egui::RichText::new(lang.tr("Horizontal")).strong());
-            ui.horizontal_wrapped(|ui| {
+            crate::rtl::horizontal_wrapped(ui, |ui| {
                 for (h, n) in [
                     (HAlign::General, "General"),
                     (HAlign::Left, "Left"),
@@ -86,7 +86,7 @@ pub(super) fn format_cells(app: &mut SheetApp, ui: &mut egui::Ui, d: &mut Dialog
                 }
             });
             ui.label(egui::RichText::new(lang.tr("Vertical")).strong());
-            ui.horizontal_wrapped(|ui| {
+            crate::rtl::horizontal_wrapped(ui, |ui| {
                 for (v, n) in [
                     (VAlign::Top, "Top"),
                     (VAlign::Center, "Center"),
@@ -113,13 +113,13 @@ pub(super) fn format_cells(app: &mut SheetApp, ui: &mut egui::Ui, d: &mut Dialog
                 }
             });
             ui.add(egui::Slider::new(&mut st.font.size, 6.0..=72.0).text(lang.tr("Size")));
-            ui.horizontal(|ui| {
+            crate::rtl::horizontal(ui, |ui| {
                 ui.checkbox(&mut st.font.bold, lang.tr("Bold"));
                 ui.checkbox(&mut st.font.italic, lang.tr("Italic"));
                 ui.checkbox(&mut st.font.strike, lang.tr("Strikethrough"));
             });
             use gridcraft_engine::model::{Underline, VertAlign};
-            ui.horizontal(|ui| {
+            crate::rtl::horizontal(ui, |ui| {
                 for (u, n) in [
                     (Underline::None, "None"),
                     (Underline::Single, "Single"),
@@ -130,7 +130,7 @@ pub(super) fn format_cells(app: &mut SheetApp, ui: &mut egui::Ui, d: &mut Dialog
                     ui.radio_value(&mut st.font.underline, u, lang.tr(n));
                 }
             });
-            ui.horizontal(|ui| {
+            crate::rtl::horizontal(ui, |ui| {
                 ui.radio_value(&mut st.font.vert, VertAlign::Baseline, lang.tr("Normal"));
                 ui.radio_value(&mut st.font.vert, VertAlign::Superscript, lang.tr("Superscript"));
                 ui.radio_value(&mut st.font.vert, VertAlign::Subscript, lang.tr("Subscript"));
@@ -145,7 +145,7 @@ pub(super) fn format_cells(app: &mut SheetApp, ui: &mut egui::Ui, d: &mut Dialog
         "Border" => {
             use gridcraft_engine::model::{BorderLine, BorderStyle};
             let line = BorderLine { style: BorderStyle::Thin, color: gridcraft_engine::model::Color::Auto };
-            ui.horizontal(|ui| {
+            crate::rtl::horizontal(ui, |ui| {
                 if ui.button(lang.tr("None")).clicked() {
                     st.borders = Default::default();
                 }
@@ -165,7 +165,7 @@ pub(super) fn format_cells(app: &mut SheetApp, ui: &mut egui::Ui, d: &mut Dialog
                 ("Diagonal ↗", &mut st.borders.diag_up),
             ] {
                 let n = lang.tr(n);
-                ui.horizontal(|ui| {
+                crate::rtl::horizontal(ui, |ui| {
                     ui.label(format!("{n}:"));
                     for (s, label) in [
                         (BorderStyle::None, "none"),

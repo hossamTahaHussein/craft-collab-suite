@@ -6,7 +6,7 @@ pub(super) fn name_manager(app: &mut SheetApp, ui: &mut egui::Ui, d: &mut Dialog
     let names = list.as_array().cloned().unwrap_or_default();
     let selected = names.get(d.list_index).cloned();
     let field = |n: &Json, k: &str| n.get(k).and_then(Json::as_str).unwrap_or("").to_string();
-    ui.horizontal(|ui| {
+    crate::rtl::horizontal(ui, |ui| {
         if ui.button("New…").clicked() {
             app.open_dialog("defineName", json!({}));
         }
@@ -51,7 +51,7 @@ pub(super) fn name_manager(app: &mut SheetApp, ui: &mut egui::Ui, d: &mut Dialog
         });
     });
     ui.add_space(8.0);
-    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+    ui.with_layout(crate::rtl::trailing(), |ui| {
         if ui.button(" Close ").clicked() {
             *open = false;
         }

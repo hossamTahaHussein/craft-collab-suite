@@ -17,6 +17,7 @@ impl SheetApp {
     }
 
     pub(super) fn run_command(&mut self, id: &str, params: Json) -> Result<Json, String> {
+        let params_had_no_sample = params.get("sample").is_none_or(Json::is_null);
         let switches_window = id.starts_with("window.")
             || matches!(id, "view.newWindow" | "view.hideWindow" | "view.unhideWindow")
             || (id == "view.switchWindows" && ["window", "doc"].iter().any(|k| params.get(*k).is_some_and(|d| !d.is_null())));
@@ -96,7 +97,31 @@ impl SheetApp {
         {
             self.deliver_pdf(r);
         }
+        // Right to left by default in a right-to-left interface, as Excel's Default direction:
+        // a new blank workbook's sheets, and a sheet inserted here (an edit of its own, so a
+        // co-editor in another language gets the same sheet).
+        if self.ui.language.is_rtl() && r.is_ok() {
+            if id == "file.new" && params_had_no_sample {
+                self.right_to_left_blank();
+            } else if id == "home.insertSheet" {
+                let _ = self.session.run("view.rightToLeft", serde_json::json!({"on": true}));
+            }
+        }
         r
+    }
+
+    /// Make an untouched blank workbook's sheets right to left (it stays unchanged, so closing it
+    /// asks nothing).
+    pub(crate) fn right_to_left_blank(&mut self) {
+        let Some(d) = self.session.active_mut() else { return };
+        if d.path.is_some() || d.is_dirty() || d.wb.sheets.iter().all(|s| s.right_to_left) {
+            return;
+        }
+        let wb = std::sync::Arc::make_mut(&mut d.wb);
+        for sheet in &mut wb.sheets {
+            std::sync::Arc::make_mut(sheet).right_to_left = true;
+        }
+        d.saved = d.wb.clone();
     }
 
     pub fn run_or_alert(&mut self, id: &str, params: Json) {

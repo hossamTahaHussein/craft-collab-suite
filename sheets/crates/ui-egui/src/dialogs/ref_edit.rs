@@ -289,7 +289,7 @@ pub(super) fn ref_edit(app: &SheetApp, ui: &mut egui::Ui, d: &mut Dialog, key: &
     let lang = crate::i18n::current(ui.ctx());
     let mut s = d.values.get(key).and_then(Json::as_str).unwrap_or("").to_string();
     let collapsed = d.refs.collapsed.as_deref() == Some(key);
-    ui.horizontal(|ui| {
+    crate::rtl::horizontal(ui, |ui| {
         let id = ref_edit_id(key);
         let r = ui.add(egui::TextEdit::singleline(&mut s).id(id).desired_width(width - 30.0));
         let r = match label {

@@ -112,7 +112,7 @@ pub fn sheet_tabs(app: &mut SheetApp, ui: &mut Ui) {
     egui::Panel::bottom("sheet_tabs").exact_size(32.0).frame(egui::Frame::NONE.fill(t.tab_bar)).show(ui, |ui| {
         let rect = ui.max_rect();
         ui.painter().line_segment([rect.left_top(), rect.right_top()], Stroke::new(1.0, t.ribbon_border));
-        ui.horizontal_centered(|ui| {
+        crate::rtl::horizontal_centered(ui, |ui| {
             ui.spacing_mut().item_spacing.x = 0.0;
             ui.add_space(8.0);
             if view.show_sheet_tabs {
@@ -169,7 +169,7 @@ pub fn sheet_tabs(app: &mut SheetApp, ui: &mut Ui) {
                 changed
             });
             if view.show_sheet_tabs {
-                ui.allocate_ui_with_layout(vec2(tabs_width, 30.0), egui::Layout::left_to_right(egui::Align::Center), |ui| {
+                ui.allocate_ui_with_layout(vec2(tabs_width, 30.0), crate::rtl::row(), |ui| {
                     // Translate vertical wheel movement into horizontal
                     // worksheet-tab scrolling.
                     let wheel_scroll = if ui.rect_contains_pointer(ui.max_rect()) {
@@ -190,7 +190,7 @@ pub fn sheet_tabs(app: &mut SheetApp, ui: &mut Ui) {
                             if wheel_scroll.abs() > 0.0 {
                                 ui.scroll_with_delta(vec2(wheel_scroll, 0.0));
                             }
-                            ui.horizontal(|ui| {
+                            crate::rtl::horizontal(ui, |ui| {
                                 ui.spacing_mut().item_spacing.x = 0.0;
                                 for (i, name, color, active) in sheets {
                                     let renaming = app.grid.renaming_tab == Some(i);
@@ -356,7 +356,7 @@ pub fn status_bar(app: &mut SheetApp, ui: &mut Ui) {
             let text = |ui: &mut Ui, rich: egui::RichText| {
                 ui.add(egui::Label::new(rich).selectable(false));
             };
-            ui.horizontal_centered(|ui| {
+            crate::rtl::horizontal_centered(ui, |ui| {
                 let mode = match app.session.mode {
                     gridcraft_engine::Mode::Ready => "Ready",
                     gridcraft_engine::Mode::Enter => "Enter",
@@ -401,7 +401,7 @@ pub fn status_bar(app: &mut SheetApp, ui: &mut Ui) {
                         app.open_version_history();
                     }
                 }
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                ui.with_layout(crate::rtl::trailing(), |ui| {
                     // Zoom percentage and slider.
                     let zoom = app.session.active().and_then(|d| d.wb.active().map(|s| s.zoom)).unwrap_or(100);
                     let zl = ui.add(

@@ -119,7 +119,7 @@ fn calc_options(app: &mut SheetApp, ui: &mut Ui, lang: Language, calc: &gridcraf
 /// Maximum Iterations and Maximum Change, live only while iterative calculation is on.
 fn iteration_options(app: &mut SheetApp, ui: &mut Ui, lang: Language, calc: &gridcraft_engine::model::CalcSettings, iterative: bool) {
     ui.add_enabled_ui(iterative, |ui| {
-        ui.horizontal(|ui| {
+        crate::rtl::horizontal(ui, |ui| {
             ui.add_space(24.0);
             egui::Grid::new("backstage_options_iteration").num_columns(2).spacing(vec2(12.0, 6.0)).show(ui, |ui| {
                 let label = ui.label(lang.tr("Maximum Iterations:"));

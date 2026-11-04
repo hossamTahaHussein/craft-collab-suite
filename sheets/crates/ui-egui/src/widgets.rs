@@ -597,7 +597,7 @@ pub fn message_box(app: &mut SheetApp, ctx: &egui::Context) {
             });
         });
         ui.add_space(8.0);
-        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+        ui.with_layout(crate::rtl::trailing(), |ui| {
             if ui.button("  OK  ").clicked() || ui.input(|i| i.key_pressed(egui::Key::Enter) || i.key_pressed(egui::Key::Escape)) {
                 close = true;
             }
@@ -662,7 +662,7 @@ pub fn notice_bar(app: &mut SheetApp, ui: &mut Ui) {
             );
             ui.add_space(6.0);
             ui.label(egui::RichText::new(&notice.text).font(theme::ui_font(12.5)).color(t.text));
-            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+            ui.with_layout(crate::rtl::trailing(), |ui| {
                 if icon_button(ui, Icon::Close, t.text_dim, "Dismiss", vec2(20.0, 20.0)).clicked() {
                     dismiss = true;
                 }

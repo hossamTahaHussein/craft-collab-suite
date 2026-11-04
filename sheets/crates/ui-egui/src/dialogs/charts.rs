@@ -58,7 +58,7 @@ fn chart_icon(t: &str) -> Icon {
 }
 
 pub(super) fn recommended_charts(app: &mut SheetApp, ui: &mut egui::Ui, d: &mut Dialog, confirm: &mut bool, open: &mut bool) {
-    ui.horizontal(|ui| {
+    crate::rtl::horizontal(ui, |ui| {
         for tab in ["Recommended Charts", "All Charts"] {
             if ui.selectable_label(d.tab == tab, tab).clicked() && d.tab != tab {
                 d.tab = tab.to_string();
@@ -144,7 +144,7 @@ pub(super) fn select_data(app: &mut SheetApp, ui: &mut egui::Ui, d: &mut Dialog,
         for (i, name) in names.iter().enumerate() {
             let i = i as u64;
             let removed = remove.contains(&i);
-            ui.horizontal(|ui| {
+            crate::rtl::horizontal(ui, |ui| {
                 let label = if name.is_empty() { format!("Series{}", i + 1) } else { name.clone() };
                 ui.label(if removed { egui::RichText::new(label).strikethrough().weak() } else { egui::RichText::new(label) });
                 if removed {

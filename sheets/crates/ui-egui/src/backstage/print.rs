@@ -83,7 +83,7 @@ pub(super) fn print(app: &mut SheetApp, ui: &mut Ui, bs: &mut Backstage, out: &m
             ui.add_space(4.0);
             dim(ui, &format!("{sheet} · {range}"));
             ui.add_space(8.0);
-            ui.horizontal(|ui| {
+            crate::rtl::horizontal(ui, |ui| {
                 if ui.add_enabled(bs.preview_page > 0, egui::Button::new("◀")).on_hover_text(lang.tr("Previous page")).clicked() {
                     bs.preview_page = bs.preview_page.saturating_sub(1);
                 }

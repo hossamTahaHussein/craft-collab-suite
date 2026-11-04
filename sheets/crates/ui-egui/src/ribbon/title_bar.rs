@@ -45,7 +45,7 @@ pub fn title_bar(app: &mut SheetApp, ui: &mut Ui) {
             let max = ui.ctx().input(|i| i.viewport().maximized.unwrap_or(false));
             ui.ctx().send_viewport_cmd(egui::ViewportCommand::Maximized(!max));
         }
-        ui.horizontal_centered(|ui| {
+        crate::rtl::horizontal_centered(ui, |ui| {
             ui.add_space(TITLE_LEFT_PAD);
             // AutoSave toggle (saves after each change when the workbook has a file).
             ui.label(egui::RichText::new(app.ui.language.tr("AutoSave")).font(theme::ui_font(12.5)).color(t.text_dim));
@@ -120,8 +120,9 @@ pub fn title_bar(app: &mut SheetApp, ui: &mut Ui) {
                     app.print_now(json!({}));
                 }
             });
-            let left_end = ui.min_rect().right();
-            let right = ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+            // The reading-start controls' extent (right to left they end at the window's right).
+            let start_group = ui.min_rect();
+            let right = ui.with_layout(crate::rtl::trailing(), |ui| {
                 ui.add_space(8.0);
                 let __k = icon_button(ui, Icon::Search, t.text_dim, "Search commands", vec2(28.0, ch));
                 control_keytip(app, ui, &__k, "commandSearch");
@@ -167,12 +168,15 @@ pub fn title_bar(app: &mut SheetApp, ui: &mut Ui) {
                     act(app, "view.darkMode", json!({}));
                 }
                 theme.context_menu(|ui| theme_choices(app, ui));
-                ui.min_rect().left()
+                ui.min_rect()
             });
             // Centred title, cut with "…" so it never runs under the controls on either side.
             let title = app.session.active().map(|d| d.display_title()).unwrap_or_default();
             let dirty = app.session.active().is_some_and(|d| d.is_dirty());
-            let max_w = title_max_width(rect.center().x, left_end, right.inner);
+            // The free space between the two groups, whichever side each is on.
+            let (left_end, right_start) =
+                if crate::rtl::is_rtl() { (right.inner.right(), start_group.left()) } else { (start_group.right(), right.inner.left()) };
+            let max_w = title_max_width(rect.center().x, left_end, right_start);
             paint_title(ui, rect.center(), &title, dirty, max_w, t.text);
         });
     });

@@ -3,7 +3,7 @@ use super::{Dialog, Json, Key, SheetApp, json};
 
 /// Draws the Find/Replace form with case, whole-cell and workbook options, requests field focus once, and runs find/replace with the current parameters.
 pub(super) fn find(app: &mut SheetApp, ui: &mut egui::Ui, d: &mut Dialog) {
-    ui.horizontal(|ui| {
+    crate::rtl::horizontal(ui, |ui| {
         for tab in ["Find", "Replace"] {
             if ui.selectable_label(d.tab == tab, tab).clicked() {
                 d.tab = tab.into();
@@ -12,7 +12,7 @@ pub(super) fn find(app: &mut SheetApp, ui: &mut egui::Ui, d: &mut Dialog) {
     });
     let mut what = d.values.get("what").and_then(Json::as_str).unwrap_or("").to_string();
     let mut with = d.values.get("with").and_then(Json::as_str).unwrap_or("").to_string();
-    ui.horizontal(|ui| {
+    crate::rtl::horizontal(ui, |ui| {
         let label = ui.label("Find what:");
         let r = ui.add(egui::TextEdit::singleline(&mut what).desired_width(260.0)).labelled_by(label.id);
         // Like Excel, the cursor starts in "Find what" - asked for once, so clicking another field still works.
@@ -22,7 +22,7 @@ pub(super) fn find(app: &mut SheetApp, ui: &mut egui::Ui, d: &mut Dialog) {
         }
     });
     if d.tab == "Replace" {
-        ui.horizontal(|ui| {
+        crate::rtl::horizontal(ui, |ui| {
             let label = ui.label("Replace with:");
             ui.add(egui::TextEdit::singleline(&mut with).desired_width(244.0)).labelled_by(label.id);
         });
@@ -30,7 +30,7 @@ pub(super) fn find(app: &mut SheetApp, ui: &mut egui::Ui, d: &mut Dialog) {
     let mut case = d.values.get("matchCase").and_then(Json::as_bool).unwrap_or(false);
     let mut whole = d.values.get("wholeCell").and_then(Json::as_bool).unwrap_or(false);
     let mut wb = d.values.get("within").and_then(Json::as_str) == Some("workbook");
-    ui.horizontal(|ui| {
+    crate::rtl::horizontal(ui, |ui| {
         ui.checkbox(&mut case, "Match case");
         ui.checkbox(&mut whole, "Match entire cell contents");
         ui.checkbox(&mut wb, "Within workbook");
@@ -55,7 +55,7 @@ pub(super) fn find(app: &mut SheetApp, ui: &mut egui::Ui, d: &mut Dialog) {
         "sheet"
     };
     let base = json!({"what": what, "matchCase": case, "wholeCell": whole, "within": within});
-    ui.horizontal(|ui| {
+    crate::rtl::horizontal(ui, |ui| {
         if d.tab == "Replace" {
             if ui.button("Replace All").clicked() {
                 let mut p = base.clone();
@@ -144,7 +144,7 @@ pub(super) fn go_to(app: &mut SheetApp, ui: &mut egui::Ui, d: &mut Dialog, confi
         }
     });
     let mut r = d.values.get("reference").and_then(Json::as_str).unwrap_or("").to_string();
-    ui.horizontal(|ui| {
+    crate::rtl::horizontal(ui, |ui| {
         let label = ui.label(lang.tr("Reference:"));
         ui.text_edit_singleline(&mut r).labelled_by(label.id).request_focus();
     });

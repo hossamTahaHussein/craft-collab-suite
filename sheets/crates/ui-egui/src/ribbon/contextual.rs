@@ -11,7 +11,7 @@ pub(super) fn table_design(app: &mut SheetApp, ui: &mut Ui) {
     }) else {
         return;
     };
-    ui.vertical(|ui| {
+    crate::rtl::vertical(ui, |ui| {
         ui.label(egui::RichText::new("Table Name:").small());
         let field = egui::Id::unique(("gridcraft.table_name", &tname));
         if let Some(name) = crate::widgets::committed_text(ui, field, &tname, Some(120.0))
@@ -41,7 +41,7 @@ pub(super) fn table_design(app: &mut SheetApp, ui: &mut Ui) {
         act(app, "table.insertSlicer", json!({"table": tname}));
     }
     sep(ui);
-    ui.vertical(|ui| {
+    crate::rtl::vertical(ui, |ui| {
         for (label, cmd, v) in [
             ("Header Row", "table.headerRow", header && filter),
             ("Total Row", "table.totalRow", totals),
@@ -53,7 +53,7 @@ pub(super) fn table_design(app: &mut SheetApp, ui: &mut Ui) {
             }
         }
     });
-    ui.vertical(|ui| {
+    crate::rtl::vertical(ui, |ui| {
         for (label, cmd, v) in [
             ("First Column", "table.firstColumn", first),
             ("Last Column", "table.lastColumn", last),
@@ -77,7 +77,7 @@ const RIBBON_TABLE_STYLES: [&str; 7] =
 fn table_style_strip(app: &mut SheetApp, ui: &mut Ui, tname: &str, current: &str) {
     let t = Tokens::get(ui.ctx());
     ui.add_space(12.0);
-    ui.horizontal(|ui| {
+    crate::rtl::fit_row(ui, |ui| {
         ui.spacing_mut().item_spacing.x = 3.0;
         // Borrow the workbook only while painting; the session must be free for `act` afterwards.
         let clicked = {

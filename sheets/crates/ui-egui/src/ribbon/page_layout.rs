@@ -6,7 +6,7 @@ pub(super) fn page_layout(app: &mut SheetApp, ui: &mut Ui) {
     anchor_keytip(app, ui, &th, &["pageLayout.theme"]);
     egui::Popup::menu(&th).show(|ui| {
         for (name, colors) in gridcraft_engine::cmd::view::themes() {
-            ui.horizontal(|ui| {
+            crate::rtl::fit_row(ui, |ui| {
                 for c in colors.iter().skip(4).take(6) {
                     let (r, _) = ui.allocate_exact_size(vec2(12.0, 12.0), Sense::hover());
                     ui.painter().rect_filled(r, 1.0, Color32::from_rgb((c >> 16) as u8, (c >> 8) as u8, *c as u8));
@@ -116,7 +116,7 @@ pub(super) fn page_layout(app: &mut SheetApp, ui: &mut Ui) {
     // Excel), but the key is distinct from the "View" tab so languages can word them apart.
     let screen = app.ui.language.tr("Sheet Options|View");
     let print = app.ui.language.tr("Print");
-    ui.vertical(|ui| {
+    crate::rtl::vertical(ui, |ui| {
         ui.label(egui::RichText::new(app.ui.language.tr("Gridlines")).strong().small());
         let mut v = sh.0;
         let resp = ui.checkbox(&mut v, screen);
@@ -131,7 +131,7 @@ pub(super) fn page_layout(app: &mut SheetApp, ui: &mut Ui) {
             act(app, "pageLayout.printGridlines", json!({"on": checkbox_on(resp.changed(), p)}));
         }
     });
-    ui.vertical(|ui| {
+    crate::rtl::vertical(ui, |ui| {
         ui.label(egui::RichText::new(app.ui.language.tr("Headings")).strong().small());
         let mut v = sh.1;
         let resp = ui.checkbox(&mut v, screen);
