@@ -108,6 +108,34 @@ pub(super) fn paint_peers(st: &DocState, painter: &egui::Painter, xf: Xf, peers:
     }
 }
 
+/// The colour of `author`'s suggestions: one of the people colours, the same for a name wherever
+/// it shows (as Craft Sheets marks them).
+pub fn suggestion_color(author: &str) -> Color32 {
+    let h = author.bytes().fold(0x811c_9dc5u32, |h, b| (h ^ u32::from(b)).wrapping_mul(0x0100_0193));
+    peer_color((h % 8) as u8)
+}
+
+/// Suggested shapes on the slide shown: a dashed outline in their suggester's colour, with their
+/// name under it.
+pub(super) fn paint_suggestions(st: &DocState, painter: &egui::Painter, xf: Xf) {
+    let Some(slide) = st.doc.slides.get(st.selection.slide).map(|s| s.id) else { return };
+    for x in deckcraft_engine::suggest::suggestions(&st.doc).iter().filter(|x| x.slide() == slide) {
+        let Some(sh) = x.shape().and_then(|id| st.shape(id)) else { continue };
+        let c = suggestion_color(&x.author);
+        let xr = deckcraft_engine::cmd::xfrm_of(&st.doc, &st.selection, sh);
+        let a = xr.affine();
+        let corners = [Point::new(0.0, 0.0), Point::new(xr.w, 0.0), Point::new(xr.w, xr.h), Point::new(0.0, xr.h)].map(|q| xf.to_screen(a * q));
+        for i in 0..4 {
+            painter.extend(egui::Shape::dashed_line(&[corners[i], corners[(i + 1) % 4]], Stroke::new(1.5, c), 6.0, 4.0));
+        }
+        let low = corners.iter().copied().fold(corners[0], |m, q| if q.y > m.y || (q.y == m.y && q.x < m.x) { q } else { m });
+        let galley = painter.layout_no_wrap(x.author.clone(), egui::FontId::proportional(10.0), Color32::WHITE);
+        let pad = egui::vec2(3.0, 1.0);
+        painter.rect_filled(Rect::from_min_size(low, galley.size() + pad * 2.0), 2.0, c);
+        painter.galley(low + pad, galley, Color32::WHITE);
+    }
+}
+
 /// The colours of the people on slide `slide`, for the dots on its thumbnail.
 pub(crate) fn colors_on(peers: &[RemotePeer], slide: deckcraft_model::SlideId) -> Vec<u8> {
     peers.iter().filter(|p| p.place.as_ref().is_some_and(|pl| pl.slide == slide)).map(|p| p.color).collect()

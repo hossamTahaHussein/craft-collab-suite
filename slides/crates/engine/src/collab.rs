@@ -104,7 +104,7 @@ pub struct Recorded {
 pub enum CollabRole {
     #[default]
     Edit,
-    /// Everything, as suggestions others accept or reject (until those come, nothing).
+    /// Changes to slides and shapes, as suggestions others accept or reject, and comments.
     Suggest,
     /// Comments only.
     Comment,
@@ -202,7 +202,8 @@ impl Session {
             CollabRole::Edit => Ok(()),
             CollabRole::Comment if COMMENT_COMMANDS.contains(&id) => Ok(()),
             CollabRole::Comment => refuse("You can only comment on this presentation"),
-            CollabRole::Suggest => refuse("Suggesting isn't available in Craft Slides yet"),
+            CollabRole::Suggest if crate::suggest::SUGGEST_COMMANDS.contains(&id) || COMMENT_COMMANDS.contains(&id) => Ok(()),
+            CollabRole::Suggest => refuse("You can only suggest changes to this presentation"),
             CollabRole::View => refuse("You can only view this presentation"),
         }
     }
@@ -225,7 +226,14 @@ impl Session {
         let time = crate::cmd::review::now_secs();
         match &self.collab.api_author {
             Some(author) => RunCtx { author: author.clone(), initials: initials_of(author), time, local, track: false, api: true },
-            None => RunCtx { author: self.prefs.author.clone(), initials: String::new(), time, local, track: false, api: false },
+            None => RunCtx {
+                author: self.prefs.author.clone(),
+                initials: String::new(),
+                time,
+                local,
+                track: self.suggesting || self.collab.role == CollabRole::Suggest,
+                api: false,
+            },
         }
     }
 
@@ -297,10 +305,12 @@ impl Session {
             minute: l.minute,
             second: l.second,
         });
+        let track = std::mem::replace(&mut self.track_ctx, ctx.track.then(|| (ctx.author.clone(), ctx.time)));
         let result = with_clock(ctx.time, || match local {
             Some(l) => deckcraft_text::datetime::with_local_now(l, || self.execute(id, params)),
             None => self.execute(id, params),
         });
+        self.track_ctx = track;
         self.collab.busy = busy;
         self.prefs.author = author;
         result
@@ -371,4 +381,52 @@ impl Session {
 /// initialled.
 fn initials_of(name: &str) -> String {
     name.split_whitespace().filter_map(|w| w.chars().next()).collect()
+}
+
+impl Session {
+    /// Whose suggestion an edit made now is and when: a replayed edit's with `track` on, or this
+    /// person's own in Suggesting mode (not co-editing: there the edit's context says).
+    pub(crate) fn track_now(&self) -> Option<(String, u64)> {
+        if let Some(t) = &self.track_ctx {
+            return Some(t.clone());
+        }
+        (self.suggesting && !self.collab.on).then(|| (self.prefs.author.clone(), self.run_ctx().time))
+    }
+
+    /// Runs edit `id` as `author`'s suggestion: what it changes in slides and shapes is recorded
+    /// with how it was ([`crate::suggest`]). What isn't an edit, and the review commands, run as
+    /// they are; an edit that can't be suggested is refused.
+    pub(crate) fn execute_tracked(&mut self, id: &str, params: &Value, author: &str, time: u64) -> Result<Value> {
+        let edits = crate::cmd::find_command(id).is_some_and(|spec| spec.undoable);
+        let run = |s: &mut Session| {
+            s.track_busy = true;
+            let r = s.execute(id, params);
+            s.track_busy = false;
+            r
+        };
+        // Starting and leaving text editing, and selecting, change no content.
+        if !edits || crate::suggest::REVIEW_COMMANDS.contains(&id) || matches!(id, "text.edit" | "text.exit") {
+            return run(self);
+        }
+        if !crate::suggest::SUGGEST_COMMANDS.contains(&id) {
+            return Err(EngineError::Disabled(id.into(), "This can't be suggested: only changes to slides, shapes and their text can".into()));
+        }
+        let before = self.active().map(|d| (d.uid, d.doc.clone()));
+        let result = run(self)?;
+        let Some((uid, before)) = before else { return Ok(result) };
+        let Some(d) = self.active_mut().filter(|d| d.uid == uid && !Arc::ptr_eq(&before, &d.doc)) else { return Ok(result) };
+        let mut doc = (*d.doc).clone();
+        match crate::suggest::record(&before, &mut doc, author, time) {
+            Ok(()) => {
+                d.doc = Arc::new(doc);
+                Ok(result)
+            }
+            Err(e) => {
+                d.doc = before;
+                d.revision += 1;
+                crate::clamp_selection(d);
+                Err(e)
+            }
+        }
+    }
 }

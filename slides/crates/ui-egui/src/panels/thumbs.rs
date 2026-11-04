@@ -224,6 +224,11 @@ fn list(app: &mut SlideApp, ui: &mut Ui) {
         if let Some(id) = id {
             let colors = crate::canvas::peers::colors_on(&app.peers, id);
             crate::canvas::peers::paint_thumb_dots(p, img, &colors, craft_ui::direction::is_rtl(ui));
+            // Suggestions on this slide: a bar along its bottom in the first suggester's colour.
+            if let Some(x) = app.session.active().and_then(|d| deckcraft_engine::suggest::suggestions(&d.doc).into_iter().find(|x| x.slide() == id)) {
+                let bar = Rect::from_min_max(egui::pos2(img.left(), img.bottom() - 4.0), img.right_bottom());
+                p.rect_filled(bar, CornerRadius::ZERO, crate::canvas::peers::suggestion_color(&x.author));
+            }
         }
         if selected {
             p.rect_stroke(img.expand(2.0), CornerRadius::same(4), Stroke::new(3.0, t.accent), egui::StrokeKind::Outside);

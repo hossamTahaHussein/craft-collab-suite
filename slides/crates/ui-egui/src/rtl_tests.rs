@@ -87,3 +87,34 @@ fn about_credits_hossam_taha_in_the_interface_language() {
     assert!(h.query_all_by_label("Part of Craft Collab Suite. Based on DeckCraft by the ArtCraft team.").next().is_some());
     assert!(h.query_all_by_label("About Craft Slides").next().is_some() || crate::i18n::tr("About Craft Slides") == "About Craft Slides");
 }
+
+/// Review › Suggesting: the person's edits become suggestions, marked on the slide, and rejected
+/// from the ribbon (`CRAFT_SLIDES_RTL_SCREENSHOT` saves `slides-suggesting.png`).
+#[test]
+fn suggesting_from_the_review_tab_marks_and_reviews_shapes() {
+    let mut app = SlideApp::new(Session::with_new(), Services::default());
+    app.session.prefs.author = "Ann".into();
+    app.ui.tab = "Review".into();
+    let mut h = egui_kittest::Harness::builder().with_size(egui::vec2(1280.0, 800.0)).build_ui_state(
+        |ui, app: &mut SlideApp| {
+            app.logic(ui.ctx());
+            app.ui(ui);
+        },
+        app,
+    );
+    h.run_steps(4);
+    h.get_by_label("Suggesting").click();
+    h.run_steps(2);
+    assert!(h.state().session.suggesting, "the button turns Suggesting on");
+    let shapes = |h: &egui_kittest::Harness<'static, SlideApp>| h.state().session.active().unwrap().doc.slides[0].shapes.len();
+    let before = shapes(&h);
+    h.state_mut().run("shape.insert", serde_json::json!({"preset": "rect", "rect": [300, 200, 200, 120]})).unwrap();
+    h.state_mut().run("text.exit", serde_json::json!({})).ok();
+    h.run_steps(3);
+    shot(&mut h, "slides-suggesting.png");
+    assert_eq!(deckcraft_engine::suggest::suggestions(&h.state().session.active().unwrap().doc).len(), 1);
+    h.get_by_label("Reject").click();
+    h.run_steps(2);
+    assert!(deckcraft_engine::suggest::suggestions(&h.state().session.active().unwrap().doc).is_empty());
+    assert_eq!(shapes(&h), before, "rejected: the new shape is gone");
+}

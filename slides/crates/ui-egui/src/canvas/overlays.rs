@@ -158,6 +158,7 @@ pub(super) fn overlays(app: &mut SlideApp, ui: &Ui, painter: &egui::Painter, xf:
     let Some(st) = app.session.active() else { return };
     // Other people in a co-edited presentation.
     super::peers::paint_peers(st, painter, xf, &app.peers);
+    super::peers::paint_suggestions(st, painter, xf);
     selection_handles(app, st, painter, xf, t);
     text_overlays(st, ui, painter, xf, t);
     // Smart guides, marquee, previews.
