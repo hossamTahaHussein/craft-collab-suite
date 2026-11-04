@@ -82,11 +82,21 @@ pub(crate) struct CollabState {
     /// A recorded command is running: the commands it runs aren't recorded again.
     busy: bool,
     outbox: Vec<Recorded>,
+    /// The relay's HTTP API is running a command through this editor as this author.
+    api_author: Option<String>,
 }
 
 impl Default for CollabState {
     fn default() -> Self {
-        CollabState { on: false, recording: true, role: CollabRole::Edit, read_only: (false, false), busy: false, outbox: Vec::new() }
+        CollabState {
+            on: false,
+            recording: true,
+            role: CollabRole::Edit,
+            read_only: (false, false),
+            busy: false,
+            outbox: Vec::new(),
+            api_author: None,
+        }
     }
 }
 
@@ -198,7 +208,19 @@ impl Session {
     /// The context an edit made now in this session would have.
     pub fn run_ctx(&self) -> RunCtx {
         let time_ms = gridcraft_core::date::unix_now_ms().map_or(0, |ms| ms.max(0.0) as u64);
-        RunCtx { author: self.prefs.user_name.clone(), initials: String::new(), time_ms, track: false, api: false }
+        match &self.collab.api_author {
+            Some(author) => RunCtx { author: author.clone(), initials: initials_of(author), time_ms, track: false, api: true },
+            None => RunCtx { author: self.prefs.user_name.clone(), initials: String::new(), time_ms, track: false, api: false },
+        }
+    }
+
+    /// Run `f` as the relay's HTTP API's edit by `author` (its name and initials; not this
+    /// person's to undo). This person's own name is theirs again afterwards.
+    pub fn as_api_author<R>(&mut self, author: &str, f: impl FnOnce(&mut Session) -> R) -> R {
+        let before = self.collab.api_author.replace(author.to_string());
+        let r = f(self);
+        self.collab.api_author = before;
+        r
     }
 
     /// Where the active workbook's selection is.
@@ -304,4 +326,10 @@ impl Session {
         }
         result
     }
+}
+
+/// The first letters of a name's words ("Report Bot" → "RB"), as the HTTP API's edits are
+/// initialled.
+fn initials_of(name: &str) -> String {
+    name.split_whitespace().filter_map(|w| w.chars().next()).collect()
 }

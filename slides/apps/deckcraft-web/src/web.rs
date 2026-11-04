@@ -78,7 +78,15 @@ pub fn start() {
                     if let Some(b) = &bridge {
                         b.post_ready();
                     }
-                    Ok(Box::new(WebShell { app, inbox, bridge, collab, batch: Default::default(), status: (0, None, 0) }))
+                    Ok(Box::new(WebShell {
+                        app,
+                        inbox,
+                        bridge,
+                        collab,
+                        batch: Default::default(),
+                        status: (0, None, 0),
+                        watcher: Default::default(),
+                    }))
                 }),
             )
             .await;
@@ -114,6 +122,44 @@ struct WebShell {
     batch: craft_collab_link::batch::RemoteBatch,
     /// The co-editing status last posted to the parent (pending edits, revision, people).
     status: (usize, Option<u64>, usize),
+    /// What the page's JavaScript API has been told (`deckcraft:event`).
+    watcher: crate::api::Watcher,
+}
+
+impl WebShell {
+    /// The page's JavaScript API calls, and the relay's HTTP API requests (exports and commands)
+    /// this editor answers. They run before the co-editing tick, so their edits go out this frame.
+    fn page_api(&mut self) {
+        let Some(bridge) = self.bridge.as_ref() else { return };
+        for (id, method, params) in bridge.take_calls() {
+            bridge.post_result(id, crate::api::call(&mut self.app, &method, &params));
+        }
+        let Some(link) = self.collab.as_mut() else { return };
+        for request in link.take_host_requests() {
+            use deckcraft_collab::link::{CollabLink, HostRequest};
+            let answer = match request {
+                HostRequest::Export { id, format } if format == "txt" => {
+                    CollabLink::exported(id, crate::api::outline(&self.app).map(String::into_bytes))
+                }
+                HostRequest::Export { id, format } => CollabLink::exported(id, crate::api::document_file(&self.app, &format, None).map(|(_, b)| b)),
+                HostRequest::Run { id, cmd, params, author } => CollabLink::ran(id, crate::api::run_as(&mut self.app, &cmd, params, &author)),
+            };
+            bridge.post_collab(&answer);
+        }
+    }
+
+    /// Tell the page what changed this frame.
+    fn page_events(&mut self) {
+        let Some(bridge) = self.bridge.as_ref() else { return };
+        let (rev, edited_by) = match self.collab.as_mut() {
+            Some(link) => (link.rev().unwrap_or(0), link.take_edited_by()),
+            None => (crate::api::local_rev(&self.app), Vec::new()),
+        };
+        let people: Vec<(String, u8)> = self.app.peers.iter().map(|p| (p.name.clone(), p.color)).collect();
+        for (event, detail) in self.watcher.events(&self.app, rev, &edited_by, &people) {
+            bridge.post_event(event, &detail);
+        }
+    }
 }
 
 impl eframe::App for WebShell {
@@ -141,6 +187,7 @@ impl eframe::App for WebShell {
             link.take_document_ready();
         }
         self.app.logic(ctx);
+        self.page_api();
         if let (Some(link), Some(bridge)) = (self.collab.as_mut(), self.bridge.as_ref()) {
             for out in link.tick(&mut self.app.session, now) {
                 bridge.post_collab(&out);
@@ -170,6 +217,7 @@ impl eframe::App for WebShell {
             }
             co_editing_ui(&mut self.app, link, bridge);
         }
+        self.page_events();
         if let Some(bridge) = &self.bridge {
             bridge.sync(&self.app);
         }

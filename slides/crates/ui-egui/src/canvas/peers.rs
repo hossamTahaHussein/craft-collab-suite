@@ -34,6 +34,13 @@ const PEER_COLORS: [[u8; 3]; 12] = [
     [0x7A, 0x5C, 0xFF],
 ];
 
+/// A person's colour (an index into the palette) as CSS (`#rrggbb`), for the page that embeds
+/// the editor.
+pub fn peer_css_color(color: u8) -> String {
+    let [r, g, b] = PEER_COLORS[color as usize % 12];
+    format!("#{r:02x}{g:02x}{b:02x}")
+}
+
 pub fn peer_color(color: u8) -> Color32 {
     let [r, g, b] = PEER_COLORS[color as usize % 12];
     Color32::from_rgb(r, g, b)

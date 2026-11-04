@@ -137,3 +137,19 @@ fn roles_and_read_only_limit_what_the_person_may_change() {
     let ids: Vec<String> = s.take_outbox().into_iter().map(|r| r.id).collect();
     assert_eq!(ids, ["review.newNote", "cell.set"]);
 }
+
+/// The relay's HTTP API runs a command through this person's editor as its own author: the
+/// edit carries that name and its initials and is marked as the API's (not this person's to
+/// undo); the person's own name is back afterwards.
+#[test]
+fn an_api_edit_is_recorded_as_the_apis() {
+    let mut s = s();
+    s.prefs.user_name = "Ann Lee".into();
+    let r = s.as_api_author("Report Bot", |s| s.execute("cell.set", json!({"cell": "A1", "input": "7"})));
+    assert!(r.is_ok());
+    s.execute("cell.set", json!({"cell": "A2", "input": "8"})).unwrap();
+    let out = s.take_outbox();
+    assert_eq!(out.len(), 2);
+    assert_eq!((out[0].ctx.author.as_str(), out[0].ctx.initials.as_str(), out[0].ctx.api), ("Report Bot", "RB", true));
+    assert_eq!((out[1].ctx.author.as_str(), out[1].ctx.api), ("Ann Lee", false), "the person's own edits are theirs again");
+}
