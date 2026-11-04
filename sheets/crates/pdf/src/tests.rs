@@ -464,3 +464,27 @@ fn a_mirrored_page_draws_boxes_lines_and_text_from_the_right() {
     p.fill_rect(10.0, 0.0, 100.0, 20.0, [255, 0, 0]);
     assert!(page_content(&doc).contains("10 780 100 20 re f"));
 }
+
+#[test]
+fn vowelled_text_is_drawn_without_text_and_written_invisibly_a_character_a_glyph() {
+    if !have_face("الكِتَابُ") {
+        return;
+    }
+    let mut doc = PdfDoc::new();
+    let p = doc.add_page(612.0, 792.0);
+    p.text(10.0, 20.0, 10.0, Font::Helvetica, [0, 0, 0], "مرحبا");
+    assert!(!page_content(&doc).contains("3 Tr"), "no vowels: written as drawn");
+    let p = doc.page_mut(0).expect("the page");
+    p.text(10.0, 40.0, 10.0, Font::Helvetica, [0, 0, 0], "الكِتَابُ");
+    let content = page_content(&doc).to_string();
+    let vowelled =
+        &content[content.rfind("BT\n").map_or(0, |_| content.find("/Span << /ActualText <FEFF> >> BDC").expect("what shows carries no text"))..];
+    assert!(vowelled.contains("q\nBT\n3 Tr\n"), "{vowelled}");
+    assert!(vowelled.trim_end().ends_with("ET\nQ"), "the invisible mode ends with its run: {vowelled}");
+    // Every span the invisible run writes is one character.
+    for span in vowelled.split("/ActualText <FEFF").skip(1).filter(|s| !s.starts_with('>')) {
+        let hex = &span[..span.find('>').unwrap()];
+        assert_eq!(hex.len(), 4, "one UTF-16 unit: {hex}");
+    }
+    check_xref(&doc.finish()).unwrap();
+}

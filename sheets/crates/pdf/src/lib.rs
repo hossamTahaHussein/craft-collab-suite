@@ -19,6 +19,7 @@
 mod complex;
 mod metrics;
 mod symbol;
+mod vowels;
 
 pub use symbol::{symbol_code, symbol_width};
 
@@ -721,6 +722,10 @@ impl Page {
                 complex::Piece::Plain(t) => self.plain_text(at(pen, 0.0), size, font, color, t, (sn, cs)),
                 complex::Piece::Shaped { face, glyphs, text: run, upem } => {
                     let (slot, placed) = complex::place(&mut self.shaped.borrow_mut(), face, glyphs, run, *upem, size);
+                    if self.vowel_text(slot, face, glyphs, &placed, run, size, color, &at, pen, (sn, cs)) {
+                        pen += piece.width(size, |t| plain_width(font, size, t));
+                        continue;
+                    }
                     let mut s = format!("BT\n{}\n/E{} {} Tf\n", rgb_op(color, false), slot + 1, n(size));
                     for g in &placed {
                         if let Some(text) = &g.span {
@@ -739,6 +744,66 @@ impl Page {
             }
             pen += piece.width(size, |t| plain_width(font, size, t));
         }
+    }
+
+    /// A shaped run with Arabic or Hebrew vowels (see `vowels`): what shows carries no text, and
+    /// the text is an invisible run, a character per glyph, each vowel on the baseline just past
+    /// its letter. False (nothing drawn) for a run without vowels.
+    #[allow(clippy::too_many_arguments)]
+    fn vowel_text(
+        &mut self,
+        slot: usize,
+        face: &std::sync::Arc<wordcraft_fonts::FontFace>,
+        glyphs: &[(u16, i32, i32, i32, usize)],
+        placed: &[complex::Placed],
+        run: &str,
+        size: f32,
+        color: Rgb,
+        at: &dyn Fn(f32, f32) -> Point,
+        pen: f32,
+        (sn, cs): (f32, f32),
+    ) -> bool {
+        // Each glyph's text: its cluster, up to the next cluster's start.
+        let mut starts: Vec<usize> = glyphs.iter().map(|g| g.4).collect();
+        starts.sort_unstable();
+        starts.dedup();
+        let ranges: Vec<std::ops::Range<usize>> =
+            glyphs.iter().map(|g| g.4..starts.iter().copied().find(|s| *s > g.4).unwrap_or(run.len())).collect();
+        let laid: Vec<(u32, f64, f64)> = placed.iter().map(|p| (u32::from(p.gid), f64::from(p.x), f64::from(p.y))).collect();
+        let upem = face.units_per_em().max(1.0);
+        let Some(items) = vowels::text_items(run, &laid, &ranges, f64::from(size), |g| face.advance(g) * 1000.0 / upem) else { return false };
+        let mut s = format!("BT\n{}\n/E{} {} Tf\n/Span << /ActualText <FEFF> >> BDC\n", rgb_op(color, false), slot + 1, n(size));
+        for g in placed {
+            let p = at(pen + g.x, -g.y);
+            let _ = writeln!(s, "{} {} {} {} {} {} Tm\n<{:04X}> Tj", n(cs), n(-sn), n(sn), n(cs), n(p.x), n(self.y(p.y)), g.gid);
+        }
+        s.push_str("EMC\nET\nq\nBT\n3 Tr\n");
+        let _ = writeln!(s, "/E{} {} Tf", slot + 1, n(size));
+        let reg = self.shaped.borrow();
+        // A cluster's several glyphs (a letter and its dots) give its text once, on the widest
+        // (a reader takes a zero-width glyph's text for a word ending before the next letter).
+        let carrier = |k: usize| {
+            let r = &items[k].3;
+            let widest = items.iter().enumerate().filter(|(_, i)| i.3 == *r).max_by(|a, b| face.advance(a.1.0).total_cmp(&face.advance(b.1.0)));
+            widest.is_none_or(|(w, _)| w == k)
+        };
+        for (k, (gid, x, y, r)) in items.iter().enumerate() {
+            let text = if carrier(k) { run.get(r.clone()).unwrap_or_default() } else { "" };
+            let gid = *gid as u16;
+            let mapped = reg.faces.get(slot).and_then(|e| e.glyphs.get(&gid)).is_some_and(|m| m.1 == text);
+            if !mapped {
+                let _ = writeln!(s, "/Span << /ActualText {} >> BDC", complex::utf16_hex(text));
+            }
+            let p = at(pen + *x as f32, -(*y as f32));
+            let _ = writeln!(s, "{} {} {} {} {} {} Tm\n<{:04X}> Tj", n(cs), n(-sn), n(sn), n(cs), n(p.x), n(self.y(p.y)), gid);
+            if !mapped {
+                s.push_str("EMC\n");
+            }
+        }
+        drop(reg);
+        s.push_str("ET\nQ");
+        self.op(&s);
+        true
     }
 
     /// Draws an RGBA image (`pw`×`ph` pixels, row-major, straight alpha) into the box
