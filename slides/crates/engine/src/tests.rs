@@ -2401,6 +2401,8 @@ fn font_add_refuses_non_fonts_and_rescan_reports_the_catalog() {
 #[test]
 fn pdf_options_take_paper_and_orientation() {
     let o = cmd::file::pdf_options(&json!({}), 1).unwrap();
+    assert!(o.arabic_vowels, "vowels in the copied text by default");
+    assert!(!cmd::file::pdf_options(&json!({"arabicVowels": false}), 1).unwrap().arabic_vowels);
     assert_eq!(o.paper, (612.0, 792.0));
     let o = cmd::file::pdf_options(&json!({"paper": "A4", "orientation": "landscape"}), 1).unwrap();
     assert_eq!(o.paper, (841.89, 595.28));

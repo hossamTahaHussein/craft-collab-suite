@@ -16,7 +16,7 @@ const MAX_RUNS: usize = 10_000;
 pub fn body_to_html(body: &TextBody) -> String {
     let mut out = String::new();
     for (i, p) in body.paragraphs.iter().enumerate() {
-        let prefix = if i > 0 { "<br><p>" } else { "<p>" };
+        let prefix = p_open(i, p);
         if !push_if_fits(&mut out, prefix, 4) {
             return plain_html(body);
         }
@@ -44,12 +44,37 @@ pub fn body_to_html(body: &TextBody) -> String {
     out
 }
 
+/// A paragraph's opening (after a `<br>` from the second on, so plain-text readers keep the
+/// breaks): `dir="rtl"` for a right-to-left one.
+fn p_open(i: usize, p: &Paragraph) -> &'static str {
+    match (i > 0, p.props.rtl == Some(true)) {
+        (false, false) => "<p>",
+        (true, false) => "<br><p>",
+        (false, true) => "<p dir=\"rtl\">",
+        (true, true) => "<br><p dir=\"rtl\">",
+    }
+}
+
+/// The `dir` a block's tag source gives (`rtl` → `Some(true)`, `ltr` → `Some(false)`).
+fn block_dir(src: &str) -> Option<bool> {
+    let lower = src.to_ascii_lowercase();
+    let at = lower.find("dir=")? + 4;
+    let value = lower[at..].trim_start_matches(['"', '\'']);
+    if value.starts_with("rtl") {
+        Some(true)
+    } else if value.starts_with("ltr") {
+        Some(false)
+    } else {
+        None
+    }
+}
+
 /// The text without formatting, or "" (no HTML on the clipboard) when even that is too big: a
 /// cut-off prefix would paste as if it were the whole text.
 fn plain_html(body: &TextBody) -> String {
     let mut out = String::new();
     for (i, p) in body.paragraphs.iter().enumerate() {
-        let prefix = if i > 0 { "<br><p>" } else { "<p>" };
+        let prefix = p_open(i, p);
         if !push_if_fits(&mut out, prefix, 4) {
             return String::new();
         }
@@ -185,6 +210,9 @@ pub fn html_to_body(html: &str) -> Option<TextBody> {
             }
             if is_block(&name) {
                 new_para(&mut paragraphs);
+                if let (Some(rtl), Some(p)) = (block_dir(name_src), paragraphs.last_mut()) {
+                    p.props.rtl = Some(rtl);
+                }
             }
             if is_break(&name) {
                 new_para(&mut paragraphs);
@@ -529,6 +557,23 @@ mod tests {
         let last = back.paragraphs[0].runs.last().unwrap();
         assert_eq!(last.props.italic, Some(true));
         assert!(last.props.underline.is_some());
+    }
+
+    /// A right-to-left paragraph is copied as `dir="rtl"` and pastes back right to left, as the
+    /// HTML of other apps does.
+    #[test]
+    fn right_to_left_paragraphs_round_trip_as_dir_rtl() {
+        let mut body = TextBody::from_text("مرحبا");
+        body.paragraphs[0].props.rtl = Some(true);
+        body.paragraphs.push(Paragraph::new("Hello"));
+        let html = body_to_html(&body);
+        assert!(html.starts_with("<p dir=\"rtl\">مرحبا</p>"), "{html}");
+        assert!(html.ends_with("<p>Hello</p>"), "{html}");
+        let back = html_to_body(&html).unwrap();
+        assert_eq!(back.paragraphs[0].props.rtl, Some(true));
+        assert_eq!(back.paragraphs[1].props.rtl, None);
+        let word = html_to_body("<div DIR='RTL' style='x'>שלום</div><p dir=\"ltr\">a</p>").unwrap();
+        assert_eq!((word.paragraphs[0].props.rtl, word.paragraphs[1].props.rtl), (Some(true), Some(false)));
     }
 
     #[test]
