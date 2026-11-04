@@ -117,6 +117,8 @@ pub struct CollabLink<H: LinkHost> {
     you: Option<String>,
     /// The first person: waiting for the host to open the document, which was open as this id.
     awaiting: Option<u64>,
+    /// The page has no file to open: the first person shares what is open (`?collabNew=1`).
+    share_open: bool,
     /// The document's file name, for saving (`?docName=`).
     doc_name: Option<String>,
     document_ready: bool,
@@ -154,6 +156,7 @@ impl<H: LinkHost> CollabLink<H> {
             replica: None,
             you: None,
             awaiting: None,
+            share_open: false,
             doc_name,
             document_ready: false,
             save_requested: false,
@@ -171,6 +174,13 @@ impl<H: LinkHost> CollabLink<H> {
             offline_since: None,
             offline_lock: None,
         }
+    }
+
+    /// The page opens no file: if this person is the first, the document they have open becomes
+    /// revision 0 at once (the page has nothing else to send, and the others wait for it).
+    pub fn sharing_what_is_open(mut self) -> Self {
+        self.share_open = true;
+        self
     }
 
     /// Whether the page is connected to the relay.
@@ -578,8 +588,9 @@ impl<H: LinkHost> CollabLink<H> {
             return self.resume(rev, snapshot, ops, seen, history, visible);
         }
         let Some(json) = snapshot else {
-            // The first person: the host opens the document, which becomes revision 0.
-            self.awaiting = Some(H::document_id(visible));
+            // The first person: the host opens the document, which becomes revision 0 (or, with
+            // no file to open, the one open now: an id no document has never matches).
+            self.awaiting = Some(if self.share_open { u64::MAX } else { H::document_id(visible) });
             return Vec::new();
         };
         self.join(rev, json, history, ops, you, visible)

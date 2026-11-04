@@ -97,8 +97,11 @@ pub fn start() {
                         bridge.post_ready();
                     }
                     // `?collab=1` (with a host bridge): co-edit the workbook the page's relay shares.
-                    let collab = (app_bridge.is_some() && query_param("collab").as_deref() == Some("1"))
-                        .then(|| gridcraft_collab::link::CollabLink::new(query_param("docName")));
+                    let collab = (app_bridge.is_some() && query_param("collab").as_deref() == Some("1")).then(|| {
+                        let link = gridcraft_collab::link::CollabLink::new(query_param("docName"));
+                        // `?collabNew=1`: the page opens no file; the first person shares what is open.
+                        if query_param("collabNew").as_deref() == Some("1") { link.sharing_what_is_open() } else { link }
+                    });
                     Ok(Box::new(WebShell {
                         app,
                         inbox,

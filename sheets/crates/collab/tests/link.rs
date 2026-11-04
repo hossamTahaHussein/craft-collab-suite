@@ -76,3 +76,26 @@ fn a_viewer_cant_edit_and_offline_too_long_is_read_only() {
     assert!(!link.offline_locked());
     s.execute("cell.set", json!({"cell": "A1", "input": "x"})).unwrap();
 }
+
+/// A page with no file to open (`sharing_what_is_open`): the first person's open workbook
+/// becomes revision 0 straight away, so the people after them aren't left waiting.
+#[test]
+fn with_nothing_to_open_the_first_person_shares_what_is_open() {
+    let mut s = Session::new();
+    s.new_workbook();
+    s.execute("cell.set", json!({"cell": "A1", "input": "kept"})).unwrap();
+    let mut link = CollabLink::new(None).sharing_what_is_open();
+    let welcome = json!({"t": "Welcome", "rev": 0, "snapshot": null, "ops": [], "you": "me"}).to_string();
+    assert!(link.on_message(&welcome, &mut s).is_empty());
+    let out = link.tick(&mut s, 0.0);
+    let snapshot = out.iter().map(|m| parse(m)).find(|m| m["t"] == "Snapshot").expect("revision 0 is sent at once");
+    assert_eq!(snapshot["rev"], 0);
+    assert!(link.take_document_ready());
+    assert_eq!(value(&s, "A1"), Value::Text("kept".into()));
+    // Without it, the link waits for the page's file.
+    let mut waiting = CollabLink::new(None);
+    let mut t = Session::new();
+    t.new_workbook();
+    waiting.on_message(&welcome, &mut t);
+    assert!(waiting.tick(&mut t, 0.0).is_empty());
+}

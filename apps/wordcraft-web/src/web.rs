@@ -106,8 +106,11 @@ pub fn start() {
                         prefs.keep_own_author(&app.session.author, &own);
                     }
                     // `?collab=1`: co-editing through the parent page (`collab_link`).
-                    let collab = (app_bridge.is_some() && query_param("collab").as_deref() == Some("1"))
-                        .then(|| crate::collab_link::CollabLink::new(query_param("docName")));
+                    let collab = (app_bridge.is_some() && query_param("collab").as_deref() == Some("1")).then(|| {
+                        let link = crate::collab_link::CollabLink::new(query_param("docName"));
+                        // `?collabNew=1`: the page opens no file; the first person shares what is open.
+                        if query_param("collabNew").as_deref() == Some("1") { link.sharing_what_is_open() } else { link }
+                    });
                     Ok(Box::new(WebShell {
                         app,
                         inbox,

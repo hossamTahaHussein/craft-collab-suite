@@ -73,8 +73,11 @@ pub fn start() {
                         app.start_show(0, false);
                     }
                     // `?collab=1` (with a host bridge): co-edit the presentation the page's relay shares.
-                    let collab = (bridge.is_some() && query_param("collab").as_deref() == Some("1"))
-                        .then(|| deckcraft_collab::link::CollabLink::new(query_param("docName")));
+                    let collab = (bridge.is_some() && query_param("collab").as_deref() == Some("1")).then(|| {
+                        let link = deckcraft_collab::link::CollabLink::new(query_param("docName"));
+                        // `?collabNew=1`: the page opens no file; the first person shares what is open.
+                        if query_param("collabNew").as_deref() == Some("1") { link.sharing_what_is_open() } else { link }
+                    });
                     if let Some(b) = &bridge {
                         b.post_ready();
                     }
