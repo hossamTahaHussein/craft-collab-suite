@@ -102,7 +102,7 @@ pub(super) fn zoom_menu(app: &mut SlideApp, ui: &mut Ui) {
     let Some(doc) = app.session.active().map(|d| d.doc.clone()) else { return };
     let id = egui::Id::unique("insert_zoom_menu");
     let (mut kind, mut picked): (u8, Vec<usize>) = ui.data_mut(|d| d.get_temp(id).unwrap_or((0, vec![])));
-    ui.horizontal(|ui| {
+    crate::rtl::fit_row(ui, |ui| {
         for (k, label) in [(0u8, "Slide Zoom"), (1, "Section Zoom"), (2, "Summary Zoom")] {
             if ui.selectable_label(kind == k, label).clicked() && kind != k {
                 kind = k;

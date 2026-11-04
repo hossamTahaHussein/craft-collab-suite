@@ -54,6 +54,11 @@ pub fn start() {
                         b.connect(&mut services, cc.egui_ctx.clone());
                     }
                     let mut app = SlideApp::new(Session::new(), services);
+                    // `?lang=ar`: the host page picks the interface language; else the browser's.
+                    let browser = web_sys::window().and_then(|w| w.navigator().language());
+                    if let Some(lang) = query_param("lang").or(browser).and_then(|l| deckcraft_ui_egui::i18n::Language::parse(&l)) {
+                        app.ui.language = lang;
+                    }
                     let q = query();
                     if let Some(author) = query_param("author").filter(|_| bridge.is_some()) {
                         crate::host::Bridge::set_author(&mut app, &author);

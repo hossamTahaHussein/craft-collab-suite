@@ -134,14 +134,14 @@ pub fn show(app: &mut SlideApp, ui: &mut Ui) {
         let mut x = rect.min.x + 12.0;
         let y = rect.min.y + 2.0;
         {
-            let w = ui.fonts_mut(|f| f.layout_no_wrap("File".to_string(), theme::font(13.0), t.text).size().x) + 18.0;
-            let r = Rect::from_min_size(pos2(x, y), vec2(w, 24.0));
+            let w = ui.fonts_mut(|f| f.layout_no_wrap(crate::i18n::tr("File").to_string(), theme::font(13.0), t.text).size().x) + 18.0;
+            let r = crate::rtl::place(rect, Rect::from_min_size(pos2(x, y), vec2(w, 24.0)));
             let resp = ui.interact(r, ui.scope_id().with("tab_file"), Sense::click());
             resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, "File"));
             if resp.hovered() {
                 ui.painter().rect_filled(r.shrink2(vec2(2.0, 2.0)), CornerRadius::same(4), t.hover);
             }
-            ui.painter().text(r.center(), Align2::CENTER_CENTER, "File", theme::font(13.0), t.text);
+            ui.painter().text(r.center(), Align2::CENTER_CENTER, crate::i18n::tr("File"), theme::font(13.0), t.text);
             if resp.on_hover_text("File (Alt+F)").clicked() {
                 app.open_backstage(crate::backstage::Page::Home);
             }
@@ -150,8 +150,8 @@ pub fn show(app: &mut SlideApp, ui: &mut Ui) {
         let all: Vec<(&str, bool)> = TABS.iter().map(|s| (*s, false)).chain(ctx_tabs.iter().map(|s| (*s, true))).collect();
         for (name, contextual) in all {
             let font = theme::font(13.0);
-            let w = ui.fonts_mut(|f| f.layout_no_wrap(name.to_string(), font.clone(), t.text).size().x) + 18.0;
-            let r = Rect::from_min_size(pos2(x, y), vec2(w, 24.0));
+            let w = ui.fonts_mut(|f| f.layout_no_wrap(crate::i18n::tr(name).to_string(), font.clone(), t.text).size().x) + 18.0;
+            let r = crate::rtl::place(rect, Rect::from_min_size(pos2(x, y), vec2(w, 24.0)));
             let resp = ui.interact(r, ui.scope_id().with(("tab", name)), Sense::click());
             resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, name));
             let active = app.ui.tab == name;
@@ -160,7 +160,7 @@ pub fn show(app: &mut SlideApp, ui: &mut Ui) {
             }
             let col = if contextual { t.contextual } else { t.text };
             let f = if active { theme::bold(13.0) } else { font };
-            ui.painter().text(r.center(), Align2::CENTER_CENTER, name, f, col);
+            ui.painter().text(r.center(), Align2::CENTER_CENTER, crate::i18n::tr(name), f, col);
             if active {
                 let uw = (w - 20.0).max(16.0);
                 ui.painter().rect_filled(Rect::from_center_size(pos2(r.center().x, r.max.y - 1.0), vec2(uw, 3.0)), CornerRadius::same(1), t.accent);
@@ -209,7 +209,17 @@ pub fn show(app: &mut SlideApp, ui: &mut Ui) {
         let scroll =
             area.scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::AlwaysHidden).auto_shrink([false, false]).show(&mut sui, |ui| {
                 ui.set_min_height(RIBBON_H);
-                ui.horizontal_top(|ui| {
+                // Right to left the groups start at the card's right edge: the row is as wide as
+                // they were last frame (or the card), so the first group is at the reading start.
+                let width_id = egui::Id::unique(("ribbon_groups_width", tab.as_str()));
+                let width = if crate::rtl::is_rtl() {
+                    ui.ctx().data(|d| d.get_temp::<f32>(width_id)).unwrap_or(0.0).max(scroll_rect.width())
+                } else {
+                    ui.available_size_before_wrap().x
+                };
+                let layout =
+                    if crate::rtl::is_rtl() { egui::Layout::right_to_left(egui::Align::Min) } else { egui::Layout::left_to_right(egui::Align::Min) };
+                ui.allocate_ui_with_layout(vec2(width, ui.spacing().interact_size.y), layout, |ui| {
                     ui.spacing_mut().item_spacing.x = 1.0;
                     match tab.as_str() {
                         "Home" => home(app, ui),
@@ -234,6 +244,8 @@ pub fn show(app: &mut SlideApp, ui: &mut Ui) {
                         "Notes Master" => notes_master(app, ui),
                         _ => {}
                     }
+                    let used = ui.min_rect().width();
+                    ui.ctx().data_mut(|d| d.insert_temp(width_id, used));
                 });
             });
         let r = scroll.inner_rect;
@@ -255,6 +267,13 @@ pub fn show(app: &mut SlideApp, ui: &mut Ui) {
         app.ribbon_scroll.insert(tab.clone(), offset.to_bits());
         let step = 160.0;
         let mut next = None;
+        // Right to left a tab's first group is at its right end: the first time an overflowing
+        // tab shows it is scrolled there.
+        let started = egui::Id::unique(("ribbon_rtl_started", tab.as_str()));
+        if crate::rtl::is_rtl() && overflow > 1.0 && !ui.ctx().data(|d| d.get_temp::<bool>(started).unwrap_or(false)) {
+            ui.ctx().data_mut(|d| d.insert_temp(started, true));
+            next = Some(overflow);
+        }
         if offset > 1.0 {
             let left = Rect::from_min_max(pos2((r.left() - edge).max(inner.left()), r.top()), pos2(r.left(), r.bottom()));
             if edge_cue(&mut cui, left, "‹", "Scroll ribbon left", &t) {

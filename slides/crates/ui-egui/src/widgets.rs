@@ -51,7 +51,8 @@ fn big_button_width(text_w: f32, split: bool) -> f32 {
 pub fn big_button_ex(ui: &mut Ui, icon: Icon, label: &str, enabled: bool, split: bool, selected: bool) -> (Response, Option<Response>) {
     let t = Tokens::get(ui.ctx());
     let font = theme::font(11.0);
-    let lines: Vec<&str> = wrap_label(label);
+    // Shown in the interface language; named in English for screen readers' tests.
+    let lines: Vec<&str> = wrap_label(crate::i18n::tr(label));
     let text_w = lines.iter().map(|l| ui.fonts_mut(|f| f.layout_no_wrap(l.to_string(), font.clone(), t.text).size().x)).fold(0.0f32, f32::max);
     let w = big_button_width(text_w, split);
     // The whole button runs the main command; the narrow strip at the end of the label row is the
@@ -150,7 +151,8 @@ pub fn small_button_named(
 ) -> (Response, Option<Response>) {
     let t = Tokens::get(ui.ctx());
     let font = theme::font(12.0);
-    let tw = if label.is_empty() { 0.0 } else { ui.fonts_mut(|f| f.layout_no_wrap(label.to_string(), font.clone(), t.text).size().x) + 5.0 };
+    let shown = crate::i18n::tr(label);
+    let tw = if label.is_empty() { 0.0 } else { ui.fonts_mut(|f| f.layout_no_wrap(shown.to_string(), font.clone(), t.text).size().x) + 5.0 };
     let arrow_w = if split { 12.0 } else { 0.0 };
     let w = 24.0 + tw + arrow_w;
     // As in `big_button_ex`, a split row is two targets and must not add a third named node.
@@ -185,7 +187,7 @@ pub fn small_button_named(
     }
     icons::paint(&painter, Rect::from_center_size(pos2(rect.min.x + 12.0, rect.center().y), vec2(17.0, 17.0)), icon, t.text, !enabled);
     if !label.is_empty() {
-        painter.text(pos2(rect.min.x + 24.0, rect.center().y), Align2::LEFT_CENTER, label, font, if enabled { t.text } else { t.text_faint });
+        painter.text(pos2(rect.min.x + 24.0, rect.center().y), Align2::LEFT_CENTER, shown, font, if enabled { t.text } else { t.text_faint });
     }
     if split {
         chevron(&painter, pos2(rect.max.x - 6.0, rect.center().y), 2.8, t.text_dim);
@@ -246,7 +248,8 @@ fn split_popup_id(main: &Response) -> egui::Id {
 pub fn check_item(ui: &mut Ui, label: &str, enabled: bool, on: bool) -> Response {
     let t = Tokens::get(ui.ctx());
     let font = theme::font(12.0);
-    let tw = ui.fonts_mut(|f| f.layout_no_wrap(label.to_string(), font.clone(), t.text).size().x) + 5.0;
+    let shown = crate::i18n::tr(label);
+    let tw = ui.fonts_mut(|f| f.layout_no_wrap(shown.to_string(), font.clone(), t.text).size().x) + 5.0;
     let (rect, resp) = ui.allocate_exact_size(vec2(24.0 + tw, 22.0), if enabled { Sense::click() } else { Sense::hover() });
     resp.widget_info(|| egui::WidgetInfo::selected(egui::Role::CheckBox, enabled, on, label));
     let painter = ui.painter_at(rect);
@@ -256,7 +259,7 @@ pub fn check_item(ui: &mut Ui, label: &str, enabled: bool, on: bool) -> Response
     if on {
         icons::paint(&painter, Rect::from_center_size(pos2(rect.min.x + 12.0, rect.center().y), vec2(17.0, 17.0)), Icon::Check, t.text, !enabled);
     }
-    painter.text(pos2(rect.min.x + 24.0, rect.center().y), Align2::LEFT_CENTER, label, font, if enabled { t.text } else { t.text_faint });
+    painter.text(pos2(rect.min.x + 24.0, rect.center().y), Align2::LEFT_CENTER, shown, font, if enabled { t.text } else { t.text_faint });
     resp
 }
 
@@ -321,7 +324,7 @@ pub fn separator(ui: &mut Ui) {
 
 /// Two or three rows of small controls stacked in one ribbon column.
 pub fn rows<R>(ui: &mut Ui, add: impl FnOnce(&mut Ui) -> R) -> R {
-    ui.vertical(|ui| {
+    crate::rtl::vertical(ui, |ui| {
         ui.spacing_mut().item_spacing = vec2(1.0, 0.0);
         ui.add_space(0.0);
         add(ui)
@@ -583,7 +586,7 @@ pub fn section(ui: &mut Ui, title: &str, open: bool) -> bool {
         p.line_segment([pos2(c.x - 2.0, c.y - 4.0), pos2(c.x + 2.0, c.y)], Stroke::new(1.2, t.text));
         p.line_segment([pos2(c.x + 2.0, c.y), pos2(c.x - 2.0, c.y + 4.0)], Stroke::new(1.2, t.text));
     }
-    p.text(pos2(rect.min.x + 18.0, rect.center().y), Align2::LEFT_CENTER, title, theme::bold(13.0), t.text);
+    p.text(pos2(rect.min.x + 18.0, rect.center().y), Align2::LEFT_CENTER, crate::i18n::tr(title), theme::bold(13.0), t.text);
     if resp.clicked() { !open } else { open }
 }
 

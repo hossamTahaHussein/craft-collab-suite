@@ -13,7 +13,7 @@ pub(super) fn table_design(app: &mut SlideApp, ui: &mut Ui) {
     group(ui, |ui| {
         rows(ui, |ui| {
             let flags = tbl.as_ref().map(|t| (t.first_row, t.last_row, t.band_row, t.first_col, t.last_col, t.band_col)).unwrap_or_default();
-            ui.horizontal(|ui| {
+            crate::rtl::fit_row(ui, |ui| {
                 let mut a = flags.0;
                 if ui.checkbox(&mut a, "Header Row").changed() {
                     run(app, "table.options", json!({"headerRow": a}));
@@ -23,7 +23,7 @@ pub(super) fn table_design(app: &mut SlideApp, ui: &mut Ui) {
                     run(app, "table.options", json!({"firstColumn": d}));
                 }
             });
-            ui.horizontal(|ui| {
+            crate::rtl::fit_row(ui, |ui| {
                 let mut b = flags.1;
                 if ui.checkbox(&mut b, "Total Row").changed() {
                     run(app, "table.options", json!({"totalRow": b}));
@@ -33,7 +33,7 @@ pub(super) fn table_design(app: &mut SlideApp, ui: &mut Ui) {
                     run(app, "table.options", json!({"lastColumn": e}));
                 }
             });
-            ui.horizontal(|ui| {
+            crate::rtl::fit_row(ui, |ui| {
                 let mut c = flags.2;
                 if ui.checkbox(&mut c, "Banded Rows").changed() {
                     run(app, "table.options", json!({"bandedRows": c}));
@@ -213,12 +213,12 @@ pub(super) fn table_layout(app: &mut SlideApp, ui: &mut Ui) {
     });
     group(ui, |ui| {
         rows(ui, |ui| {
-            ui.horizontal(|ui| {
+            crate::rtl::fit_row(ui, |ui| {
                 toggle(app, ui, Icon::AlignLeft, "Align Left", "format.alignLeft", false);
                 toggle(app, ui, Icon::AlignCenter, "Center", "format.alignCenter", false);
                 toggle(app, ui, Icon::AlignRight, "Align Right", "format.alignRight", false);
             });
-            ui.horizontal(|ui| {
+            crate::rtl::fit_row(ui, |ui| {
                 for (l, a) in [("Top", "top"), ("Center", "middle"), ("Bottom", "bottom")] {
                     if ui.small_button(l).on_hover_text(format!("Align text to the {l} of the cell").to_lowercase()).clicked() {
                         run(app, "table.cellAlign", json!({"anchor": a}));

@@ -60,7 +60,7 @@ pub(super) fn design(app: &mut SlideApp, ui: &mut Ui) {
         r.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, "Colors"));
         egui::Popup::menu(&r).width(240.0).show(|ui| {
             for cs in deckcraft_model::theme::builtin_color_schemes() {
-                ui.horizontal(|ui| {
+                crate::rtl::fit_row(ui, |ui| {
                     let (rect, resp) = ui.allocate_exact_size(vec2(220.0, 20.0), Sense::click());
                     let p = ui.painter();
                     for (k, c) in cs.colors.iter().take(10).skip(2).enumerate() {

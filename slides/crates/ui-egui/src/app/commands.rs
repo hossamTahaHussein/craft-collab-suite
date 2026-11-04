@@ -45,6 +45,11 @@ impl SlideApp {
     fn run_ui(&mut self, id: &str, p: &Value) -> Result<Value, String> {
         match id {
             "view.normal" => self.ui.view = ViewMode::Normal,
+            "ui.language" => {
+                let code = p.get("value").and_then(Value::as_str).unwrap_or_default();
+                self.ui.language =
+                    crate::i18n::Language::parse(code).ok_or_else(|| format!("ui.language: no interface language `{code}` (en or ar)"))?;
+            }
             "view.outline" => self.ui.view = ViewMode::Outline,
             "view.sorter" => self.ui.view = ViewMode::Sorter,
             "view.notesPage" => self.ui.view = ViewMode::NotesPage,

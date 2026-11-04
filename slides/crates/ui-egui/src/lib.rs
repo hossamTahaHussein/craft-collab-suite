@@ -23,12 +23,14 @@ pub mod control;
 pub mod dialogs;
 pub mod doc_window;
 pub mod eyedropper;
+pub mod i18n;
 pub mod icons;
 pub mod media;
 pub mod menus;
 pub mod opening;
 pub mod presenter;
 pub mod ribbon;
+pub mod rtl;
 pub mod settings;
 pub mod show;
 pub mod sorter;
@@ -98,6 +100,7 @@ struct PendingFile {
 /// UI-only commands (id, label, shortcut, params).
 pub const UI_COMMANDS: &[(&str, &str, Option<&str>, &str)] = &[
     ("view.normal", "Normal", None, "{}"),
+    ("ui.language", "Interface Language", None, "{value: \"en\"|\"ar\"} (right to left in Arabic)"),
     ("view.outline", "Outline View", None, "{}"),
     ("view.sorter", "Slide Sorter", None, "{}"),
     ("view.notesPage", "Notes Page", None, "{}"),
@@ -475,6 +478,8 @@ mod reflection_pane_tests;
 mod replacefonts_tests;
 #[cfg(test)]
 mod reuse_picker_tests;
+#[cfg(test)]
+mod rtl_tests;
 #[cfg(test)]
 mod slide_size_tests;
 #[cfg(test)]

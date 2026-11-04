@@ -88,6 +88,10 @@ pub fn start() {
                     let (stored_ui, stored_prefs) = (stored(crate::prefs::UI_KEY), stored(crate::prefs::PREFS_KEY));
                     crate::prefs::restore(&mut app, stored_ui.as_deref(), stored_prefs.as_deref());
                     let mut prefs = crate::prefs::PrefsSync::new(stored_ui, stored_prefs);
+                    // `?lang=ar`: the host page picks the interface language (over the saved one).
+                    if let Some(lang) = query_param("lang").and_then(|l| gridcraft_ui_egui::i18n::Language::parse(&l)) {
+                        app.ui.language = lang;
+                    }
                     SheetApp::setup_context_for_language(&cc.egui_ctx, false, app.ui.language);
                     if let Some(bridge) = &app_bridge {
                         prefs.keep_user_name(app.session.prefs.user_name.clone());

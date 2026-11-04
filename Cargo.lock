@@ -1881,7 +1881,7 @@ checksum = "92773504d58c093f6de2459af4af33faa518c13451eb8f2b5698ed3d36e7c813"
 [[package]]
 name = "ecolor"
 version = "0.37.0"
-source = "git+https://github.com/hossamTahaHussein/egui.git?rev=27662b2129d2eaeced4355da03a890f82b7fbc05#27662b2129d2eaeced4355da03a890f82b7fbc05"
+source = "git+https://github.com/hossamTahaHussein/egui.git?rev=7214d36840d562e1fae69c7030368372e10ccefb#7214d36840d562e1fae69c7030368372e10ccefb"
 dependencies = [
  "bytemuck",
  "emath",
@@ -1890,7 +1890,7 @@ dependencies = [
 [[package]]
 name = "eframe"
 version = "0.37.0"
-source = "git+https://github.com/hossamTahaHussein/egui.git?rev=27662b2129d2eaeced4355da03a890f82b7fbc05#27662b2129d2eaeced4355da03a890f82b7fbc05"
+source = "git+https://github.com/hossamTahaHussein/egui.git?rev=7214d36840d562e1fae69c7030368372e10ccefb#7214d36840d562e1fae69c7030368372e10ccefb"
 dependencies = [
  "ahash",
  "bytemuck",
@@ -1925,7 +1925,7 @@ dependencies = [
 [[package]]
 name = "egui"
 version = "0.37.0"
-source = "git+https://github.com/hossamTahaHussein/egui.git?rev=27662b2129d2eaeced4355da03a890f82b7fbc05#27662b2129d2eaeced4355da03a890f82b7fbc05"
+source = "git+https://github.com/hossamTahaHussein/egui.git?rev=7214d36840d562e1fae69c7030368372e10ccefb#7214d36840d562e1fae69c7030368372e10ccefb"
 dependencies = [
  "accesskit",
  "ahash",
@@ -1944,7 +1944,7 @@ dependencies = [
 [[package]]
 name = "egui-wgpu"
 version = "0.37.0"
-source = "git+https://github.com/hossamTahaHussein/egui.git?rev=27662b2129d2eaeced4355da03a890f82b7fbc05#27662b2129d2eaeced4355da03a890f82b7fbc05"
+source = "git+https://github.com/hossamTahaHussein/egui.git?rev=7214d36840d562e1fae69c7030368372e10ccefb#7214d36840d562e1fae69c7030368372e10ccefb"
 dependencies = [
  "ahash",
  "bytemuck",
@@ -1963,7 +1963,7 @@ dependencies = [
 [[package]]
 name = "egui-winit"
 version = "0.37.0"
-source = "git+https://github.com/hossamTahaHussein/egui.git?rev=27662b2129d2eaeced4355da03a890f82b7fbc05#27662b2129d2eaeced4355da03a890f82b7fbc05"
+source = "git+https://github.com/hossamTahaHussein/egui.git?rev=7214d36840d562e1fae69c7030368372e10ccefb#7214d36840d562e1fae69c7030368372e10ccefb"
 dependencies = [
  "accesskit_winit",
  "arboard",
@@ -1989,7 +1989,7 @@ dependencies = [
 [[package]]
 name = "egui_glow"
 version = "0.37.0"
-source = "git+https://github.com/hossamTahaHussein/egui.git?rev=27662b2129d2eaeced4355da03a890f82b7fbc05#27662b2129d2eaeced4355da03a890f82b7fbc05"
+source = "git+https://github.com/hossamTahaHussein/egui.git?rev=7214d36840d562e1fae69c7030368372e10ccefb#7214d36840d562e1fae69c7030368372e10ccefb"
 dependencies = [
  "bytemuck",
  "egui",
@@ -2002,7 +2002,7 @@ dependencies = [
 [[package]]
 name = "egui_kittest"
 version = "0.37.0"
-source = "git+https://github.com/hossamTahaHussein/egui.git?rev=27662b2129d2eaeced4355da03a890f82b7fbc05#27662b2129d2eaeced4355da03a890f82b7fbc05"
+source = "git+https://github.com/hossamTahaHussein/egui.git?rev=7214d36840d562e1fae69c7030368372e10ccefb#7214d36840d562e1fae69c7030368372e10ccefb"
 dependencies = [
  "dify",
  "eframe",
@@ -2028,7 +2028,7 @@ checksum = "0e9c71c2167ca323c882b99918929403426e2373ea17242ff5653e0d5e1058be"
 [[package]]
 name = "emath"
 version = "0.37.0"
-source = "git+https://github.com/hossamTahaHussein/egui.git?rev=27662b2129d2eaeced4355da03a890f82b7fbc05#27662b2129d2eaeced4355da03a890f82b7fbc05"
+source = "git+https://github.com/hossamTahaHussein/egui.git?rev=7214d36840d562e1fae69c7030368372e10ccefb#7214d36840d562e1fae69c7030368372e10ccefb"
 dependencies = [
  "bytemuck",
 ]
@@ -2077,7 +2077,7 @@ dependencies = [
 [[package]]
 name = "epaint"
 version = "0.37.0"
-source = "git+https://github.com/hossamTahaHussein/egui.git?rev=27662b2129d2eaeced4355da03a890f82b7fbc05#27662b2129d2eaeced4355da03a890f82b7fbc05"
+source = "git+https://github.com/hossamTahaHussein/egui.git?rev=7214d36840d562e1fae69c7030368372e10ccefb#7214d36840d562e1fae69c7030368372e10ccefb"
 dependencies = [
  "ahash",
  "bytemuck",
@@ -2103,7 +2103,7 @@ dependencies = [
 [[package]]
 name = "epaint_default_fonts"
 version = "0.37.0"
-source = "git+https://github.com/hossamTahaHussein/egui.git?rev=27662b2129d2eaeced4355da03a890f82b7fbc05#27662b2129d2eaeced4355da03a890f82b7fbc05"
+source = "git+https://github.com/hossamTahaHussein/egui.git?rev=7214d36840d562e1fae69c7030368372e10ccefb#7214d36840d562e1fae69c7030368372e10ccefb"
 
 [[package]]
 name = "equivalent"
@@ -9033,19 +9033,19 @@ dependencies = [
 [[patch.unused]]
 name = "egui_demo_lib"
 version = "0.37.0"
-source = "git+https://github.com/hossamTahaHussein/egui.git?rev=27662b2129d2eaeced4355da03a890f82b7fbc05#27662b2129d2eaeced4355da03a890f82b7fbc05"
+source = "git+https://github.com/hossamTahaHussein/egui.git?rev=7214d36840d562e1fae69c7030368372e10ccefb#7214d36840d562e1fae69c7030368372e10ccefb"
 
 [[patch.unused]]
 name = "egui_extras"
 version = "0.37.0"
-source = "git+https://github.com/hossamTahaHussein/egui.git?rev=27662b2129d2eaeced4355da03a890f82b7fbc05#27662b2129d2eaeced4355da03a890f82b7fbc05"
+source = "git+https://github.com/hossamTahaHussein/egui.git?rev=7214d36840d562e1fae69c7030368372e10ccefb#7214d36840d562e1fae69c7030368372e10ccefb"
 
 [[patch.unused]]
 name = "egui_inspection"
 version = "0.37.0"
-source = "git+https://github.com/hossamTahaHussein/egui.git?rev=27662b2129d2eaeced4355da03a890f82b7fbc05#27662b2129d2eaeced4355da03a890f82b7fbc05"
+source = "git+https://github.com/hossamTahaHussein/egui.git?rev=7214d36840d562e1fae69c7030368372e10ccefb#7214d36840d562e1fae69c7030368372e10ccefb"
 
 [[patch.unused]]
 name = "egui_system_font_provider"
 version = "0.37.0"
-source = "git+https://github.com/hossamTahaHussein/egui.git?rev=27662b2129d2eaeced4355da03a890f82b7fbc05#27662b2129d2eaeced4355da03a890f82b7fbc05"
+source = "git+https://github.com/hossamTahaHussein/egui.git?rev=7214d36840d562e1fae69c7030368372e10ccefb#7214d36840d562e1fae69c7030368372e10ccefb"

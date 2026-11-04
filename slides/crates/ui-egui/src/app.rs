@@ -270,6 +270,7 @@ impl SlideApp {
             log::debug!("ignoring SlideApp::ui for render-only viewport {:?}", ctx.viewport_id());
             return;
         }
+        crate::i18n::install(&ctx, self.ui.language);
         self.ui_inner(ui);
         // The last writer (all panels, dialogs, the custom producer and deferred child windows)
         // has run. Observe the actual custom descriptor for this pass, then reconcile the reset

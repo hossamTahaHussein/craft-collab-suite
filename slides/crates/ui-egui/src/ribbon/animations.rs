@@ -157,7 +157,7 @@ pub(super) fn animations(app: &mut SlideApp, ui: &mut Ui) {
     });
     group(ui, |ui| {
         rows(ui, |ui| {
-            ui.horizontal(|ui| {
+            crate::rtl::fit_row(ui, |ui| {
                 ui.label("Start:");
                 let s = cur.as_ref().map(|c| match c.start {
                     deckcraft_model::AnimStart::OnClick => "On Click",
@@ -173,7 +173,7 @@ pub(super) fn animations(app: &mut SlideApp, ui: &mut Ui) {
                     }
                 });
             });
-            ui.horizontal(|ui| {
+            crate::rtl::fit_row(ui, |ui| {
                 ui.label("Duration:");
                 if let Some(v) =
                     widgets::spinner(ui, "adur", "Duration", cur.as_ref().map(|c| c.duration_ms as f64 / 1000.0).unwrap_or(0.5), 0.25, "", 46.0)
@@ -181,7 +181,7 @@ pub(super) fn animations(app: &mut SlideApp, ui: &mut Ui) {
                     run(app, "animation.timing", json!({"duration": (v.max(0.0) * 1000.0).round() as u64}));
                 }
             });
-            ui.horizontal(|ui| {
+            crate::rtl::fit_row(ui, |ui| {
                 ui.label("Delay:");
                 if let Some(v) =
                     widgets::spinner(ui, "adelay", "Delay", cur.as_ref().map(|c| c.delay_ms as f64 / 1000.0).unwrap_or(0.0), 0.25, "", 46.0)

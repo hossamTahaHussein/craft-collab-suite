@@ -47,8 +47,8 @@ pub fn title_bar(app: &mut SlideApp, ui: &mut Ui) {
         }
         let mut child = ui.new_child(
             egui::UiBuilder::new()
-                .max_rect(Rect::from_min_max(pos2(rect.min.x + left, rect.min.y), pos2(rect.min.x + 420.0, rect.max.y)))
-                .layout(egui::Layout::left_to_right(egui::Align::Center)),
+                .max_rect(crate::rtl::place(rect, Rect::from_min_max(pos2(rect.min.x + left, rect.min.y), pos2(rect.min.x + 420.0, rect.max.y))))
+                .layout(crate::rtl::row()),
         );
         child.spacing_mut().item_spacing.x = 2.0;
         let has_doc = app.session.active().is_some();
@@ -61,11 +61,14 @@ pub fn title_bar(app: &mut SlideApp, ui: &mut Ui) {
         let mut right = ui.new_child(
             egui::UiBuilder::new()
                 // Wider while co-editing: the people here and the save indicator.
-                .max_rect(Rect::from_min_max(
-                    pos2(rect.max.x - if app.collab.active { 560.0 } else { 320.0 }, rect.min.y),
-                    pos2(rect.max.x - 10.0, rect.max.y),
+                .max_rect(crate::rtl::place(
+                    rect,
+                    Rect::from_min_max(
+                        pos2(rect.max.x - if app.collab.active { 560.0 } else { 320.0 }, rect.min.y),
+                        pos2(rect.max.x - 10.0, rect.max.y),
+                    ),
                 ))
-                .layout(egui::Layout::right_to_left(egui::Align::Center)),
+                .layout(crate::rtl::trailing()),
         );
         right.spacing_mut().item_spacing.x = 6.0;
         if icon_toggle(&mut right, Icon::Search, "Search commands (⇧⌘P)", true, false).clicked() {
