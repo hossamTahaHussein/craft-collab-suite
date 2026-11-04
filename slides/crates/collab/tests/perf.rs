@@ -2,6 +2,9 @@
 //! under 4 ms. Timed in release builds (`cargo test --release -p deckcraft-collab --test perf`); a
 //! debug build only checks it runs.
 
+// Timed natively only: the wasm clock rule is for code that runs in the browser.
+#![allow(clippy::disallowed_methods)]
+
 mod support;
 
 use std::time::Instant;
