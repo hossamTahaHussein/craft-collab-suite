@@ -377,12 +377,12 @@ fn spelling(s: &mut Session, p: &Value) -> Result<Value> {
                 continue;
             }
             let dict = dicts.entry(w.lang.clone()).or_insert_with(|| crate::spell::dictionary(&w.lang)).clone();
-            let bad = match &dict {
-                Some(d) => !crate::spell::is_correct(d, &w.text),
+            let bad = match crate::spell::word_is_correct(&w, dict.as_deref()) {
+                Some(right) => !right,
                 None => COMMON.contains(&w.text.to_lowercase().as_str()),
             };
             if bad {
-                let sug = dict.as_ref().map(|d| d.suggest(&w.text, 5)).unwrap_or_default();
+                let sug = crate::spell::suggest_word(&w, dict.as_deref());
                 let mut v = json!({"start": w.start, "end": w.end, "word": w.text, "lang": w.lang, "suggestions": sug});
                 if let (Some(o), Some(a)) = (v.as_object_mut(), at.as_object()) {
                     o.extend(a.clone());

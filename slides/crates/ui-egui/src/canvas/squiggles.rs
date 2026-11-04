@@ -256,8 +256,11 @@ pub fn display_lang_name(ctx: &egui::Context, tag: &str) -> String {
 /// The flagged word (misspelt or repeated) of `pp` starting at `start`, with what the menu offers.
 pub fn menu_word(pp: &Paragraph, default: &str, tag: Tag, start: usize) -> Option<MenuWord> {
     let w = deckcraft_engine::spell::misspelt(pp, default, &[]).into_iter().find(|w| w.start == start)?;
-    let suggestions =
-        if w.repeated.is_some() { vec![] } else { deckcraft_engine::spell::dictionary(&w.lang).map(|d| d.suggest(&w.text, 5)).unwrap_or_default() };
+    let suggestions = if w.repeated.is_some() {
+        vec![]
+    } else {
+        deckcraft_engine::spell::suggest_word(&w, deckcraft_engine::spell::dictionary(&w.lang).as_deref())
+    };
     Some(MenuWord { tag, start, word: w.text, suggestions, delete_from: w.repeated })
 }
 

@@ -9,6 +9,8 @@ description = "DeckCraft engine: sessions, undo history, selection, the command 
 workspace = true
 
 [dependencies]
+# Arabic spelling (the bundled Ayaspell dictionary), shared with Craft Docs.
+wordcraft-proof = { workspace = true }
 craft-collab-core = { workspace = true }
 deckcraft-geom = { workspace = true }
 deckcraft-color = { workspace = true }

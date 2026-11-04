@@ -710,7 +710,8 @@ pub fn paragraph_words(p: &deckcraft_model::Paragraph, default: &str) -> Vec<Wor
     }
     let lang_of = |ri: usize| p.runs.get(ri).and_then(|r| r.props.lang.clone()).filter(|l| !l.is_empty()).unwrap_or_else(|| default.to_string());
     // Combining marks (decomposed accents) belong to the letter before them.
-    let inside = |c: char| c.is_alphanumeric() || deckcraft_model::words::is_combining_mark(c) || c == '\'' || c == '’' || c == '-';
+    let arabic_mark = |c: char| matches!(c, '\u{0610}'..='\u{061A}' | '\u{064B}'..='\u{065F}' | '\u{0670}' | '\u{06D6}'..='\u{06ED}' | '\u{0640}');
+    let inside = |c: char| c.is_alphanumeric() || deckcraft_model::words::is_combining_mark(c) || arabic_mark(c) || c == '\'' || c == '’' || c == '-';
     let mut out = vec![];
     let mut i = 0;
     while i < chars.len() {
@@ -777,6 +778,24 @@ pub fn repeated(p: &deckcraft_model::Paragraph, default: &str) -> Vec<Word> {
     out
 }
 
+/// Whether `w` is spelt right: an Arabic-script word by the bundled Ayaspell dictionary (as in
+/// Craft Docs, whatever its run's language says), any other by `dict`, the dictionary of its
+/// language. `None` when there is nothing to check it with.
+pub fn word_is_correct(w: &Word, dict: Option<&Dictionary>) -> Option<bool> {
+    if wordcraft_proof::ar::is_arabic_script(&w.text) && wordcraft_proof::ar::has_dictionary() {
+        return Some(wordcraft_proof::ar::is_correct(&w.text) || with_user(|u| u.contains(&w.text)).unwrap_or(false));
+    }
+    dict.map(|d| is_correct(d, &w.text))
+}
+
+/// Suggestions for misspelt `w`, from the dictionary [`word_is_correct`] checks it with.
+pub fn suggest_word(w: &Word, dict: Option<&Dictionary>) -> Vec<String> {
+    if wordcraft_proof::ar::is_arabic_script(&w.text) && wordcraft_proof::ar::has_dictionary() {
+        return wordcraft_proof::ar::suggest(&w.text, 5);
+    }
+    dict.map(|d| d.suggest(&w.text, 5)).unwrap_or_default()
+}
+
 /// The misspelt and repeated words of `p`, each checked in its own language (languages with no dictionary
 /// installed are skipped), leaving out `ignore` (lower-case).
 pub fn misspelt(p: &deckcraft_model::Paragraph, default: &str, ignore: &[String]) -> Vec<Word> {
@@ -786,7 +805,7 @@ pub fn misspelt(p: &deckcraft_model::Paragraph, default: &str, ignore: &[String]
         .filter(|w| !ignore.contains(&w.text.to_lowercase()))
         .filter(|w| {
             let d = dicts.entry(w.lang.clone()).or_insert_with(|| dictionary(&w.lang));
-            d.as_ref().is_some_and(|d| !is_correct(d, &w.text))
+            word_is_correct(w, d.as_deref()) == Some(false)
         })
         .chain(repeated(p, default))
         .collect::<Vec<_>>()
@@ -821,6 +840,20 @@ SFX S Y 2\nSFX S y ies [^aeiou]y\nSFX S 0 s [^y]\n\
 SFX G Y 2\nSFX G e ing e\nSFX G 0 ing [^e]\n\
 SFX D Y 1\nSFX D 0 ed/S .\n";
     pub(crate) const DIC: &str = "9\nslide/S\nmake/G\nhappy\ncity/S\ndo/U\nwork/USG\nphoto/S\nNASA/K\nfoo/?S\n";
+
+    /// Arabic words are checked with the bundled Ayaspell dictionary, as in Craft Docs, whatever
+    /// dictionaries are installed: vowel marks and tatweel stay part of the word.
+    #[test]
+    fn arabic_words_are_checked_with_the_arabic_dictionary() {
+        let p = deckcraft_model::Paragraph::new("الكتاب والمدرسة الكِتَابُ الكتبب");
+        let bad = misspelt(&p, "ar-SA", &[]);
+        assert_eq!(bad.iter().map(|w| w.text.as_str()).collect::<Vec<_>>(), ["الكتبب"]);
+        assert!(suggest_word(&bad[0], None).iter().any(|w| w == "الكتب"));
+        assert_eq!(word_is_correct(&bad[0], None), Some(false));
+        // An Arabic word in a run marked English is still Arabic.
+        let p = deckcraft_model::Paragraph::new("hello الكتبب");
+        assert!(misspelt(&p, "en-US", &[]).iter().any(|w| w.text == "الكتبب"));
+    }
 
     fn d() -> Dictionary {
         Dictionary::parse(AFF.as_bytes(), DIC.as_bytes())
