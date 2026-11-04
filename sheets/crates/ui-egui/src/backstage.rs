@@ -169,7 +169,7 @@ pub fn show(app: &mut SheetApp, ui: &mut Ui) {
     let mut out = Outcome::default();
     let (nav_bg, nav_text, nav_sel) =
         if t.dark { (t.accent_soft, t.text, Color32::from_white_alpha(30)) } else { (t.accent, Color32::WHITE, Color32::from_black_alpha(46)) };
-    egui::Panel::left("backstage_nav")
+    craft_ui::direction::start_panel(&crate::rtl::dir(), "backstage_nav")
         .exact_size(NAV_W)
         .resizable(false)
         .frame(egui::Frame::NONE.fill(nav_bg).inner_margin(egui::Margin { left: 0, right: 0, top: 10, bottom: 10 }))
@@ -216,19 +216,21 @@ pub fn show(app: &mut SheetApp, ui: &mut Ui) {
         egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| {
             egui::Frame::NONE.inner_margin(egui::Margin { left: 44, right: 32, top: 26, bottom: 32 }).show(ui, |ui| {
                 ui.set_max_width(CONTENT_W);
-                ui.label(RichText::new(lang.tr(bs.page.label())).font(theme::ui_font(28.0)).color(t.text));
-                ui.add_space(18.0);
-                match bs.page {
-                    Page::Home => home(app, ui, &mut bs, &mut out),
-                    Page::New => new_page(app, ui, &mut out),
-                    Page::Open => open_page(app, ui, &mut bs, &mut out),
-                    Page::Info => info(app, ui, &mut bs),
-                    Page::SaveAs => save_as(app, ui, &mut bs, &mut out),
-                    Page::Print => print(app, ui, &mut bs, &mut out),
-                    Page::Export => export(app, ui, &mut out),
-                    Page::Options => options(app, ui),
-                    Page::Account => account(app, ui),
-                }
+                crate::rtl::body(ui, |ui| {
+                    ui.label(RichText::new(lang.tr(bs.page.label())).font(theme::ui_font(28.0)).color(t.text));
+                    ui.add_space(18.0);
+                    match bs.page {
+                        Page::Home => home(app, ui, &mut bs, &mut out),
+                        Page::New => new_page(app, ui, &mut out),
+                        Page::Open => open_page(app, ui, &mut bs, &mut out),
+                        Page::Info => info(app, ui, &mut bs),
+                        Page::SaveAs => save_as(app, ui, &mut bs, &mut out),
+                        Page::Print => print(app, ui, &mut bs, &mut out),
+                        Page::Export => export(app, ui, &mut out),
+                        Page::Options => options(app, ui),
+                        Page::Account => account(app, ui),
+                    }
+                });
             });
         });
     });
@@ -352,7 +354,7 @@ fn new_tiles(app: &mut SheetApp, ui: &mut Ui, out: &mut Outcome) {
             out.close = true;
         }
         for (i, (name, title)) in gridcraft_engine::sample::SAMPLES.iter().enumerate() {
-            if tile(ui, title, Some(i)).clicked() {
+            if tile(ui, app.ui.language.tr(title), Some(i)).clicked() {
                 app.run_or_alert("file.new", json!({"sample": name}));
                 out.close = true;
             }

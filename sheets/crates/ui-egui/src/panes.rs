@@ -21,7 +21,7 @@ pub fn show(app: &mut SheetApp, ui: &mut Ui) {
     let t = Tokens::get(ui.ctx());
     // Capped at half the window so a pane can never cover the sheet, whatever its content asks for.
     let max = (ui.available_width() / 2.0).max(300.0);
-    let panel = egui::Panel::right("task_pane").default_size(300.0).max_size(max).resizable(true);
+    let panel = craft_ui::direction::end_panel(&crate::rtl::dir(), "task_pane").default_size(300.0).max_size(max).resizable(true);
     panel.frame(egui::Frame::NONE.fill(t.ribbon).inner_margin(10)).show(ui, |ui| {
         crate::rtl::horizontal(ui, |ui| {
             let title = match pane.as_str() {

@@ -59,3 +59,22 @@ fn new_sheets_read_right_to_left_in_arabic() {
     h.run_steps(2);
     assert_eq!(rtl(&h), [false], "an English interface's new workbook reads left to right");
 }
+
+/// The File page and a dialog in Arabic (screenshots with `CRAFT_SHEETS_RTL_SCREENSHOT`).
+#[test]
+fn the_file_page_and_dialogs_read_from_the_right() {
+    let mut h = arabic();
+    h.state_mut().open_backstage(gridcraft_ui_egui::backstage::Page::Home);
+    h.run_steps(4);
+    let back = at(&h, "رجوع");
+    assert!(back.center().x > 600.0, "the File page's menu is at the right: {back:?}");
+    if let Ok(path) = std::env::var("CRAFT_SHEETS_RTL_SCREENSHOT") {
+        h.render().unwrap().save(std::path::Path::new(&path).with_file_name("sheets-ar-file.png")).unwrap();
+    }
+    h.state_mut().backstage = None;
+    h.state_mut().open_dialog("formatCells", json!({}));
+    h.run_steps(6);
+    if let Ok(path) = std::env::var("CRAFT_SHEETS_RTL_SCREENSHOT") {
+        h.render().unwrap().save(std::path::Path::new(&path).with_file_name("sheets-ar-dialog.png")).unwrap();
+    }
+}

@@ -104,3 +104,22 @@ pub fn at_cursor(ui: &egui::Ui, size: egui::Vec2) -> egui::Rect {
         egui::Rect::from_min_size(at.min, size)
     }
 }
+
+/// A top-down body against the reading start (a dialog's, the File page's): right to left, labels
+/// and fields end at the right. Left to right, `add` runs on `ui` itself.
+pub fn body<R>(ui: &mut egui::Ui, add: impl FnOnce(&mut egui::Ui) -> R) -> R {
+    if !is_rtl() {
+        return add(ui);
+    }
+    ui.with_layout(egui::Layout::top_down(egui::Align::Max), add).inner
+}
+
+/// [`egui::Ui::columns`] in reading order: right to left the first column is the rightmost.
+pub fn columns<R>(ui: &mut egui::Ui, n: usize, add: impl FnOnce(&mut [egui::Ui]) -> R) -> R {
+    ui.columns(n, |cols| {
+        if is_rtl() {
+            cols.reverse();
+        }
+        add(cols)
+    })
+}

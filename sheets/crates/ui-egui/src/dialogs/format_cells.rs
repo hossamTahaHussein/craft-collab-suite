@@ -27,7 +27,7 @@ pub(super) fn format_cells(app: &mut SheetApp, ui: &mut egui::Ui, d: &mut Dialog
     match d.tab.as_str() {
         "Number" => {
             let mut code = st.num_fmt.as_str().to_string();
-            ui.columns(2, |cols| {
+            crate::rtl::columns(ui, 2, |cols| {
                 cols[0].label(egui::RichText::new(lang.tr("Category:")).strong());
                 for name in
                     ["General", "Number", "Currency", "Accounting", "Short Date", "Long Date", "Time", "Percentage", "Fraction", "Scientific", "Text"]
