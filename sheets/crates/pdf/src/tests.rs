@@ -350,3 +350,117 @@ fn symbol_font_draws_maths_in_its_own_encoding() {
     assert!(Font::TimesRoman.can_encode('x') && !Font::TimesRoman.can_encode('\u{2211}'));
     assert_eq!(text_width(Font::Symbol, 10.0, "\u{2211}"), 7.13);
 }
+
+/// Whether some face (bundled or installed) draws `sample`: without one, shaped text stays plain.
+fn have_face(sample: &str) -> bool {
+    let chars: Vec<char> = sample.chars().collect();
+    let found = wordcraft_fonts::FontDb::global().fallback_for_run(&chars, 0, false, false).is_some();
+    if !found {
+        eprintln!("skipped: no face for {sample}");
+    }
+    found
+}
+
+/// The text each placed glyph stands for (its span, else its map entry), right to left.
+fn read_right_to_left(text: &str) -> String {
+    let mut reg = complex::Registry::default();
+    let mut out = String::new();
+    for piece in complex::pieces(text).iter().rev() {
+        match piece {
+            complex::Piece::Plain(t) => out.push_str(&t.chars().rev().collect::<String>()),
+            complex::Piece::Shaped { face, glyphs, text, upem } => {
+                let (slot, placed) = complex::place(&mut reg, face, glyphs, text, *upem, 10.0);
+                let mut words = Vec::new();
+                let mut i = 0;
+                while i < placed.len() {
+                    let g = &placed[i];
+                    if let Some(span) = &g.span {
+                        words.push(span.clone());
+                        while i < placed.len() && !placed[i].ends {
+                            i += 1;
+                        }
+                    } else {
+                        words.push(reg.faces[slot].glyphs[&g.gid].1.clone());
+                    }
+                    i += 1;
+                }
+                // Glyphs are left to right: the run reads from its right end.
+                for w in words.iter().rev() {
+                    out.push_str(w);
+                }
+            }
+        }
+    }
+    out
+}
+
+#[test]
+fn arabic_is_shaped_in_an_embedded_face_that_copies_as_written() -> Result<(), Box<dyn Error>> {
+    if !have_face("مرحبا") {
+        return Ok(());
+    }
+    let mut doc = PdfDoc::new();
+    let p = doc.add_page(612.0, 792.0);
+    p.text(10.0, 20.0, 10.0, Font::Helvetica, [0, 0, 0], "مرحبا بالعالم");
+    let content = page_content(&doc).to_string();
+    assert!(content.contains("/E1 10 Tf"), "{content}");
+    assert!(!content.lines().any(|l| l.starts_with("<FEFF") && l.ends_with("Tj")), "no CID fallback text: {content}");
+    // Display order, left to right (a mark may sit back over its letter).
+    let xs: Vec<f32> = content.lines().filter(|l| l.ends_with(" Tm")).filter_map(|l| l.split(' ').nth(4)?.parse().ok()).collect();
+    assert!(xs.len() > 5 && xs.windows(2).filter(|w| w[0] > w[1]).count() * 4 < xs.len(), "{xs:?}");
+    let pdf = doc.finish();
+    check_xref(&pdf)?;
+    for key in [&b"/Subtype /Type0"[..], b"/Encoding /Identity-H", b"/ToUnicode", b"/BaseFont /CraftShaped1", b"/Ordering (UCS)"] {
+        assert!(find(&pdf, key).is_some(), "{}", String::from_utf8_lossy(key));
+    }
+    assert!(find(&pdf, b"/FontFile2").is_some() || find(&pdf, b"/FontFile3").is_some());
+    // The first logical letter, meem, is mapped.
+    assert!(find(&pdf, b"<0645>").is_some(), "meem in the ToUnicode map");
+    Ok(())
+}
+
+#[test]
+fn shaped_runs_read_back_in_logical_order_marks_included() {
+    for text in ["مرحبا بالعالم", "الكِتَابُ الجديد", "שלום עולם"] {
+        if !have_face(text) {
+            continue;
+        }
+        let read: String = read_right_to_left(text);
+        assert_eq!(read, text, "every cluster's text, right to left");
+    }
+}
+
+#[test]
+fn mixed_direction_text_is_split_into_display_runs() {
+    if !have_face("שלום") {
+        return;
+    }
+    // A Hebrew paragraph: the Latin word is to the left of the Hebrew.
+    let pieces = complex::pieces("שלום abc");
+    assert!(matches!(pieces.first(), Some(complex::Piece::Plain(t)) if t.contains("abc")));
+    assert!(matches!(pieces.last(), Some(complex::Piece::Shaped { text, .. }) if text.contains("שלום")));
+    // Text the standard fonts set stays plain, untouched.
+    assert!(!complex::needs("Total 2026 – café"));
+    assert!(matches!(complex::pieces("Total").as_slice(), [complex::Piece::Plain(t)] if t == "Total"));
+}
+
+#[test]
+fn a_mirrored_page_draws_boxes_lines_and_text_from_the_right() {
+    let mut doc = PdfDoc::new();
+    let p = doc.add_page(600.0, 800.0);
+    p.set_mirrored(true);
+    p.fill_rect(10.0, 0.0, 100.0, 20.0, [255, 0, 0]);
+    p.stroke_line(0.0, 50.0, 50.0, 50.0, 1.0, [0, 0, 0]);
+    p.text(10.0, 100.0, 10.0, Font::Helvetica, [0, 0, 0], "Hi");
+    let content = page_content(&doc).to_string();
+    assert!(content.contains("490 780 100 20 re f"), "{content}");
+    assert!(content.contains("600 750 m") && content.contains("550 750 l"), "{content}");
+    // Text keeps reading left to right, from the mirrored place: it ends 10pt from the right edge.
+    let x = 590.0 - text_width(Font::Helvetica, 10.0, "Hi");
+    assert!(content.contains(&format!("1 0 0 1 {} 700 Tm", n(x))), "{content}");
+    // Unmirrored again, it draws where asked.
+    let p = doc.page_mut(0).expect("the page");
+    p.set_mirrored(false);
+    p.fill_rect(10.0, 0.0, 100.0, 20.0, [255, 0, 0]);
+    assert!(page_content(&doc).contains("10 780 100 20 re f"));
+}

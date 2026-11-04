@@ -2826,6 +2826,11 @@ dependencies = [
 [[package]]
 name = "gridcraft-pdf"
 version = "1.0.2"
+dependencies = [
+ "skrifa 0.47.0",
+ "unicode-bidi",
+ "wordcraft-fonts",
+]
 
 [[package]]
 name = "gridcraft-ui-egui"

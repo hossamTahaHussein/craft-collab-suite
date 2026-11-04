@@ -5,6 +5,8 @@
 //!   WinAnsiEncoding (CJK and other scripts) are set in a predefined, non-embedded Adobe-GB1 CID
 //!   font with the `UniGB-UTF16-H` CMap instead of being replaced by `?`. Symbol uses its own
 //!   built-in encoding ([`symbol_code`]), for Greek letters and mathematical operators.
+//! - Right-to-left and shaped scripts (Arabic, Hebrew, Indic…) are put in display order, shaped
+//!   and drawn in an embedded face that covers them, with their text for copying (`complex`).
 //! - Vector drawing: rectangles, lines (solid or dashed), polygons, circles (Bézier), clipping.
 //! - RGBA images as RGB image XObjects with a soft mask for alpha (run-length encoded).
 //! - Coordinates are points with a **top-left origin** (y grows down); text `y` is the baseline.
@@ -14,6 +16,7 @@
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unimplemented, clippy::todo, clippy::unreachable)]
 #![forbid(unsafe_code)]
 
+mod complex;
 mod metrics;
 mod symbol;
 
@@ -201,6 +204,14 @@ impl Font {
 
 /// Width of `text` in points when set in `font` at `size` points.
 pub fn text_width(font: Font, size: f32, text: &str) -> f32 {
+    if font != Font::Symbol && complex::needs(text) {
+        return complex::pieces(text).iter().map(|p| p.width(size, |t| plain_width(font, size, t))).sum();
+    }
+    plain_width(font, size, text)
+}
+
+/// [`text_width`] of text the standard fonts (or the CID font) set as it is.
+fn plain_width(font: Font, size: f32, text: &str) -> f32 {
     // u64: a u32 sum overflows for ~8 million characters.
     let units: u64 = text.chars().map(|c| u64::from(font.char_width(c))).sum();
     units as f32 * size / 1000.0
@@ -380,6 +391,10 @@ pub struct Page {
     images: Vec<ImageData>,
     links: Vec<LinkAnnotation>,
     depth: u32,
+    /// The document's embedded faces for shaped text.
+    shaped: std::rc::Rc<std::cell::RefCell<complex::Registry>>,
+    /// Drawing is mirrored left to right (a right-to-left sheet): see [`Page::set_mirrored`].
+    mirrored: bool,
 }
 
 /// Most bytes of content per page before further drawing is dropped (keeps hostile inputs from
@@ -410,8 +425,26 @@ impl Page {
         }
     }
 
+    /// Mirror what is drawn from now on left to right, as a right-to-left sheet prints: shapes,
+    /// lines, pictures and links land at the mirrored place, and text at the mirrored place still
+    /// reading as written (it isn't flipped).
+    pub fn set_mirrored(&mut self, on: bool) {
+        self.mirrored = on;
+    }
+
+    /// `x` where it is drawn.
+    fn mx(&self, x: f32) -> f32 {
+        if self.mirrored { self.width - x } else { x }
+    }
+
+    /// The left edge where a box from `x`, `w` wide, is drawn.
+    fn mbox(&self, x: f32, w: f32) -> f32 {
+        if self.mirrored { self.width - x - w } else { x }
+    }
+
     fn link_rect(&self, rect: Rect) -> Option<[f32; 4]> {
         let Rect { x, y, width, height } = rect;
+        let x = self.mbox(x, width);
         if !finite(&[x, y, width, height]) || !extent(width) || !extent(height) || self.links.len() >= MAX_PAGE_LINKS {
             return None;
         }
@@ -461,7 +494,7 @@ impl Page {
     }
     /// Intersects the clip with a rectangle (until the next [`Page::restore`]).
     pub fn clip_rect(&mut self, x: f32, y: f32, w: f32, h: f32) {
-        let s = format!("{} {} {} {} re W n", n(x), n(self.y(y + h)), n(w.max(0.0)), n(h.max(0.0)));
+        let s = format!("{} {} {} {} re W n", n(self.mbox(x, w.max(0.0))), n(self.y(y + h)), n(w.max(0.0)), n(h.max(0.0)));
         self.op(&s);
     }
 
@@ -469,7 +502,7 @@ impl Page {
         if !(extent(w) && extent(h) && finite(&[x, y])) {
             return;
         }
-        let s = format!("{}\n{} {} {} {} re f", rgb_op(color, false), n(x), n(self.y(y + h)), n(w), n(h));
+        let s = format!("{}\n{} {} {} {} re f", rgb_op(color, false), n(self.mbox(x, w)), n(self.y(y + h)), n(w), n(h));
         self.op(&s);
     }
 
@@ -477,7 +510,15 @@ impl Page {
         if !finite(&[x, y, w, h]) {
             return;
         }
-        let s = format!("{}\n{} w [] 0 d\n{} {} {} {} re S", rgb_op(color, true), n(stroke_width(width)), n(x), n(self.y(y + h)), n(w), n(h));
+        let s = format!(
+            "{}\n{} w [] 0 d\n{} {} {} {} re S",
+            rgb_op(color, true),
+            n(stroke_width(width)),
+            n(self.mbox(x, w)),
+            n(self.y(y + h)),
+            n(w),
+            n(h)
+        );
         self.op(&s);
     }
 
@@ -495,9 +536,9 @@ impl Page {
             rgb_op(color, true),
             n(stroke_width(width)),
             dash_values(dash),
-            n(start.x),
+            n(self.mx(start.x)),
             n(self.y(start.y)),
-            n(end.x),
+            n(self.mx(end.x)),
             n(self.y(end.y))
         );
         self.op(&s);
@@ -516,7 +557,7 @@ impl Page {
 
     fn path(&self, s: &mut String, pts: &[[f32; 2]], close: bool) {
         for (i, p) in pts.iter().enumerate() {
-            let _ = write!(s, "{} {} {} ", n(p[0]), n(self.y(p[1])), if i == 0 { "m" } else { "l" });
+            let _ = write!(s, "{} {} {} ", n(self.mx(p[0])), n(self.y(p[1])), if i == 0 { "m" } else { "l" });
         }
         if close {
             s.push('h');
@@ -552,6 +593,7 @@ impl Page {
         }
         const K: f32 = 0.552_284_8;
         let k = r * K;
+        let cx = self.mx(cx);
         let y = self.y(cy);
         let mut s = String::new();
         if let Some(f) = fill {
@@ -610,9 +652,34 @@ impl Page {
         if text.is_empty() || !extent(size) || !finite(&[origin.x, origin.y]) {
             return;
         }
+        let (sn, cs) = if angle.is_finite() { angle.sin_cos() } else { (0.0, 1.0) };
+        // Mirrored, the text box lands at the mirrored place and still reads as written.
+        let origin = if self.mirrored {
+            let tw = text_width(font, size, text);
+            Point::new(self.width - origin.x - tw * cs, origin.y)
+        } else {
+            origin
+        };
+        let was = std::mem::replace(&mut self.mirrored, false);
+        self.text_unmirrored(origin, size, font, color, text, (sn, cs));
+        self.mirrored = was;
+    }
+
+    fn text_unmirrored(&mut self, origin: Point, size: f32, font: Font, color: Rgb, text: &str, (sn, cs): (f32, f32)) {
+        if font != Font::Symbol && complex::needs(text) {
+            self.complex_text(origin, size.min(10_000.0), font, color, text, (sn, cs));
+            return;
+        }
+        self.plain_text(origin, size, font, color, text, (sn, cs));
+    }
+
+    /// [`Page::text_rotated`] in the standard fonts and the CID font only.
+    fn plain_text(&mut self, origin: Point, size: f32, font: Font, color: Rgb, text: &str, (sn, cs): (f32, f32)) {
+        if text.is_empty() {
+            return;
+        }
         let fi = font.index();
         let size = n(size.min(10_000.0));
-        let (sn, cs) = if angle.is_finite() { angle.sin_cos() } else { (0.0, 1.0) };
         // Clockwise in y-down = counter-clockwise negated in PDF's y-up space.
         let mut s = format!("BT\n{}\n{} {} {} {} {} {} Tm\n", rgb_op(color, false), n(cs), n(-sn), n(sn), n(cs), n(origin.x), n(self.y(origin.y)));
         // Symbol text is one run in Symbol's own encoding (the CID font has no maths symbols).
@@ -643,10 +710,42 @@ impl Page {
         self.op(&s);
     }
 
+    /// Text with right-to-left or shaped runs (`complex`): each run in display order from
+    /// `origin` along the baseline; plain runs as [`Page::text_rotated`] sets them, shaped runs
+    /// glyph by glyph in their embedded face, marked with their text.
+    fn complex_text(&mut self, origin: Point, size: f32, font: Font, color: Rgb, text: &str, (sn, cs): (f32, f32)) {
+        let mut pen = 0.0f32;
+        for piece in complex::pieces(text) {
+            let at = |d: f32, up: f32| Point::new(origin.x + d * cs - up * sn, origin.y + d * sn + up * cs);
+            match &piece {
+                complex::Piece::Plain(t) => self.plain_text(at(pen, 0.0), size, font, color, t, (sn, cs)),
+                complex::Piece::Shaped { face, glyphs, text: run, upem } => {
+                    let (slot, placed) = complex::place(&mut self.shaped.borrow_mut(), face, glyphs, run, *upem, size);
+                    let mut s = format!("BT\n{}\n/E{} {} Tf\n", rgb_op(color, false), slot + 1, n(size));
+                    for g in &placed {
+                        if let Some(text) = &g.span {
+                            let _ = writeln!(s, "/Span << /ActualText {} >> BDC", complex::utf16_hex(text));
+                        }
+                        // A glyph's y offset is up the page; the page's y grows down.
+                        let p = at(pen + g.x, -g.y);
+                        let _ = writeln!(s, "{} {} {} {} {} {} Tm\n<{:04X}> Tj", n(cs), n(-sn), n(sn), n(cs), n(p.x), n(self.y(p.y)), g.gid);
+                        if g.ends {
+                            s.push_str("EMC\n");
+                        }
+                    }
+                    s.push_str("ET");
+                    self.op(&s);
+                }
+            }
+            pen += piece.width(size, |t| plain_width(font, size, t));
+        }
+    }
+
     /// Draws an RGBA image (`pw`×`ph` pixels, row-major, straight alpha) into the box
     /// `(x, y, w, h)`. Malformed or oversized buffers are ignored.
     pub fn image_rgba(&mut self, destination: Rect, rgba: &[u8], pixel_size: [u32; 2]) {
         let Rect { x, y, width: w, height: h } = destination;
+        let x = self.mbox(x, w);
         let [pw, ph] = pixel_size;
         let px = pw as u64 * ph as u64;
         if pw == 0 || ph == 0 || px > MAX_IMAGE_PIXELS || (rgba.len() as u64) < px * 4 || !(extent(w) && extent(h) && finite(&[x, y])) {
@@ -680,6 +779,7 @@ pub struct Info {
 pub struct PdfDoc {
     pages: Vec<Page>,
     pub info: Info,
+    shaped: std::rc::Rc<std::cell::RefCell<complex::Registry>>,
 }
 
 /// PackBits-style run-length encoding (PDF `RunLengthDecode`).
@@ -747,7 +847,17 @@ impl PdfDoc {
     pub fn add_page(&mut self, width_pt: f32, height_pt: f32) -> &mut Page {
         let width = if width_pt.is_finite() { width_pt.clamp(3.0, 14_400.0) } else { 612.0 };
         let height = if height_pt.is_finite() { height_pt.clamp(3.0, 14_400.0) } else { 792.0 };
-        self.pages.push(Page { width, height, content: String::new(), fonts: [false; FONT_SLOTS], images: Vec::new(), links: Vec::new(), depth: 0 });
+        self.pages.push(Page {
+            width,
+            height,
+            content: String::new(),
+            fonts: [false; FONT_SLOTS],
+            images: Vec::new(),
+            links: Vec::new(),
+            depth: 0,
+            shaped: self.shaped.clone(),
+            mirrored: false,
+        });
         let i = self.pages.len() - 1;
         &mut self.pages[i]
     }
@@ -783,6 +893,16 @@ impl PdfDoc {
             }
         }
         let mut objects: Vec<(u32, Vec<u8>)> = Vec::new();
+        // The embedded faces of shaped text: five objects each, named /E1, /E2…
+        let mut shaped_fonts = String::new();
+        {
+            let reg = self.shaped.borrow();
+            for (slot, e) in reg.faces.iter().enumerate() {
+                let _ = write!(shaped_fonts, "/E{} {} 0 R ", slot + 1, next);
+                objects.extend(complex::objects(e, slot, next));
+                next += 5;
+            }
+        }
         let mut kids = Vec::new();
         let mut annotations = Vec::new();
         let page_count = self.pages.len();
@@ -820,6 +940,7 @@ impl PdfDoc {
                 objects.push((*id, format!("<< /Type /Font /Subtype /Type1 /BaseFont /{name}{enc} >>").into_bytes()));
             }
         }
+        font_dict.push_str(&shaped_fonts);
         for page in &mut self.pages {
             while page.depth > 0 {
                 page.restore();

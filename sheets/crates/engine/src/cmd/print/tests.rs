@@ -859,3 +859,50 @@ fn equations_print_with_the_symbol_font() {
     // A glyph no standard font has is a [?] box.
     assert!(contains(&pdf, "(?) Tj"));
 }
+
+#[test]
+fn a_right_to_left_sheet_prints_mirrored_with_column_a_at_the_right() {
+    let mut s = s();
+    s.execute("range.setValues", json!({"range": "A1", "values": [["First", "Second"]]})).unwrap();
+    let (ltr, _) = pdf_of(&mut s, json!({}));
+    let (a, b) = (text_at(&ltr, "First").unwrap().0, text_at(&ltr, "Second").unwrap().0);
+    assert!(a < b, "left to right: A before B ({a} < {b})");
+    s.execute("view.rightToLeft", json!({"on": true})).unwrap();
+    let (rtl, _) = pdf_of(&mut s, json!({}));
+    let (a, b) = (text_at(&rtl, "First").unwrap().0, text_at(&rtl, "Second").unwrap().0);
+    assert!(a > b, "right to left: A to the right of B ({a} > {b})");
+    // Text still reads left to right: the word isn't flipped, only where it stands.
+    assert!(contains(&rtl, "(First) Tj"));
+}
+
+/// The x of the first glyph drawn in the `n`th (from 0) run of shaped text.
+fn shaped_x(pdf: &[u8], n: usize) -> Option<f32> {
+    let s = String::from_utf8_lossy(pdf);
+    let lines: Vec<&str> = s.lines().collect();
+    let at = lines.iter().enumerate().filter(|(_, l)| l.starts_with("/E") && l.ends_with(" Tf")).nth(n)?.0;
+    lines[at + 1..].iter().find(|l| l.ends_with(" Tm"))?.split(' ').nth(4)?.parse().ok()
+}
+
+#[test]
+fn general_arabic_text_starts_at_the_right_of_its_cell_in_a_left_to_right_sheet() {
+    let mut s = s();
+    s.execute("range.setValues", json!({"range": "A1", "values": [["سلام"], ["سلام"]]})).unwrap();
+    s.execute("home.alignLeft", json!({"range": "A2"})).unwrap();
+    let (pdf, _) = pdf_of(&mut s, json!({}));
+    let (Some(general), Some(left)) = (shaped_x(&pdf, 0), shaped_x(&pdf, 1)) else {
+        eprintln!("skipped: no Arabic face to shape with");
+        return;
+    };
+    assert!(general > left + 10.0, "General Arabic aligns right ({general}), Align Left doesn't ({left})");
+}
+
+#[test]
+fn text_reads_right_to_left_by_its_first_strong_letter() {
+    use crate::display::reads_rtl;
+    assert!(reads_rtl("مرحبا"));
+    assert!(reads_rtl("שלום world"));
+    assert!(reads_rtl("2026 تقرير"), "digits are neutral");
+    assert!(!reads_rtl("Report تقرير"));
+    assert!(!reads_rtl("123"));
+    assert!(!reads_rtl(""));
+}

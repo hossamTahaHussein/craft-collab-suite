@@ -178,7 +178,11 @@ pub(super) fn draw_text(pg: &mut Page, b: &Block, placement: TextPlacement<'_>) 
         text = "#".repeat(((avail / hash).floor().max(1.0) as usize).min(255));
         tw = gridcraft_pdf::text_width(font, size, &text);
     }
-    let h_align = text_align(st.align.h, &v);
+    let h_align = match text_align(st.align.h, &v) {
+        // General text that reads right to left (Arabic, Hebrew) starts at the right, as on screen.
+        HAlign::Left if st.align.h == HAlign::General && !sh.right_to_left && crate::display::reads_rtl(&text) => HAlign::Right,
+        a => a,
+    };
     let rot = st.align.rotation;
     let rotated = rot != 0 && rot != 255;
     // Rotated text wraps along its own direction: upright (±90°) text to the row height.

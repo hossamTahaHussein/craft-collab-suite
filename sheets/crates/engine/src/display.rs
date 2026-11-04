@@ -228,3 +228,18 @@ pub fn stats(sheet: &Sheet, ranges: &[RangeRef]) -> Stats {
     }
     s
 }
+
+/// Whether `text` reads right to left: its first strongly directional letter is Hebrew or
+/// Arabic-script (as General alignment follows it).
+pub fn reads_rtl(text: &str) -> bool {
+    for c in text.chars() {
+        let cp = c as u32;
+        if matches!(cp, 0x0590..=0x08FF | 0xFB1D..=0xFDFF | 0xFE70..=0xFEFF | 0x10800..=0x10FFF | 0x1E800..=0x1EFFF) && c.is_alphabetic() {
+            return true;
+        }
+        if c.is_alphabetic() {
+            return false;
+        }
+    }
+    false
+}
