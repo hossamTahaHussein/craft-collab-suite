@@ -118,3 +118,73 @@ fn suggesting_from_the_review_tab_marks_and_reviews_shapes() {
     assert!(deckcraft_engine::suggest::suggestions(&h.state().session.active().unwrap().doc).is_empty());
     assert_eq!(shapes(&h), before, "rejected: the new shape is gone");
 }
+
+/// README pictures (`CRAFT_README_SHOTS=dir` writes `slides.png` and `slides-arabic.png`): a deck
+/// co-edited by two people with a suggested shape, and the same in Arabic.
+#[test]
+fn readme_pictures() {
+    let Ok(dir) = std::env::var("CRAFT_README_SHOTS") else { return };
+    for (lang, file, title, body, note, me, other) in [
+        ("en", "slides.png", "Quarterly review", "Revenue up 18%\nThree new markets\nHiring plan for Q3", "Next steps", "Sara Hassan", "Bob Diaz"),
+        (
+            "ar",
+            "slides-arabic.png",
+            "المراجعة الفصلية",
+            "نمو الإيرادات 18٪\nثلاثة أسواق جديدة\nخطة التوظيف للربع الثالث",
+            "الخطوات التالية",
+            "سارة حسن",
+            "عمر",
+        ),
+    ] {
+        let mut app = SlideApp::new(Session::with_new(), Services::default());
+        app.run("ui.language", serde_json::json!({"value": lang})).unwrap();
+        app.session.prefs.author = me.into();
+        let mut h = egui_kittest::Harness::builder().with_size(egui::vec2(1280.0, 800.0)).build_ui_state(
+            |ui, app: &mut SlideApp| {
+                app.logic(ui.ctx());
+                app.ui(ui);
+            },
+            app,
+        );
+        h.run_steps(4);
+        let s = h.state_mut();
+        let ids: Vec<u32> = s.session.active().unwrap().doc.slides[0].shapes.iter().map(|x| x.id.0).collect();
+        s.run("text.set", serde_json::json!({"id": ids[0], "text": title})).unwrap();
+        s.run("slide.new", serde_json::json!({"layout": "Title and Content"})).unwrap();
+        let ids2: Vec<u32> = s.session.active().unwrap().doc.slides[1].shapes.iter().map(|x| x.id.0).collect();
+        s.run("text.set", serde_json::json!({"id": ids2[0], "text": title})).unwrap();
+        s.run("text.set", serde_json::json!({"id": ids2[1], "text": body})).unwrap();
+        s.run("slide.new", serde_json::json!({"layout": "Title and Content"})).unwrap();
+        let ids3: Vec<u32> = s.session.active().unwrap().doc.slides[2].shapes.iter().map(|x| x.id.0).collect();
+        s.run("text.set", serde_json::json!({"id": ids3[0], "text": note})).unwrap();
+        if lang == "ar" {
+            // An English template's placeholders are left-aligned: Arabic text set right, as its author would.
+            for (slide, ids) in [(0, &ids), (1, &ids2), (2, &ids3)] {
+                s.run("slide.go", serde_json::json!({"index": slide})).unwrap();
+                for id in ids.iter().take(2) {
+                    s.run("edit.select", serde_json::json!({"ids": [id]})).ok();
+                    s.run("format.alignRight", serde_json::json!({})).ok();
+                }
+            }
+        }
+        s.run("slide.go", serde_json::json!({"index": 1})).unwrap();
+        s.run("review.suggesting", serde_json::json!({"on": true})).unwrap();
+        s.run("shape.insert", serde_json::json!({"preset": "roundRect", "rect": [640, 330, 260, 110]})).unwrap();
+        s.run("text.exit", serde_json::json!({})).ok();
+        s.run("review.suggesting", serde_json::json!({"on": false})).unwrap();
+        s.run("edit.deselect", serde_json::json!({})).ok();
+        let slide = s.session.active().unwrap().doc.slides[1].id;
+        let mut sel = s.session.active().unwrap().selection.clone();
+        sel.shapes = vec![deckcraft_model::ShapeId(ids2[1])];
+        s.peers = vec![crate::canvas::peers::RemotePeer {
+            name: other.into(),
+            color: 1,
+            place: Some(deckcraft_engine::collab::SlidePlace { slide, selection: sel }),
+            typing: false,
+        }];
+        h.run_steps(6);
+        if let Ok(img) = h.render() {
+            img.save(std::path::Path::new(&dir).join(file)).unwrap();
+        }
+    }
+}

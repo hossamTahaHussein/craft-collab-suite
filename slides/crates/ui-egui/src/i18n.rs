@@ -314,6 +314,7 @@ fn arabic(text: &str) -> Option<&'static str> {
         "Reject {}'s Suggestions" => "رفض اقتراحات {}",
         "Accept Suggestion" => "قبول الاقتراح",
         "Reject Suggestion" => "رفض الاقتراح",
+        "Edited" => "معدّل",
         "Craft Slides by Hossam Taha" => "Craft Slides من تطوير حسام طه",
         "Part of Craft Collab Suite. Based on DeckCraft by the ArtCraft team." => "جزء من Craft Collab Suite. مبني على DeckCraft من فريق ArtCraft.",
         "Accent 1" => "تمييز 1",

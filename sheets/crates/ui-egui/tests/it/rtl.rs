@@ -144,3 +144,74 @@ fn suggesting_from_the_review_tab_marks_and_reviews_cells() {
     assert!(gridcraft_engine::suggest::suggestions(&d.wb).is_empty());
     assert_eq!(h.state_mut().run("cell.get", json!({"cell": "B2"})).unwrap()["value"], 4.0, "rejected: back to 4");
 }
+
+/// README pictures (`CRAFT_README_SHOTS=dir` writes `sheets.png` and `sheets-arabic.png`): a
+/// budget co-edited by three people with a suggestion shown, and the same in Arabic.
+#[test]
+fn readme_pictures() {
+    let Ok(dir) = std::env::var("CRAFT_README_SHOTS") else { return };
+    for (lang, file, rows) in [
+        (
+            Language::En,
+            "sheets.png",
+            json!([
+                ["Team budget", "Q1", "Q2", "Q3", "Q4"],
+                ["Travel", 1200, 980, 1430, 1100],
+                ["Software", 640, 640, 720, 720],
+                ["Events", 2300, 0, 1850, 400],
+                ["Training", 450, 900, 300, 650]
+            ]),
+        ),
+        (
+            Language::Ar,
+            "sheets-arabic.png",
+            json!([
+                ["ميزانية الفريق", "الربع 1", "الربع 2", "الربع 3", "الربع 4"],
+                ["السفر", 1200, 980, 1430, 1100],
+                ["البرامج", 640, 640, 720, 720],
+                ["الفعاليات", 2300, 0, 1850, 400],
+                ["التدريب", 450, 900, 300, 650]
+            ]),
+        ),
+    ] {
+        let mut app = crate::common::app(blank_session());
+        app.ui.language = lang;
+        let mut h = app_harness(app, 4);
+        let s = h.state_mut();
+        s.run("range.setValues", json!({"range": "A1", "values": rows})).unwrap();
+        s.run("cell.set", json!({"cell": "A7", "input": if lang == Language::Ar { "المجموع" } else { "Total" }})).unwrap();
+        for col in ["B", "C", "D", "E"] {
+            s.run("cell.set", json!({"cell": format!("{col}7"), "input": format!("=SUM({col}2:{col}5)")})).unwrap();
+        }
+        s.run("home.bold", json!({"range": "A1:E1"})).unwrap();
+        s.run("home.bold", json!({"range": "A7:E7"})).unwrap();
+        s.run("home.columnWidth", json!({"cols": "A:A", "width": 130})).unwrap();
+        s.run("home.columnWidth", json!({"cols": "B:E", "width": 90})).unwrap();
+        s.session.prefs.user_name = if lang == Language::Ar { "سارة حسن".into() } else { "Sara Hassan".into() };
+        s.run("review.suggesting", json!({"on": true})).unwrap();
+        s.run("cell.set", json!({"cell": "C4", "input": "1500"})).unwrap();
+        s.run("review.suggesting", json!({"on": false})).unwrap();
+        s.run("edit.goTo", json!({"reference": "B3"})).unwrap();
+        let place = |a1: &str| gridcraft_engine::collab::SheetPlace {
+            sheet: "Sheet1".into(),
+            selection: gridcraft_engine::Selection::at(gridcraft_engine::core::CellRef::parse(a1).unwrap()),
+        };
+        s.peers = vec![
+            gridcraft_ui_egui::grid::peers::RemotePeer {
+                name: if lang == Language::Ar { "عمر".into() } else { "Bob Diaz".into() },
+                color: 1,
+                place: Some(place("D5")),
+                typing: false,
+            },
+            gridcraft_ui_egui::grid::peers::RemotePeer {
+                name: if lang == Language::Ar { "ليلى".into() } else { "Cara Ng".into() },
+                color: 2,
+                place: Some(place("E3")),
+                typing: true,
+            },
+        ];
+        s.grid.hover_cell = gridcraft_engine::core::CellRef::parse("C4");
+        h.run_steps(6);
+        h.render().unwrap().save(std::path::Path::new(&dir).join(file)).unwrap();
+    }
+}
