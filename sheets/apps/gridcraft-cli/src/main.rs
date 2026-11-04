@@ -10,7 +10,7 @@
 //! gridcraft-cli commands [--json] [--search X]
 //! gridcraft-cli functions [--json] [--search X] [--category C]
 //! gridcraft-cli mcp [--connect PORT] [--in FILE | --sample NAME]
-//! gridcraft-cli collab-mcp --relay URL --token TOKEN [--name NAME]
+//! gridcraft-cli collab-mcp --relay URL --token TOKEN [--name NAME] [--no-suggest]
 //! gridcraft-cli send <port> <method> [json]
 //! gridcraft-cli version | --version
 //! ```
@@ -50,7 +50,7 @@ const USAGE: &str = "usage:
   gridcraft-cli commands [--json] [--search X]
   gridcraft-cli functions [--json] [--search X] [--category C]
   gridcraft-cli mcp [--connect PORT] [--in FILE | --sample NAME]
-  gridcraft-cli collab-mcp --relay URL --token TOKEN [--name NAME]
+  gridcraft-cli collab-mcp --relay URL --token TOKEN [--name NAME] [--no-suggest]
                      an agent in a shared workbook (MCP on stdio)
   gridcraft-cli send <port> <method> [json]
   gridcraft-cli version";
@@ -560,15 +560,16 @@ fn mcp(args: &[String]) -> Result<(), String> {
     Server::new(backend).serve(stdin.lock(), stdout.lock()).map_err(|e| e.to_string())
 }
 
-/// `collab-mcp --relay URL --token TOKEN [--name NAME]`: the MCP server is an agent in the shared
-/// workbook the join token names (`collab_agent`).
+/// `collab-mcp --relay URL --token TOKEN [--name NAME] [--no-suggest]`: the MCP server is an agent
+/// in the shared workbook the join token names (`collab_agent`); its edits are suggestions unless
+/// `--no-suggest`.
 fn collab_mcp(args: &[String]) -> Result<(), String> {
     use gridcraft_mcp::{Backend, Server};
-    let a = Args::parse(args, &["relay", "token", "name"], &[])?;
+    let a = Args::parse(args, &["relay", "token", "name"], &["no-suggest"])?;
     a.no_extra(0)?;
     let relay = a.opt("relay").ok_or("--relay URL is required (the relay's ws:// or wss:// address)")?;
     let token = a.opt("token").ok_or("--token TOKEN is required (a join token from the site's backend)")?;
-    let backend = collab_agent::SheetsAgent::connect(relay, token, a.opt("name").unwrap_or("Agent"))?;
+    let backend = collab_agent::SheetsAgent::connect(relay, token, a.opt("name").unwrap_or("Agent"), !a.has("no-suggest"))?;
     eprintln!("gridcraft-cli: MCP server on stdio ({})", backend.describe());
     let stdin = std::io::stdin();
     let stdout = std::io::stdout();

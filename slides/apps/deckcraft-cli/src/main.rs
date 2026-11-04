@@ -688,17 +688,19 @@ fn app(args: &[String]) -> Result<(), String> {
     Ok(())
 }
 
-/// `collab-mcp --relay URL --token TOKEN [--name NAME]`: the MCP server is an agent in the shared
-/// presentation the join token names (`collab_agent`).
+/// `collab-mcp --relay URL --token TOKEN [--name NAME] [--no-suggest]`: the MCP server is an agent
+/// in the shared presentation the join token names (`collab_agent`); its edits are suggestions
+/// unless `--no-suggest`.
 fn collab_mcp(args: &[String]) -> Result<(), String> {
     use deckcraft_mcp::{Backend, Server};
-    let (mut relay, mut token, mut name) = (None, None, "Agent".to_string());
+    let (mut relay, mut token, mut name, mut suggesting) = (None, None, "Agent".to_string(), true);
     let mut it = args.iter().cloned();
     while let Some(a) = it.next() {
         match a.as_str() {
             "--relay" => relay = Some(it.next().ok_or("--relay needs the relay's ws:// or wss:// address")?),
             "--token" => token = Some(it.next().ok_or("--token needs a join token")?),
             "--name" => name = it.next().ok_or("--name needs a name")?,
+            "--no-suggest" => suggesting = false,
             "--help" | "-h" => {
                 outln!("{}", help_page("collab-mcp"));
                 return Ok(());
@@ -708,7 +710,7 @@ fn collab_mcp(args: &[String]) -> Result<(), String> {
     }
     let relay = relay.ok_or("--relay URL is required (the relay's ws:// or wss:// address)")?;
     let token = token.ok_or("--token TOKEN is required (a join token from the site's backend)")?;
-    let backend = collab_agent::SlidesAgent::connect(&relay, &token, &name)?;
+    let backend = collab_agent::SlidesAgent::connect(&relay, &token, &name, suggesting)?;
     eprintln!("deckcraft-cli: MCP server on stdio ({})", backend.describe());
     let stdin = std::io::stdin();
     Server::new(Box::new(backend)).serve(stdin.lock(), std::io::stdout()).map_err(|e| e.to_string())

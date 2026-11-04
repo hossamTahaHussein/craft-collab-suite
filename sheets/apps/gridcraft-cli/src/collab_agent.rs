@@ -1,8 +1,7 @@
-//! `gridcraft-cli collab-mcp --relay URL --token TOKEN [--name NAME]`: an agent in a shared
+//! `gridcraft-cli collab-mcp --relay URL --token TOKEN [--name NAME] [--no-suggest]`: an agent in a shared
 //! workbook, as Craft Docs' `wordcraft-cli collab-mcp` is. The MCP server's headless session is a
 //! participant through `craft_collab_agent`: its edits sync live under its name and its cell
-//! shows. (Suggesting isn't in Craft Sheets yet: the agent's edits are direct, and a suggester's
-//! token can't edit.)
+//! shows. Its edits arrive as suggestions people accept or reject, unless it was started with `--no-suggest`.
 
 use craft_collab_agent::{Agent, App, call_on};
 use gridcraft_collab::SheetsDoc;
@@ -23,9 +22,11 @@ pub struct SheetsAgent {
 
 impl SheetsAgent {
     /// Join the relay at `relay` with join token `token`, as `name`.
-    pub fn connect(relay: &str, token: &str, name: &str) -> Result<SheetsAgent, String> {
+    /// Its edits are suggestions while `suggesting`.
+    pub fn connect(relay: &str, token: &str, name: &str, suggesting: bool) -> Result<SheetsAgent, String> {
         let mut headless = Headless::new();
         let agent = Agent::connect(app(), relay, token, name, &mut headless.session)?;
+        headless.session.suggesting = suggesting;
         Ok(SheetsAgent { agent, headless })
     }
 }
@@ -143,5 +144,14 @@ mod tests {
         let mut h = Headless::new();
         let err = Agent::join(app(), Box::new(fake), Box::new(|| Err("no".into())), "t", "A", &mut h.session).err().unwrap();
         assert!(err.contains("nobody has opened"));
+    }
+
+    #[test]
+    fn its_edits_are_suggestions_unless_told_otherwise() {
+        let (mut a, fake) = joined("Budget");
+        a.headless.session.suggesting = true;
+        a.call("engine.execute", json!({"command": "cell.set", "params": {"cell": "B2", "input": "42"}})).unwrap();
+        let op = fake.sent.borrow().iter().find(|m| m["t"] == "Op").cloned().unwrap();
+        assert_eq!(op["ctx"]["track"], true, "a suggestion: {op}");
     }
 }
