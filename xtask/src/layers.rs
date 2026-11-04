@@ -61,6 +61,8 @@ pub const TABLE: &[(&str, Class)] = &[
     ("testkit", Class::Testkit),
     // apps and tooling
     ("wordcraft", Class::Exempt),
+    // The suite's start window and command line: they start the three apps, using none of their crates.
+    ("craft-suite", Class::Exempt),
     ("cli", Class::Exempt),
     ("web", Class::Exempt),
     ("xtask", Class::Exempt),
