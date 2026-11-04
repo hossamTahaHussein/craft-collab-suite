@@ -5,53 +5,245 @@
 
 use serde::{Deserialize, Serialize};
 
-/// The interface languages.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
+mod tables;
+
+/// The interface languages: those Craft Docs has (`i18n/locales`). Arabic has Craft Slides' own
+/// catalog; the others read Craft Docs' words where they are the same.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum Language {
     #[default]
     En,
     Ar,
+    Bg,
+    Cs,
+    Da,
+    De,
+    Es,
+    Et,
+    Fa,
+    Fr,
+    He,
+    Hr,
+    Hu,
+    It,
+    Ja,
+    Ka,
+    Ko,
+    Nb,
+    Nl,
+    Pl,
+    PtBr,
+    Ro,
+    Ru,
+    Sk,
+    Sl,
+    Sr,
+    SrLatn,
+    Sv,
+    Tr,
+    Uk,
+    Vi,
+    ZhHans,
+    ZhHant,
 }
 
 impl Language {
-    pub const ALL: [Language; 2] = [Language::En, Language::Ar];
+    pub const ALL: [Language; 33] = [
+        Language::En,
+        Language::Ar,
+        Language::Bg,
+        Language::Cs,
+        Language::Da,
+        Language::De,
+        Language::Es,
+        Language::Et,
+        Language::Fa,
+        Language::Fr,
+        Language::He,
+        Language::Hr,
+        Language::Hu,
+        Language::It,
+        Language::Ja,
+        Language::Ka,
+        Language::Ko,
+        Language::Nb,
+        Language::Nl,
+        Language::Pl,
+        Language::PtBr,
+        Language::Ro,
+        Language::Ru,
+        Language::Sk,
+        Language::Sl,
+        Language::Sr,
+        Language::SrLatn,
+        Language::Sv,
+        Language::Tr,
+        Language::Uk,
+        Language::Vi,
+        Language::ZhHans,
+        Language::ZhHant,
+    ];
 
     /// The language's own name, for the switcher.
     pub fn name(self) -> &'static str {
         match self {
             Language::En => "English",
             Language::Ar => "العربية",
+            Language::Bg => "Български",
+            Language::Cs => "Čeština",
+            Language::Da => "Dansk",
+            Language::De => "Deutsch",
+            Language::Es => "Español",
+            Language::Et => "Eesti",
+            Language::Fa => "فارسی",
+            Language::Fr => "Français",
+            Language::He => "עברית",
+            Language::Hr => "Hrvatski",
+            Language::Hu => "Magyar",
+            Language::It => "Italiano",
+            Language::Ja => "日本語",
+            Language::Ka => "ქართული",
+            Language::Ko => "한국어",
+            Language::Nb => "Norsk bokmål",
+            Language::Nl => "Nederlands",
+            Language::Pl => "Polski",
+            Language::PtBr => "Português (Brasil)",
+            Language::Ro => "Română",
+            Language::Ru => "Русский",
+            Language::Sk => "Slovenčina",
+            Language::Sl => "Slovenščina",
+            Language::Sr => "Српски",
+            Language::SrLatn => "Srpski (latinica)",
+            Language::Sv => "Svenska",
+            Language::Tr => "Türkçe",
+            Language::Uk => "Українська",
+            Language::Vi => "Tiếng Việt",
+            Language::ZhHans => "简体中文",
+            Language::ZhHant => "繁體中文",
         }
     }
 
+    /// The language's code (`ar`, `pt-br`, `zh-hant`).
     pub fn code(self) -> &'static str {
         match self {
             Language::En => "en",
             Language::Ar => "ar",
+            Language::Bg => "bg",
+            Language::Cs => "cs",
+            Language::Da => "da",
+            Language::De => "de",
+            Language::Es => "es",
+            Language::Et => "et",
+            Language::Fa => "fa",
+            Language::Fr => "fr",
+            Language::He => "he",
+            Language::Hr => "hr",
+            Language::Hu => "hu",
+            Language::It => "it",
+            Language::Ja => "ja",
+            Language::Ka => "ka",
+            Language::Ko => "ko",
+            Language::Nb => "nb",
+            Language::Nl => "nl",
+            Language::Pl => "pl",
+            Language::PtBr => "pt-br",
+            Language::Ro => "ro",
+            Language::Ru => "ru",
+            Language::Sk => "sk",
+            Language::Sl => "sl",
+            Language::Sr => "sr",
+            Language::SrLatn => "sr-latn",
+            Language::Sv => "sv",
+            Language::Tr => "tr",
+            Language::Uk => "uk",
+            Language::Vi => "vi",
+            Language::ZhHans => "zh-hans",
+            Language::ZhHant => "zh-hant",
         }
     }
 
-    /// A language tag (`ar`, `ar-EG`, `en_US`); `None` for one Craft Slides doesn't have.
+    /// A language tag (`ar`, `ar-EG`, `pt_BR`, `zh-TW`); `None` for one Craft Slides doesn't have.
     pub fn parse(tag: &str) -> Option<Language> {
-        match tag.trim().split(['-', '_']).next()?.to_ascii_lowercase().as_str() {
-            "en" => Some(Language::En),
-            "ar" => Some(Language::Ar),
-            _ => None,
-        }
+        let tag = tag.trim().to_ascii_lowercase().replace('_', "-");
+        let base = tag.split('-').next().unwrap_or_default();
+        let code = match (base, tag.as_str()) {
+            ("zh", t) if t.contains("hant") || t.ends_with("-tw") || t.ends_with("-hk") || t.ends_with("-mo") => "zh-hant",
+            ("zh", _) => "zh-hans",
+            ("pt", _) => "pt-br",
+            ("sr", t) if t.contains("latn") => "sr-latn",
+            ("no" | "nn" | "nb", _) => "nb",
+            (b, _) => b,
+        };
+        Language::ALL.into_iter().find(|l| l.code() == code)
     }
 
-    /// The interface reads right to left in this language.
+    /// The interface reads right to left in this language (Arabic, Persian, Hebrew).
     pub fn is_rtl(self) -> bool {
-        self == Language::Ar
+        matches!(self, Language::Ar | Language::Fa | Language::He)
     }
 
     /// `text` in this language; English (or anything untranslated) as given.
     pub fn tr(self, text: &str) -> &str {
+        self.lookup(text).unwrap_or(text)
+    }
+
+    fn lookup(self, text: &str) -> Option<&'static str> {
         match self {
-            Language::En => text,
-            Language::Ar => arabic(text).unwrap_or(text),
+            Language::En => None,
+            Language::Ar => arabic(text),
+            other => other.table().and_then(|t| t.binary_search_by(|(k, _)| (*k).cmp(text)).ok().map(|i| t[i].1)),
         }
+    }
+
+    fn table(self) -> Option<&'static [(&'static str, &'static str)]> {
+        match self {
+            Language::En | Language::Ar => None,
+            Language::Bg => Some(tables::BG),
+            Language::Cs => Some(tables::CS),
+            Language::Da => Some(tables::DA),
+            Language::De => Some(tables::DE),
+            Language::Es => Some(tables::ES),
+            Language::Et => Some(tables::ET),
+            Language::Fa => Some(tables::FA),
+            Language::Fr => Some(tables::FR),
+            Language::He => Some(tables::HE),
+            Language::Hr => Some(tables::HR),
+            Language::Hu => Some(tables::HU),
+            Language::It => Some(tables::IT),
+            Language::Ja => Some(tables::JA),
+            Language::Ka => Some(tables::KA),
+            Language::Ko => Some(tables::KO),
+            Language::Nb => Some(tables::NB),
+            Language::Nl => Some(tables::NL),
+            Language::Pl => Some(tables::PL),
+            Language::PtBr => Some(tables::PT_BR),
+            Language::Ro => Some(tables::RO),
+            Language::Ru => Some(tables::RU),
+            Language::Sk => Some(tables::SK),
+            Language::Sl => Some(tables::SL),
+            Language::Sr => Some(tables::SR),
+            Language::SrLatn => Some(tables::SR_LATN),
+            Language::Sv => Some(tables::SV),
+            Language::Tr => Some(tables::TR),
+            Language::Uk => Some(tables::UK),
+            Language::Vi => Some(tables::VI),
+            Language::ZhHans => Some(tables::ZH_HANS),
+            Language::ZhHant => Some(tables::ZH_HANT),
+        }
+    }
+}
+
+/// Saved as its code (`ar`, `pt-br`).
+impl Serialize for Language {
+    fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        s.serialize_str(self.code())
+    }
+}
+
+/// Read from its code or any language tag; one this build doesn't have is English.
+impl<'de> Deserialize<'de> for Language {
+    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Language, D::Error> {
+        lenient(d)
     }
 }
 
@@ -80,7 +272,7 @@ pub fn tr(text: &str) -> &str {
 pub fn prompts() -> Option<fn(&str) -> Option<&'static str>> {
     match current() {
         Language::En => None,
-        Language::Ar => Some(arabic),
+        _ => Some(|t| current().lookup(t)),
     }
 }
 
@@ -92,7 +284,7 @@ pub fn install(ctx: &egui::Context, language: Language) {
     if was != language || ctx.translate("Home").is_none() != (language == Language::En) {
         ctx.set_translator(match language {
             Language::En => None,
-            Language::Ar => Some(std::sync::Arc::new(|t: &str| arabic(t).map(str::to_owned))),
+            lang => Some(std::sync::Arc::new(move |t: &str| lang.lookup(t).map(str::to_owned))),
         });
     }
 }
@@ -1370,7 +1562,13 @@ mod tests {
     #[test]
     fn arabic_reads_right_to_left_and_translates() {
         assert_eq!(Language::parse("ar-EG"), Some(Language::Ar));
-        assert_eq!(Language::parse("fr"), None);
+        assert_eq!(Language::parse("tlh"), None);
+        assert_eq!(Language::parse("pt_BR"), Some(Language::PtBr));
+        assert_eq!(Language::parse("zh-TW"), Some(Language::ZhHant));
+        assert_eq!(Language::parse("zh-CN"), Some(Language::ZhHans));
+        assert!(Language::He.is_rtl() && Language::Fa.is_rtl() && !Language::De.is_rtl());
+        assert_eq!(Language::De.tr("Paste"), "Einfügen", "Craft Docs' words where they are the same");
+        assert_eq!(serde_json::to_value(Language::PtBr).unwrap(), "pt-br");
         assert!(Language::Ar.is_rtl() && !Language::En.is_rtl());
         assert_eq!(Language::Ar.tr("Paste"), "لصق");
         assert_eq!(Language::Ar.tr("New\nSlide"), "شريحة\nجديدة");
@@ -1386,6 +1584,7 @@ mod tests {
             language: Language,
         }
         let read = |j: &str| serde_json::from_str::<S>(j).unwrap().language;
+        assert_eq!(read(r#"{"language":"pt-br"}"#), Language::PtBr);
         assert_eq!(read(r#"{"language":"ar"}"#), Language::Ar);
         assert_eq!(read(r#"{"language":"tlh"}"#), Language::En);
         assert_eq!(read(r#"{"language":7}"#), Language::En);

@@ -47,8 +47,7 @@ impl SlideApp {
             "view.normal" => self.ui.view = ViewMode::Normal,
             "ui.language" => {
                 let code = p.get("value").and_then(Value::as_str).unwrap_or_default();
-                self.ui.language =
-                    crate::i18n::Language::parse(code).ok_or_else(|| format!("ui.language: no interface language `{code}` (en or ar)"))?;
+                self.ui.language = crate::i18n::Language::parse(code).ok_or_else(|| format!("ui.language: no interface language `{code}`"))?;
             }
             "view.outline" => self.ui.view = ViewMode::Outline,
             "view.sorter" => self.ui.view = ViewMode::Sorter,

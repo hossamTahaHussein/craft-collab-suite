@@ -100,7 +100,12 @@ struct PendingFile {
 /// UI-only commands (id, label, shortcut, params).
 pub const UI_COMMANDS: &[(&str, &str, Option<&str>, &str)] = &[
     ("view.normal", "Normal", None, "{}"),
-    ("ui.language", "Interface Language", None, "{value: \"en\"|\"ar\"} (right to left in Arabic)"),
+    (
+        "ui.language",
+        "Interface Language",
+        None,
+        "{value: a language code, e.g. \"ar\", \"de\", \"pt-br\"} (right to left in Arabic, Persian, Hebrew)",
+    ),
     ("view.outline", "Outline View", None, "{}"),
     ("view.sorter", "Slide Sorter", None, "{}"),
     ("view.notesPage", "Notes Page", None, "{}"),

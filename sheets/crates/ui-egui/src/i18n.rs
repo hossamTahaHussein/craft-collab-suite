@@ -12,6 +12,7 @@ use serde::{Deserialize, Serialize};
 mod ar;
 mod cs;
 mod de;
+mod docs_tables;
 mod el;
 mod es;
 mod es_functions;
@@ -36,6 +37,19 @@ pub enum Language {
     #[default]
     En,
     Ar,
+    Bg,
+    Da,
+    Et,
+    Fa,
+    He,
+    Hr,
+    Hu,
+    Ka,
+    Nb,
+    Sk,
+    Sl,
+    Sv,
+    ZhHant,
     Es,
     El,
     Zh,
@@ -58,9 +72,22 @@ pub enum Language {
 }
 
 impl Language {
-    pub const ALL: [Self; 20] = [
+    pub const ALL: [Self; 33] = [
         Self::En,
         Self::Ar,
+        Self::Bg,
+        Self::Da,
+        Self::Et,
+        Self::Fa,
+        Self::He,
+        Self::Hr,
+        Self::Hu,
+        Self::Ka,
+        Self::Nb,
+        Self::Sk,
+        Self::Sl,
+        Self::Sv,
+        Self::ZhHant,
         Self::Es,
         Self::El,
         Self::Zh,
@@ -95,6 +122,19 @@ impl Language {
         match self {
             Self::En => "English",
             Self::Ar => "العربية",
+            Self::Bg => "Български",
+            Self::Da => "Dansk",
+            Self::Et => "Eesti",
+            Self::Fa => "فارسی",
+            Self::He => "עברית",
+            Self::Hr => "Hrvatski",
+            Self::Hu => "Magyar",
+            Self::Ka => "ქართული",
+            Self::Nb => "Norsk bokmål",
+            Self::Sk => "Slovenčina",
+            Self::Sl => "Slovenščina",
+            Self::Sv => "Svenska",
+            Self::ZhHant => "繁體中文",
             Self::Es => "Español",
             Self::El => "Ελληνικά",
             Self::Zh => "简体中文",
@@ -121,6 +161,19 @@ impl Language {
         match self {
             Self::En => "en",
             Self::Ar => "ar",
+            Self::Bg => "bg",
+            Self::Da => "da",
+            Self::Et => "et",
+            Self::Fa => "fa",
+            Self::He => "he",
+            Self::Hr => "hr",
+            Self::Hu => "hu",
+            Self::Ka => "ka",
+            Self::Nb => "nb",
+            Self::Sk => "sk",
+            Self::Sl => "sl",
+            Self::Sv => "sv",
+            Self::ZhHant => "zh-hant",
             Self::Es => "es",
             Self::El => "el",
             Self::Zh => "zh",
@@ -142,9 +195,9 @@ impl Language {
         }
     }
 
-    /// The interface is drawn right to left in this language (Arabic).
+    /// The interface is drawn right to left in this language (Arabic, Persian, Hebrew).
     pub const fn is_rtl(self) -> bool {
-        matches!(self, Self::Ar)
+        matches!(self, Self::Ar | Self::Fa | Self::He)
     }
 
     pub fn parse(code: &str) -> Option<Self> {
@@ -158,9 +211,26 @@ impl Language {
     }
 
     fn from_tag(tag: &str) -> Option<Self> {
+        let lower = tag.trim().to_ascii_lowercase().replace('_', "-");
+        if lower.starts_with("zh") && (lower.contains("hant") || ["-tw", "-hk", "-mo"].iter().any(|r| lower.ends_with(r))) {
+            return Some(Self::ZhHant);
+        }
         match tag.trim().split(['-', '_']).next()?.to_ascii_lowercase().as_str() {
             "en" => Some(Self::En),
             "ar" => Some(Self::Ar),
+            "bg" => Some(Self::Bg),
+            "da" => Some(Self::Da),
+            "et" => Some(Self::Et),
+            "fa" => Some(Self::Fa),
+            "he" => Some(Self::He),
+            "hr" => Some(Self::Hr),
+            "hu" => Some(Self::Hu),
+            "ka" => Some(Self::Ka),
+            "nb" => Some(Self::Nb),
+            "sk" => Some(Self::Sk),
+            "sl" => Some(Self::Sl),
+            "sv" => Some(Self::Sv),
+            "no" | "nn" => Some(Self::Nb),
             "es" => Some(Self::Es),
             "el" => Some(Self::El),
             "zh" => Some(Self::Zh),
@@ -208,6 +278,19 @@ impl Language {
         let translated = match self {
             Self::En => None,
             Self::Ar => ar::translate(text),
+            Self::Bg => None,
+            Self::Da => None,
+            Self::Et => None,
+            Self::Fa => None,
+            Self::He => None,
+            Self::Hr => None,
+            Self::Hu => None,
+            Self::Ka => None,
+            Self::Nb => None,
+            Self::Sk => None,
+            Self::Sl => None,
+            Self::Sv => None,
+            Self::ZhHant => None,
             Self::Es => es::translate(text),
             Self::El => el::translate(text),
             Self::Ja => ja::translate(text),
@@ -227,7 +310,46 @@ impl Language {
             Self::Nl => nl::translate(text),
             Self::Ro => ro::translate(text),
         };
+        // Craft Docs' words where this app's catalog has none (the same English, word for word).
+        let translated = translated.or_else(|| self.docs_table().and_then(|t| t.binary_search_by(|(k, _)| (*k).cmp(text)).ok().map(|i| t[i].1)));
         translated.unwrap_or_else(|| text.rsplit_once('|').map_or(text, |(_, label)| label))
+    }
+
+    /// Craft Docs' catalog entries for this language that this app's strings match.
+    fn docs_table(self) -> Option<&'static [(&'static str, &'static str)]> {
+        Some(match self {
+            Self::En | Self::Ar | Self::El => return None,
+            Self::Es => docs_tables::ES,
+            Self::Zh => docs_tables::ZH_HANS,
+            Self::ZhHant => docs_tables::ZH_HANT,
+            Self::Ja => docs_tables::JA,
+            Self::Ko => docs_tables::KO,
+            Self::Ru => docs_tables::RU,
+            Self::PtBr => docs_tables::PT_BR,
+            Self::De => docs_tables::DE,
+            Self::Cs => docs_tables::CS,
+            Self::Fr => docs_tables::FR,
+            Self::Sr => docs_tables::SR_LATN,
+            Self::Tr => docs_tables::TR,
+            Self::Pl => docs_tables::PL,
+            Self::It => docs_tables::IT,
+            Self::Uk => docs_tables::UK,
+            Self::Vi => docs_tables::VI,
+            Self::Nl => docs_tables::NL,
+            Self::Ro => docs_tables::RO,
+            Self::Bg => docs_tables::BG,
+            Self::Da => docs_tables::DA,
+            Self::Et => docs_tables::ET,
+            Self::Fa => docs_tables::FA,
+            Self::He => docs_tables::HE,
+            Self::Hr => docs_tables::HR,
+            Self::Hu => docs_tables::HU,
+            Self::Ka => docs_tables::KA,
+            Self::Nb => docs_tables::NB,
+            Self::Sk => docs_tables::SK,
+            Self::Sl => docs_tables::SL,
+            Self::Sv => docs_tables::SV,
+        })
     }
 
     pub(crate) fn tr_error(self, message: &str) -> String {
