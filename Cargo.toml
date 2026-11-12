@@ -106,15 +106,15 @@ regex-automata = { version = "0.4", default-features = false, features = ["std",
 # text / rendering / formats
 skrifa = "0.47"
 subsetter = "0.2.6"
-harfrust = "0.13"
+harfrust = "0.15"
 # WOFF / WOFF2 web fonts added by the user (#582): pure Rust (MIT); its brotli and zlib decoders
 # (brotli-decompressor, flate2) are already in the tree.
 wuff = "0.2.9"
 # WOFF2's brotli stream, decoded ahead of wuff so its glyph point counts are checked first (#3703).
 # The same crate and version wuff already decodes it with (no new code in the build): pure Rust,
 # `forbid(unsafe_code)` in its default build, no_std-capable (builds for wasm), BSD-3-Clause/MIT.
-brotli-decompressor = "5"
-vello_cpu = "0.2"
+brotli-decompressor = "6"
+vello_cpu = "0.3"
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp", "gif", "bmp", "tiff"] }
 craft-pdf = { git = "https://github.com/storytold/craft-libs", rev = "c5a1cbfb5f9049f9270955caffb5bee5997aebf7", version = "=0.1.0", default-features = false, features = ["write", "write-simple-text"] }
 craft-update = { git = "https://github.com/storytold/craft-libs", version = "=0.1.0", rev = "c5a1cbfb5f9049f9270955caffb5bee5997aebf7", features = ["egui"] }
@@ -122,18 +122,18 @@ craft-media = { git = "https://github.com/storytold/craft-libs", rev = "c5a1cbfb
 craft-ui = { git = "https://github.com/storytold/craft-libs", rev = "c5a1cbfb5f9049f9270955caffb5bee5997aebf7", version = "=0.1.0" }
 # One native window per workbook (Sheets): the window list, Window menu titles and the viewport driver.
 craft-window = { version = "0.1.0", git = "https://github.com/storytold/craft-libs", rev = "c5a1cbfb5f9049f9270955caffb5bee5997aebf7", default-features = false, features = ["egui"] }
-vello_common = { version = "0.2", default-features = false }
+vello_common = { version = "0.3", default-features = false }
 i_overlay = "9"
 # Sheets equations: RaTeX (MIT), exact pins vetted upstream (sheets/docs/decisions.md).
 ratex-parser = "=0.1.14"
 ratex-layout = "=0.1.14"
-ratex-types = "=0.1.14"
-ratex-font = "=0.1.14"
-quick-xml = "0.41"
-zip = { version = "3", default-features = false, features = ["deflate"] }
+ratex-types = "=0.1.15"
+ratex-font = "=0.1.15"
+quick-xml = "0.42"
+zip = { version = "9", default-features = false, features = ["deflate"] }
 # zlib streams (compressed metafile pictures in `.doc` drawings); already in the lock as a dependency of other crates.
 miniz_oxide = "0.9"
-cfb = "0.15"
+cfb = "0.16"
 # Legacy text encodings (GBK/GB18030, Big5, Shift_JIS, EUC-KR, single-byte code pages) for plain
 # text and CSV recipient lists (#778): encoding_rs ((Apache-2.0 OR MIT) AND BSD-3-Clause) and its
 # detector chardetng (Apache-2.0 OR MIT), both pure Rust (Firefox's).
@@ -145,7 +145,7 @@ sha1 = "0.11"
 sha2 = "0.11"
 hmac = "0.13"
 base64 = "0.23"
-getrandom = "0.3"
+getrandom = "0.4"
 zeroize = "1"
 # Unix open flags (O_NONBLOCK for the engine's checked file reads, #3666); already in the lock as a
 # dependency of other crates.
@@ -158,7 +158,7 @@ eframe = { version = "0.37", default-features = false }
 egui_kittest = "0.37"
 # A monotonic clock that works on native and in the browser (`performance.now()`).
 web-time = "1.1"
-rfd = "0.17"
+rfd = "0.18"
 # The desktop's preferred language, for Sheets' first-run interface language (native only).
 sys-locale = "0.3"
 # Real font bytes for Sheets tests (Ubuntu Light, compiled into epaint).
