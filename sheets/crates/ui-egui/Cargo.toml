@@ -24,7 +24,7 @@ serde_json = { workspace = true }
 log = { workspace = true }
 image = { workspace = true }
 # Same version as epaint's, so no second copy (the UI validates system fonts with it).
-skrifa = { version = "0.44", default-features = false, features = ["std"] }
+skrifa = { version = "0.47", default-features = false, features = ["std"] }
 web-time = { workspace = true }
 
 # Linux only, where winit reports no system theme: the desktop portal's light/dark answer (see
